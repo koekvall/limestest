@@ -85,3 +85,4 @@ vignettes/*.pdf
 *.DS_Store
 doc
 Meta
+.Rproj.user
