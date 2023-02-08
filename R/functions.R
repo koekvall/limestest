@@ -16,7 +16,6 @@ score_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, finf = TRUE)
   # and Psi0Zte (column q + p + 1)
   A <- Matrix::crossprod(Psi0, ZtZXe)
 
-  # MAIN COMPUTATION? PROFILE
   # Matrix denoted M in manuscript is A[, 1:q]
   A <- Matrix::solve(A[, 1:q] + Matrix::Diagonal(q), A, sparse = TRUE)
 
@@ -44,6 +43,13 @@ score_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, finf = TRUE)
   H <- H * b
   s_psi[-1] <- s_psi[-1] + (0.5 / psi0) * colSums(matrix(Matrix::colSums(H), nrow = q))
   return(s_psi)
+
+  # May be avoided by never changing dim(B) above
+  dim(B) <- c(q, q)
+  I_psi[1, 1] <- (1 / psi0^2) / (n - 2 * trace_M + sum(t(A[, 1:q]) *
+                                Matrix::crossprod(ZtZXe[, 1:q], A[, 1:q])))
+
+
 }
 #' @export
 loglik <- function(ZtZ, Zte, e, Psi0, psi0){
