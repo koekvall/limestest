@@ -26,16 +26,22 @@ score_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, finf = TRUE)
   trace_M <- sum(Matrix::diag(A[, 1:q]))
   s_psi[1] <- 0.5 * sum(e^2) - (0.5 / psi0) * (n - trace_M)
 
-  v <- Matrix::crossprod(Z, e)
-  # Use recycling to compute v'H_i v for all Hi.
+
+  # Use recycling to compute v'H_i v for all Hi
+  v <- as.vector(Matrix::crossprod(Z, e)) # sparse matrix does not recycle
   s_psi[-1] <- 0.5 * colSums(matrix(as.vector(Matrix::crossprod(v, H)), nrow = q) * v)
 
   B <- A[, 1:q] - Matrix::Diagonal(q)
   B <- Matrix::crossprod(ZtZXe[, 1:q], B)
+
+  # This wastes memory; done to use recycling of b in next step, which does
+  # not currently work with B
   dim(B) <- c(prod(dim(B)), 1)
+  b <- Matrix::sparseVector(x = B@x, i = B@i + 1, length = dim(B)[1])
+
   ## Below should equal -[ZtZ (I_q - M) * H_1, ..., ZtZ (I_q - M) * H_r] by
   ## recycling, where * denotes elementwise multiplication
-  H <- H * Matrix::sparseVector(x = B@x, i = B@i + 1, length = dim(B)[1])
+  H <- H * b
   s_psi[-1] <- s_psi[-1] + (0.5 / psi0) * colSums(matrix(Matrix::colSums(H), nrow = q))
   return(s_psi)
 }
