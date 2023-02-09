@@ -54,7 +54,7 @@ score_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, finf = TRUE)
       first_idx <- ((ii - 1) * q + 1):(ii * q)
       for(jj in ii:r){
         second_idx <- ((jj - 1) * q + 1):(jj * q)
-        I_psi[ii + 1, jj + 1] <- 0.5 * sum(H[, second_idx] * H[, first_idx]) / psi0^2
+        I_psi[ii + 1, jj + 1] <- (0.5 / psi0^2) * sum(Matrix::t(H[, second_idx]) * H[, first_idx])
       }
     }
   }
