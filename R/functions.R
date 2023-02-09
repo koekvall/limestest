@@ -28,38 +28,40 @@ score_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, finf = TRUE)
 
   # Use recycling to compute v'H_i v for all Hi
   v <- as(Matrix::crossprod(Z, e), "sparseVector") # sparse matrix does not recycle
-  s_psi[-1] <- 0.5 * colSums(matrix(as.vector(Matrix::crossprod(v, H)), nrow = q) * as.vector(v))
+  s_psi[-1] <- 0.5 * colSums(matrix(as.vector(Matrix::crossprod(v, H) * v), nrow = q))
 
+  # B = Z'Z (M - I_q) in paper notation
   B <- A[, 1:q] - Matrix::Diagonal(q)
   B <- Matrix::crossprod(ZtZXe[, 1:q], B)
 
-  # This wastes memory; done to use recycling of b in next step, which does
-  # not currently work with B
-
-  ## Below should equal -[ZtZ (I_q - M) * H_1, ..., ZtZ (I_q - M) * H_r] by
+  ## Compute -[ZtZ (I_q - M) * H_1, ..., ZtZ (I_q - M) * H_r] using
   ## recycling, where * denotes elementwise multiplication
   H <- H * as(B, "sparseVector")
+
   s_psi[-1] <- s_psi[-1] + (0.5 / psi0) * colSums(matrix(Matrix::colSums(H), nrow = q))
 
+  # Fisher information calculations
   if(finf){
-    I_psi[1, 1] <- (1 / psi0^2) / (n - 2 * trace_M + sum(t(A[, 1:q]) *
-                                                           Matrix::crossprod(ZtZXe[, 1:q], A[, 1:q])))
+    I_psi[1, 1] <- (0.5 / psi0^2) * (n - 2 * trace_M + 
+    sum(Matrix::t(A[, 1:q]) * A[, 1:q]))
 
     D <- as(as(A[, 1:q] - Matrix::Diagonal(q), "sparseVector") *
               as(B, "sparseVector"), "sparseMatrix")
     dim(D) <- c(nrow(D) / r, r)
-    I_psi[1, -1] <- Matrix::colSums(D)
+    I_psi[1, -1] <- (0.5 / psi0^2) *  Matrix::colSums(D)
 
     for(ii in 1:r){
-      col_idx_ii <- ((ii - 1) * q + 1):(ii * q)
+      first_idx <- ((ii - 1) * q + 1):(ii * q)
       for(jj in ii:r){
-        col_idx_jj <- ((jj - 1) * q + 1):(jj * q)
-        I[ii, jj] <- sum(H[, row_idx] * H[, col_idx]) / psi0^2
+        second_idx <- ((jj - 1) * q + 1):(jj * q)
+        I_psi[ii + 1, jj + 1] <- 0.5 * sum(H[, second_idx] * H[, first_idx]) / psi0^2
       }
     }
-
   }
 
+  I_psi[lower.tri(I_psi)] <- I_psi[upper.tri(I_psi)]
+
+  return(list("score" = s_psi, "finf" = I_psi))
 
 }
 #' @export

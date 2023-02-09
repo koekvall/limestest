@@ -1,7 +1,6 @@
-library(foreign)
 library(lme4)
 library(Matrix)
-fev1_dat <- read.dta("http://www.hsph.harvard.edu/fitzmaur/ala2e/fev1.dta")
+data(fev1)
 fit <- lmer(exp(logfev1) ~ age + ht + baseage + baseht + (age|id),
             data = fev1_dat, REML = FALSE)
 X <- getME(fit, "X")
@@ -31,10 +30,14 @@ loglik_psi <- function(psi){
 numerical_score <- numDeriv::grad(loglik_psi, c(psi0_hat, Psi_hat[1, 1],
                                                 Psi_hat[2, 1], Psi_hat[2, 2]))
 analytical_score <- score_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = cbind(H1, H2, H3),
-                              Psi0 = Psi_hat/psi0_hat, psi0 = psi0_hat, FALSE)
+                              Psi0 = Psi_hat/psi0_hat, psi0 = psi0_hat, FALSE)$score
 
 cat("The max absolute difference between numerical and analytical score is: ",
     max(abs(numerical_score - analytical_score)), "\n")
 cat("The max relative difference between numerical and analytical score is: ",
     max(abs(numerical_score - analytical_score) / numerical_score), "\n")
+
+# Simulation test of Fisher information
+score_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = cbind(H1, H2, H3),
+          Psi0 = Psi_hat/psi0_hat, psi0 = psi0_hat, TRUE)$finf
 
