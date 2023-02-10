@@ -37,7 +37,4 @@ cat("The max absolute difference between numerical and analytical score is: ",
 cat("The max relative difference between numerical and analytical score is: ",
     max(abs(numerical_score - analytical_score) / numerical_score), "\n")
 
-# Simulation test of Fisher information
-score_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = cbind(H1, H2, H3),
-          Psi0 = Psi_hat/psi0_hat, psi0 = psi0_hat, TRUE)$finf
 

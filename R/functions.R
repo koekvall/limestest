@@ -42,11 +42,10 @@ score_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, finf = TRUE)
 
   # Fisher information calculations
   if(finf){
-    I_psi[1, 1] <- (0.5 / psi0^2) * (n - 2 * trace_M + 
+    I_psi[1, 1] <- (0.5 / psi0^2) * (n - 2 * trace_M +
     sum(Matrix::t(A[, 1:q]) * A[, 1:q]))
 
-    D <- as(as(A[, 1:q] - Matrix::Diagonal(q), "sparseVector") *
-              as(B, "sparseVector"), "sparseMatrix")
+    D <- as(as(A[, 1:q] - Matrix::Diagonal(q), "sparseVector") * as(H, "sparseVector"), "sparseMatrix")
     dim(D) <- c(nrow(D) / r, r)
     I_psi[1, -1] <- (0.5 / psi0^2) *  Matrix::colSums(D)
 
@@ -59,8 +58,7 @@ score_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, finf = TRUE)
     }
   }
 
-  I_psi[lower.tri(I_psi)] <- I_psi[upper.tri(I_psi)]
-
+  I_psi <- Matrix::forceSymmetric(I_psi, uplo = "U")
   return(list("score" = s_psi, "finf" = I_psi))
 
 }
