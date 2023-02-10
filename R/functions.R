@@ -34,23 +34,26 @@ score_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, finf = TRUE)
   B <- A[, 1:q] - Matrix::Diagonal(q)
   B <- Matrix::crossprod(ZtZXe[, 1:q], B)
 
-  ## Compute -[ZtZ (I_q - M) * H_1, ..., ZtZ (I_q - M) * H_r] using
-  ## recycling, where * denotes elementwise multiplication
-  H <- H * as(B, "sparseVector")
+  if(!finf){
+    # Compute -[ZtZ (I_q - M) * H_1, ..., ZtZ (I_q - M) * H_r] using
+    # recycling, where * denotes elementwise multiplication
+    # The "if" is because the calculation is a byproduct of a more expensive one
+    # (B %*% H) done to get Fisher information
+    H <- H * as(B, "sparseVector")
 
-  s_psi[-1] <- s_psi[-1] + (0.5 / psi0) * colSums(matrix(Matrix::colSums(H), nrow = q))
-
-  # Fisher information calculations
-  if(finf){
+    s_psi[-1] <- s_psi[-1] + (0.5 / psi0) * colSums(matrix(Matrix::colSums(H), nrow = q))
+  } else{
+    H <- B %*% H
     I_psi[1, 1] <- (0.5 / psi0^2) * (n - 2 * trace_M +
     sum(Matrix::t(A[, 1:q]) * A[, 1:q]))
 
     D <- as(as(A[, 1:q] - Matrix::Diagonal(q), "sparseVector") * as(H, "sparseVector"), "sparseMatrix")
     dim(D) <- c(nrow(D) / r, r)
-    I_psi[1, -1] <- (0.5 / psi0^2) *  Matrix::colSums(D)
+    I_psi[1, -1] <- (0.5 / psi0^2) *Matrix::colSums(D)
 
     for(ii in 1:r){
       first_idx <- ((ii - 1) * q + 1):(ii * q)
+      s_psi[1 + ii] <- s_psi[1 + ii] + (0.5 / psi0) * sum(Matrix::diag(H[, first_idx]))
       for(jj in ii:r){
         second_idx <- ((jj - 1) * q + 1):(jj * q)
         I_psi[ii + 1, jj + 1] <- (0.5 / psi0^2) * sum(Matrix::t(H[, second_idx]) * H[, first_idx])

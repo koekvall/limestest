@@ -30,7 +30,7 @@ loglik_psi <- function(psi){
 numerical_score <- numDeriv::grad(loglik_psi, c(psi0_hat, Psi_hat[1, 1],
                                                 Psi_hat[2, 1], Psi_hat[2, 2]))
 analytical_score <- score_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = cbind(H1, H2, H3),
-                              Psi0 = Psi_hat/psi0_hat, psi0 = psi0_hat, FALSE)$score
+                              Psi0 = Psi_hat/psi0_hat, psi0 = psi0_hat, TRUE)$score
 
 cat("The max absolute difference between numerical and analytical score is: ",
     max(abs(numerical_score - analytical_score)), "\n")
