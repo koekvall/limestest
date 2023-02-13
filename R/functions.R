@@ -31,7 +31,8 @@ score_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, finf = TRUE)
   s_psi[-1] <- 0.5 * colSums(matrix(as.vector(Matrix::crossprod(v, H) * v), nrow = q))
 
   # B = Z'Z (M - I_q) in paper notation
-  B <- A[, 1:q] - Matrix::Diagonal(q)
+  B <- A[, 1:q]
+  Matrix::diag(B) <- Matrix::diag(B) - 1
   B <- Matrix::crossprod(ZtZXe[, 1:q], B)
 
   if(!finf){
@@ -47,9 +48,12 @@ score_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, finf = TRUE)
     I_psi[1, 1] <- (0.5 / psi0^2) * (n - 2 * trace_M +
     sum(Matrix::t(A[, 1:q]) * A[, 1:q]))
 
-    D <- as(as(A[, 1:q] - Matrix::Diagonal(q), "sparseVector") * as(H, "sparseVector"), "sparseMatrix")
-    dim(D) <- c(nrow(D) / r, r)
-    I_psi[1, -1] <- (0.5 / psi0^2) *Matrix::colSums(D)
+    # Subtract identity matrix from M
+    Matrix::diag(A[, 1:q]) <- Matrix::diag(A[, 1:q]) - 1
+
+    D <- matrix(Matrix::colSums(as(A[, 1:q], "sparseVector")  * H), nrow = q)
+
+    I_psi[1, -1] <- (0.5 / psi0^2) * Matrix::colSums(D)
 
     for(ii in 1:r){
       first_idx <- ((ii - 1) * q + 1):(ii * q)
