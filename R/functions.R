@@ -81,4 +81,15 @@ loglik <- function(ZtZ, Zte, e, Psi0, psi0){
 
 }
 
-
+uni_test_stat <- function(test_seq, test_idx, Psi_init, psi0, Z, ZtZXe, e, H)
+{
+  # first element of test_seq has to agree with Psi_init
+  m <- length(test_seq)
+  test_stat <- rep(0, m)
+  for(ii in 1:m){
+    score_inf <- score_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+                           Psi0 = Psi_init / psi0,
+                           psi0 = psi0, finf = TRUE)
+    test_stat
+  }
+}
