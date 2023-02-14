@@ -81,15 +81,48 @@ loglik <- function(ZtZ, Zte, e, Psi0, psi0){
 
 }
 
-uni_test_stat <- function(test_seq, test_idx, Psi_init, psi0, Z, ZtZXe, e, H)
+#' @export
+get_Psi <- function(psi, H){
+  q <- nrow(H)
+  r <- ncol(H) / q
+  Psi <- matrix(0, q, q)
+  for(ii in 1:r){
+    Psi <- Psi + psi[ii] * H[, ((ii - 1) * q + 1):(ii * q)]
+  }
+  Psi
+}
+
+#' @export
+uni_test_stat <- function(test_seq, test_idx, psi, psi0, Z, ZtZXe, e, H)
 {
-  # first element of test_seq has to agree with Psi_init
+  # first element of test_seq has to agree with psi[test_idx]
   m <- length(test_seq)
   test_stat <- rep(0, m)
   for(ii in 1:m){
+    if(ii > 1){
+      # Update tested parameter
+      psi[test_idx] <- test_seq[ii]
+      # Do one-step Fisher scoring update (with previous Information)
+      # for non-tested parameters
+      Psi <- getPsi(psi, H)
+      s <- score_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+                     Psi0 = Psi / psi0,
+                     psi0 = psi0, finf = FALSE)
+      psi[-test_idx] <- psi[-test_idx] +
+        solve(score_inf$finf[-test_idx. -test_idx], s)
+    }
+
+    Psi <- get_Psi(psi, H)
     score_inf <- score_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
-                           Psi0 = Psi_init / psi0,
+                           Psi0 = Psi / psi0,
                            psi0 = psi0, finf = TRUE)
-    test_stat
+
+    eff_inf <- score_inf$finf[test_idx, test_idx] -
+      sum(solve(score_inf$finf[-test_idx, -test_idx],
+                score_inf$finf[-test_idx, test_idx]) *
+            score_inf$finf[-test_idx, test_idx])
+
+    test_stat[ii] <- score_inf$score[test_idx]^2 / eff_inf
   }
+  test_stat
 }
