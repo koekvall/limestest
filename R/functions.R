@@ -130,3 +130,68 @@ uni_test_stat <- function(test_seq, test_idx, psi, psi0, Z, ZtZXe, e, H)
   }
   test_stat
 }
+
+
+#' @export
+res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
+                   finf = FALSE, lik = TRUE)
+{
+  # Define dimensions
+  n <- length(Y)
+  q <- ncol(Psi0)
+  r <- ncol(H) / q # Assumes H = [H_1, ... , H_r], where H_j is q by q
+  p <- ncol(XtX)
+
+  # Loglikelihood to return
+  ll <- NA
+
+  # Score vector to return
+  s_psi <- rep(NA, r + 1)
+
+  # Fisher information to return
+  I_psi <- matrix(NA, r + 1, r + 1)
+
+  # Pre-compute A = (I_q + Psi0 Z'Z)^{-1} Psi0 = B^{-1} Psi0
+  B <- Matrix::crossprod(Psi0, ZtZ) + Matrix::Diagonal(q)
+  A <- Matrix::solve(B, Psi0)
+
+  # Terms for log-restricted likelihood
+  XtSiX <- (1/ psi0) * (XtX - XtZ %*% Matrix::tcrossprod(A, XtZ))
+  beta_tilde <- solve(XtSiX, XtSiY)
+  e <- Y - X %*% beta_tilde
+  # This storage could be saved if score = F
+  Sie <- (1 / psi0) * (e - Z %*% (A %*% Matrix::crossprod(Z, e)))
+
+  if(lik){
+    ll <- determinant(XtSiX, logarithm = TRUE)$modulus
+    ll <- ll + sum(e * Sie) + n * log(psi0)
+    ll <- ll + Matrix::determinant(B, logarithm = TRUE)$modulus
+    ll <- -0.5 * ll
+  }
+
+  if(score | finf){
+    # Terms for score
+    ZtSiZ <-  (1/ psi0) * (ZtZ - ZtZ %*% Matrix::tcrossprod(A, ZtZ))
+    XtSiZ <- (1/ psi0) * (XtZ - XtZ %*% Matrix::tcrossprod(A, ZtZ))
+
+    # Stochastic part of restricted score for psi0
+    s_psi[1] <- 0.5 * sum(Sie^2)
+
+    # Subtract mean of stochastic part
+    s_psi[1] <- s_psi[1] - 0.5 * (1 / psi0) * (n - p)
+    s_psi[1] <- s_psi[1] - 0.5 * (1 / psi0) * sum(A * ZtZ)
+    C <- solve(XtSiX, XtSiZ) # Could be done joint with solve for beta_tilde
+    s_psi[1] <- s_psi[1] + 0.5 * (1 / psi0) * sum(A * Matrix::crossprod(XtZ, C))
+
+    # Stochastic part of score for psi
+    # Use recycling to compute v'H_i v for all Hi
+    v <- as(Matrix::crossprod(Z, Sie), "sparseVector") # sparse matrix does not recycle
+    s_psi[-1] <- 0.5 * colSums(matrix(as.vector(Matrix::crossprod(v, H) * v),
+                                      nrow = q))
+    v <- as(ZtSiZ - Matrix::crossprod(XtSiZ, C), "sparseVector")
+    s_psi[-1] <- s_psi[-1] - 0.5 * colSums(matrix(colSums(v * H), nrow = q))
+  }
+
+  return(list("ll" = ll, "score" = s_psi, "finf" = I_psi, "beta" = beta_tilde,
+              "I_b_inv" = XtSiX))
+}
