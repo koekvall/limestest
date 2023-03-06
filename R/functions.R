@@ -157,13 +157,14 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
 
   # Terms for log-restricted likelihood
   XtSiX <- (1/ psi0) * (XtX - XtZ %*% Matrix::tcrossprod(A, XtZ))
-  beta_tilde <- solve(XtSiX, XtSiY)
+  XtSiY <- (1/ psi0) * (XtY - XtZ %*% Matrix::tcrossprod(A, YtZ))
+  beta_tilde <- Matrix::solve(XtSiX, XtSiY)
   e <- Y - X %*% beta_tilde
   # This storage could be saved if score = F
   Sie <- (1 / psi0) * (e - Z %*% (A %*% Matrix::crossprod(Z, e)))
 
   if(lik){
-    ll <- determinant(XtSiX, logarithm = TRUE)$modulus
+    ll <- Matrix::determinant(XtSiX, logarithm = TRUE)$modulus
     ll <- ll + sum(e * Sie) + n * log(psi0)
     ll <- ll + Matrix::determinant(B, logarithm = TRUE)$modulus
     ll <- -0.5 * ll
@@ -179,9 +180,9 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
 
     # Subtract mean of stochastic part
     s_psi[1] <- s_psi[1] - 0.5 * (1 / psi0) * (n - p)
-    s_psi[1] <- s_psi[1] - 0.5 * (1 / psi0) * sum(A * ZtZ)
-    C <- solve(XtSiX, XtSiZ) # Could be done joint with solve for beta_tilde
-    s_psi[1] <- s_psi[1] + 0.5 * (1 / psi0) * sum(A * Matrix::crossprod(XtZ, C))
+    s_psi[1] <- s_psi[1] + 0.5 * (1 / psi0) * sum(A * ZtZ)
+    C <- Matrix::solve(XtSiX, XtSiZ) # Could be done joint with solve for beta_tilde
+    s_psi[1] <- s_psi[1] - 0.5 * (1 / psi0) * sum(A * Matrix::crossprod(XtZ, C))
 
     # Stochastic part of score for psi
     # Use recycling to compute v'H_i v for all Hi
@@ -189,7 +190,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
     s_psi[-1] <- 0.5 * colSums(matrix(as.vector(Matrix::crossprod(v, H) * v),
                                       nrow = q))
     v <- as(ZtSiZ - Matrix::crossprod(XtSiZ, C), "sparseVector")
-    s_psi[-1] <- s_psi[-1] - 0.5 * colSums(matrix(colSums(v * H), nrow = q))
+    s_psi[-1] <- s_psi[-1] - 0.5 * colSums(matrix(Matrix::colSums(v * H), nrow = q))
   }
 
   return(list("ll" = ll, "score" = s_psi, "finf" = I_psi, "beta" = beta_tilde,

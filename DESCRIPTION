@@ -4,9 +4,12 @@ Version: 0.1
 Authors@R: 
     person("Karl Oskar", "Ekvall", , "k.o.ekvall@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0001-8085-4353"))
-Description: Calculatet the score test statistic standardized by expected Fisher
+Description: Calculate the score test statistic standardized by expected Fisher
   information in linear mixed effects models
 License: MIT
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
+Depends: 
+    R (>= 2.10)
+LazyData: true
