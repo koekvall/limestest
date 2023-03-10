@@ -171,27 +171,40 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
   }
 
   if(score | finf){
-    # Terms for score
-    ZtSiZ <-  (1/ psi0) * (ZtZ - ZtZ %*% Matrix::tcrossprod(A, ZtZ))
-    XtSiZ <- (1/ psi0) * (XtZ - XtZ %*% Matrix::tcrossprod(A, ZtZ))
+
+    # Some of these can be avoided if !finf
+    AZtZ <- Matrix::tcrossprod(A, ZtZ)
+    ZtSiZ <-  (1/ psi0) * (ZtZ - Matrix::crossprod(ZtZ, AZtZ))
+    XtSiZ <- (1 / psi0) * (XtZ - XtZ %*% AZtZ)
+    XtZA <- XtZ %*% A
+    XtSi2X <- (1 / psi0)^2 * (XtX - 2 * Matrix::tcrossprod(XtZA, XtZ) + XtZA %*%
+                              Matrix::tcrossprod(ZtZ, XtZA))
+    C <- Matrix::solve(XtSiX, XtSi2X)
+    D <-  Matrix::solve(XtSiX, XtSiZ)
 
     # Stochastic part of restricted score for psi0
     s_psi[1] <- 0.5 * sum(Sie^2)
 
     # Subtract mean of stochastic part
-    s_psi[1] <- s_psi[1] - 0.5 * (1 / psi0) * (n - p)
-    s_psi[1] <- s_psi[1] + 0.5 * (1 / psi0) * sum(A * ZtZ)
-    C <- Matrix::solve(XtSiX, XtSiZ) # Could be done joint with solve for beta_tilde
-    s_psi[1] <- s_psi[1] - 0.5 * (1 / psi0) * sum(A * Matrix::crossprod(XtZ, C))
+    s_psi[1] <- s_psi[1] - (0.5 / psi0) * n
+    s_psi[1] <- s_psi[1] + (0.5 / psi0) * sum(A * ZtZ)
+    s_psi[1] <- s_psi[1] + 0.5 * sum(Matrix::diag(C))
 
     # Stochastic part of score for psi
     # Use recycling to compute v'H_i v for all Hi
     v <- as(Matrix::crossprod(Z, Sie), "sparseVector") # sparse matrix does not recycle
     s_psi[-1] <- 0.5 * colSums(matrix(as.vector(Matrix::crossprod(v, H) * v),
                                       nrow = q))
-    v <- as(ZtSiZ - Matrix::crossprod(XtSiZ, C), "sparseVector")
+
+    # Non-stochastic part of score for psi
+    v <- as(ZtSiZ - Matrix::crossprod(XtSiZ, D), "sparseVector")
     s_psi[-1] <- s_psi[-1] - 0.5 * colSums(matrix(Matrix::colSums(v * H), nrow = q))
   }
+
+  if(finf){
+    I_psi[1, 1] <-
+  }
+
 
   return(list("ll" = ll, "score" = s_psi, "finf" = I_psi, "beta" = beta_tilde,
               "I_b_inv" = XtSiX))
