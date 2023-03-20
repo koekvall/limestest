@@ -174,7 +174,8 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
 
     # Some of these can be avoided if !finf
     AZtZ <- Matrix::tcrossprod(A, ZtZ)
-    ZtSiZ <-  (1/ psi0) * (ZtZ - Matrix::crossprod(ZtZ, AZtZ))
+    Mt <- Matrix::crossprod(ZtZ, AZtZ)
+    ZtSiZ <-  (1/ psi0) * (ZtZ - Mt)
     XtSiZ <- (1 / psi0) * (XtZ - XtZ %*% AZtZ)
     XtZA <- XtZ %*% A
     XtSi2X <- (1 / psi0)^2 * (XtX - 2 * Matrix::tcrossprod(XtZA, XtZ) + XtZA %*%
@@ -202,7 +203,9 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
   }
 
   if(finf){
-    I_psi[1, 1] <-
+    I_psi[1, 1] <- (0.5 / psi0)^2 * (n - 2 * sum(Matrix::diag(Mt)) +
+                                     sum(Matrix::t(Mt) * Mt))
+    I_psi[1, 1] <- I_psi[1, 1] -
   }
 
 
