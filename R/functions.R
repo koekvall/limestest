@@ -1,3 +1,8 @@
+chol_solve <- function(U, b)
+{
+  backsolve(U, backsolve(U, b, transpose = T))
+}
+
 #' @export
 score_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, finf = TRUE)
 {
@@ -76,8 +81,6 @@ loglik <- function(ZtZ, Zte, e, Psi0, psi0){
   two_neg_ll <- n * log(psi0) + Matrix::determinant(B, logarithm = TRUE)$modulus
   two_neg_ll <- two_neg_ll + sum(e^2)/psi0
 
-  # Profiling suggests this is faster than using
-  # R <- Matrix::Cholesky(B) and then solve(R, ...) here
   two_neg_ll <- two_neg_ll - Matrix::crossprod(Zte, Matrix::solve(B,
                                             Matrix::crossprod(Psi0, Zte))) / psi0
 
@@ -152,19 +155,21 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
   I_psi <- matrix(NA, r + 1, r + 1)
 
   # Pre-compute A = (I_q + Psi0 Z'Z)^{-1} Psi0 = B^{-1} Psi0
-  B <- Matrix::crossprod(Psi0, ZtZ) + Matrix::Diagonal(q)
-  A <- Matrix::solve(B, Psi0)
+  B <- Matrix::crossprod(Psi0, ZtZ) + Matrix::Diagonal(q) # q x q
+  A <- Matrix::solve(B, Psi0) # q x q
 
   # Terms for log-restricted likelihood
-  XtSiX <- (1/ psi0) * (XtX - XtZ %*% Matrix::tcrossprod(A, XtZ))
-  XtSiY <- (1/ psi0) * (XtY - XtZ %*% Matrix::tcrossprod(A, YtZ))
-  beta_tilde <- Matrix::solve(XtSiX, XtSiY)
-  e <- Y - X %*% beta_tilde
+  XtSiX <- (1/ psi0) * (XtX - XtZ %*% Matrix::tcrossprod(A, XtZ)) # p x p
+  U <- Matrix::chol(XtSiX) # p x p
+
+  XtSiY <- (1/ psi0) * (XtY - XtZ %*% Matrix::tcrossprod(A, YtZ)) # p x 1
+  beta_tilde <- chol_solve(U, XtSiY) # p x 1
+  e <- Y - X %*% beta_tilde # n x 1
   # This storage could be saved if score = F
-  Sie <- (1 / psi0) * (e - Z %*% (A %*% Matrix::crossprod(Z, e)))
+  Sie <- (1 / psi0) * (e - Z %*% (A %*% Matrix::crossprod(Z, e))) # n x 1
 
   if(lik){
-    ll <- Matrix::determinant(XtSiX, logarithm = TRUE)$modulus
+    ll <- 2 * sum(log(Matrix::diag(U)))
     ll <- ll + sum(e * Sie) + n * log(psi0)
     ll <- ll + Matrix::determinant(B, logarithm = TRUE)$modulus
     ll <- -0.5 * ll
@@ -173,39 +178,49 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
   if(score | finf){
 
     # Some of these can be avoided if !finf
-    AZtZ <- Matrix::tcrossprod(A, ZtZ)
-    Mt <- Matrix::crossprod(ZtZ, AZtZ)
-    ZtSiZ <-  (1/ psi0) * (ZtZ - Mt)
-    XtSiZ <- (1 / psi0) * (XtZ - XtZ %*% AZtZ)
-    XtZA <- XtZ %*% A
-    XtSi2X <- (1 / psi0)^2 * (XtX - 2 * Matrix::tcrossprod(XtZA, XtZ) + XtZA %*%
-                              Matrix::tcrossprod(ZtZ, XtZA))
-    C <- Matrix::solve(XtSiX, XtSi2X)
-    D <-  Matrix::solve(XtSiX, XtSiZ)
+    AZtZ <- Matrix::tcrossprod(A, ZtZ) # q x q, called M in manuscript
+    ZtZAZtZ <- Matrix::crossprod(ZtZ, AZtZ) # q x q
+    ZtSiZ <-  (1/ psi0) * (ZtZ - ZtZAZtZ) # q x q
+
+    XtZAZtZ <- XtZ %*% AZtZ # p x q
+    XtSiZ <- (1 / psi0) * (XtZ - XtZAZtZ) # p x q
+    XtZA <- XtZ %*% A # q x q
+    XtZAZtX <- Matrix::tcrossprod(XtZA, XtZ) # q x q
+    XtZAZtZAZtX <- XtZA %*% Matrix::tcrossprod(ZtZ, XtZA) # q x q
+    XtSi2X <- (1 / psi0)^2 * (XtX - 2 * XtZAZtX + XtZAZtZAZtX) # p x p
+
+    C <- chol_solve(U, XtSi2X) # p x p
+    D <-  chol_solve(U, XtSiZ) # p x q
 
     # Stochastic part of restricted score for psi0
     s_psi[1] <- 0.5 * sum(Sie^2)
 
     # Subtract mean of stochastic part
     s_psi[1] <- s_psi[1] - (0.5 / psi0) * n
-    s_psi[1] <- s_psi[1] + (0.5 / psi0) * sum(A * ZtZ)
+    s_psi[1] <- s_psi[1] + (0.5 / psi0) * sum(Matrix::diag(AZtZ))
     s_psi[1] <- s_psi[1] + 0.5 * sum(Matrix::diag(C))
 
     # Stochastic part of score for psi
     # Use recycling to compute v'H_i v for all Hi
-    v <- as(Matrix::crossprod(Z, Sie), "sparseVector") # sparse matrix does not recycle
+    v <- as(Matrix::crossprod(Z, Sie), "sparseVector") # sparse matrix does not
+                                                       # recycle, n x 1
     s_psi[-1] <- 0.5 * colSums(matrix(as.vector(Matrix::crossprod(v, H) * v),
                                       nrow = q))
 
     # Non-stochastic part of score for psi
-    v <- as(ZtSiZ - Matrix::crossprod(XtSiZ, D), "sparseVector")
+    v <- as(ZtSiZ - Matrix::crossprod(XtSiZ, D), "sparseVector") # pq x 1 from n x 1
     s_psi[-1] <- s_psi[-1] - 0.5 * colSums(matrix(Matrix::colSums(v * H), nrow = q))
   }
 
   if(finf){
-    I_psi[1, 1] <- (0.5 / psi0)^2 * (n - 2 * sum(Matrix::diag(Mt)) +
-                                     sum(Matrix::t(Mt) * Mt))
-    I_psi[1, 1] <- I_psi[1, 1] -
+    XtSi3X <- (1 / psi0^3) * (XtX - 3 * XtZAZtX + 3 * XtZAZtZAZtX -
+      XtZAZtZ %*% tcrossprod(A, XtZAZtZ)) # p x p
+    I_psi[1, 1] <- (0.5 / psi0^2) * (n - 2 * sum(Matrix::diag(AZtZ)) +
+                                     sum(Matrix::t(AZtZ) * AZtZ))
+    I_psi[1, 1] <- I_psi[1, 1] - sum(Matrix::diag(chol_solve(U, XtSi3X)))
+    I_psi[1, 1] <- I_psi[1, 1] + 0.5 * sum(C * t(C))
+
+
   }
 
 
