@@ -1,7 +1,3 @@
-chol_solve <- function(U, b)
-{
-  backsolve(U, backsolve(U, b, transpose = T))
-}
 
 #' @export
 score_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, finf = TRUE)
@@ -135,6 +131,12 @@ uni_test_stat <- function(test_seq, test_idx, psi, psi0, Z, ZtZXe, e, H)
 }
 
 
+chol_solve <- function(U, b)
+{
+  backsolve(U, backsolve(U, b, transpose = T))
+}
+
+
 #' @export
 res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
                    finf = FALSE, lik = TRUE)
@@ -215,14 +217,18 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
   if(finf){
     XtSi3X <- (1 / psi0^3) * (XtX - 3 * XtZAZtX + 3 * XtZAZtZAZtX -
       XtZAZtZ %*% tcrossprod(A, XtZAZtZ)) # p x p
+    XtSi2Z <- (1 / psi0)^2 * (XtZ - 2 * XtZAZtZ + XtZAZtZ %*% AZtZ) # p x q
+    ZtSi2Z <-  (1 / psi0)^2 * (ZtZ - 2 * ZtZAZtZ + ZtZAZtZ %*% AZtZ) # q x q
+
+
     I_psi[1, 1] <- (0.5 / psi0^2) * (n - 2 * sum(Matrix::diag(AZtZ)) +
                                      sum(Matrix::t(AZtZ) * AZtZ))
     I_psi[1, 1] <- I_psi[1, 1] - sum(Matrix::diag(chol_solve(U, XtSi3X)))
     I_psi[1, 1] <- I_psi[1, 1] + 0.5 * sum(C * t(C))
 
+    #v <-
 
   }
-
 
   return(list("ll" = ll, "score" = s_psi, "finf" = I_psi, "beta" = beta_tilde,
               "I_b_inv" = XtSiX))
