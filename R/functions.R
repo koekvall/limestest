@@ -1,4 +1,3 @@
-
 #' @export
 score_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, finf = TRUE)
 {
@@ -157,11 +156,16 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
   I_psi <- matrix(NA, r + 1, r + 1)
 
   # Pre-compute A = (I_q + Psi0 Z'Z)^{-1} Psi0 = B^{-1} Psi0
-  B <- Matrix::crossprod(Psi0, ZtZ) + Matrix::Diagonal(q) # q x q
-  A <- Matrix::solve(B, Psi0) # q x q
+  A <- Matrix::crossprod(Psi0, ZtZ) + Matrix::Diagonal(q) # q x q
+
+  # Add likelihood term before overwriting
+  if(lik) ll <- Matrix::determinant(A, logarithm = TRUE)$modulus
+
+  A <- Matrix::solve(A, Psi0)
 
   # Terms for log-restricted likelihood
-  XtSiX <- (1/ psi0) * (XtX - XtZ %*% Matrix::tcrossprod(A, XtZ)) # p x p
+  XtZA <- XtZ %*% A # q x q
+  XtSiX <- (1/ psi0) * (XtX - Matrix::tcrossprod(XtZA, XtZ)) # p x p
   U <- Matrix::chol(XtSiX) # p x p
 
   XtSiY <- (1/ psi0) * (XtY - XtZ %*% Matrix::tcrossprod(A, YtZ)) # p x 1
@@ -171,25 +175,34 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
   Sie <- (1 / psi0) * (e - Z %*% (A %*% Matrix::crossprod(Z, e))) # n x 1
 
   if(lik){
-    ll <- 2 * sum(log(Matrix::diag(U)))
+    ll <- ll + 2 * sum(log(Matrix::diag(U)))
     ll <- ll + sum(e * Sie) + n * log(psi0)
-    ll <- ll + Matrix::determinant(B, logarithm = TRUE)$modulus
     ll <- -0.5 * ll
   }
 
-  if(score | finf){
+  if(score | finf){ # Do finf here for now
 
     # Some of these can be avoided if !finf
-    AZtZ <- Matrix::tcrossprod(A, ZtZ) # q x q, called M in manuscript
-    ZtZAZtZ <- Matrix::crossprod(ZtZ, AZtZ) # q x q
-    ZtSiZ <-  (1/ psi0) * (ZtZ - ZtZAZtZ) # q x q
 
-    XtZAZtZ <- XtZ %*% AZtZ # p x q
-    XtSiZ <- (1 / psi0) * (XtZ - XtZAZtZ) # p x q
-    XtZA <- XtZ %*% A # q x q
+    # Inverses with ZtZ
+    A <- Matrix::tcrossprod(A, ZtZ) # q x q, called M in manuscript
+    ZtZM <- Matrix::crossprod(ZtZ, A) # q x q
+    ZtSiZ <-  (1/ psi0) * (ZtZ - ZtZM) # q x q
+    ZtSi2Z <-  (1 / psi0)^2 * (ZtZ - 2 * ZtZM + ZtZM %*% A) # q x q
+
+    # Inverses with XtZ
+    XtZM <- XtZ %*% A # p x q
+    XtSiZ <- (1 / psi0) * (XtZ - XtZM) # p x q
+    XtSi2Z <- (1 / psi0)^2 * (XtZ - 2 * XtZM + XtZM %*% A) # p x q
+
+    # Inverses with XtX
     XtZAZtX <- Matrix::tcrossprod(XtZA, XtZ) # q x q
-    XtZAZtZAZtX <- XtZA %*% Matrix::tcrossprod(ZtZ, XtZA) # q x q
-    XtSi2X <- (1 / psi0)^2 * (XtX - 2 * XtZAZtX + XtZAZtZAZtX) # p x p
+    XtZMAZtX <- XtZA %*% Matrix::tcrossprod(ZtZ, XtZA) # q x q
+    XtSi2X <- (1 / psi0)^2 * (XtX - 2 * XtZAZtX + XtZMAZtX) # p x p
+    XtSi3X <- (1 / psi0^3) * (XtX - 3 * XtZAZtX + 3 * XtZMAZtX -
+                                XtZM %*% Matrix::tcrossprod(A, XtZM)) # p x p
+
+
 
     C <- chol_solve(U, XtSi2X) # p x p
     D <-  chol_solve(U, XtSiZ) # p x q
@@ -199,7 +212,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
 
     # Subtract mean of stochastic part
     s_psi[1] <- s_psi[1] - (0.5 / psi0) * n
-    s_psi[1] <- s_psi[1] + (0.5 / psi0) * sum(Matrix::diag(AZtZ))
+    s_psi[1] <- s_psi[1] + (0.5 / psi0) * sum(Matrix::diag(A))
     s_psi[1] <- s_psi[1] + 0.5 * sum(Matrix::diag(C))
 
     # Stochastic part of score for psi
@@ -215,14 +228,10 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
   }
 
   if(finf){
-    XtSi3X <- (1 / psi0^3) * (XtX - 3 * XtZAZtX + 3 * XtZAZtZAZtX -
-      XtZAZtZ %*% tcrossprod(A, XtZAZtZ)) # p x p
-    XtSi2Z <- (1 / psi0)^2 * (XtZ - 2 * XtZAZtZ + XtZAZtZ %*% AZtZ) # p x q
-    ZtSi2Z <-  (1 / psi0)^2 * (ZtZ - 2 * ZtZAZtZ + ZtZAZtZ %*% AZtZ) # q x q
 
 
-    I_psi[1, 1] <- (0.5 / psi0^2) * (n - 2 * sum(Matrix::diag(AZtZ)) +
-                                     sum(Matrix::t(AZtZ) * AZtZ))
+    I_psi[1, 1] <- (0.5 / psi0^2) * (n - 2 * sum(Matrix::diag(A)) +
+                                     sum(Matrix::t(A) * A))
     I_psi[1, 1] <- I_psi[1, 1] - sum(Matrix::diag(chol_solve(U, XtSi3X)))
     I_psi[1, 1] <- I_psi[1, 1] + 0.5 * sum(C * t(C))
 
