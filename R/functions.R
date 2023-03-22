@@ -186,26 +186,26 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
 
     # Inverses with ZtZ
     A <- Matrix::tcrossprod(A, ZtZ) # q x q, called M in manuscript
-    ZtZM <- Matrix::crossprod(ZtZ, A) # q x q
-    ZtSiZ <-  (1/ psi0) * (ZtZ - ZtZM) # q x q
-    ZtSi2Z <-  (1 / psi0)^2 * (ZtZ - 2 * ZtZM + ZtZM %*% A) # q x q
+    E <- Matrix::crossprod(ZtZ, A) # q x q storage
+    ZtSiZ <-  (1/ psi0) * (ZtZ - E) # q x q
+    ZtSi2Z <-  (1 / psi0)^2 * (ZtZ - 2 * E + E %*% A) # q x q
 
     # Inverses with XtZ
-    XtZM <- XtZ %*% A # p x q
-    XtSiZ <- (1 / psi0) * (XtZ - XtZM) # p x q
-    XtSi2Z <- (1 / psi0)^2 * (XtZ - 2 * XtZM + XtZM %*% A) # p x q
+    D <- XtZ %*% A # p x q storage
+    XtSiZ <- (1 / psi0) * (XtZ - D) # p x q
+    XtSi2Z <- (1 / psi0)^2 * (XtZ - 2 * D + D %*% A) # p x q
 
     # Inverses with XtX
-    XtZAZtX <- Matrix::tcrossprod(XtZA, XtZ) # q x q
-    XtZMAZtX <- XtZA %*% Matrix::tcrossprod(ZtZ, XtZA) # q x q
-    XtSi2X <- (1 / psi0)^2 * (XtX - 2 * XtZAZtX + XtZMAZtX) # p x p
-    XtSi3X <- (1 / psi0^3) * (XtX - 3 * XtZAZtX + 3 * XtZMAZtX -
-                                XtZM %*% Matrix::tcrossprod(A, XtZM)) # p x p
+    C <- Matrix::tcrossprod(XtZA, XtZ) # p x p storage
+    G <- XtZA %*% Matrix::tcrossprod(ZtZ, XtZA) # p x q
+    XtSi2X <- (1 / psi0)^2 * (XtX - 2 * C + G) # p x p
+    XtSi3X <- (1 / psi0^3) * (XtX - 3 * C + 3 * G -
+                                D %*% Matrix::tcrossprod(A, D)) # p x p
 
 
 
     C <- chol_solve(U, XtSi2X) # p x p
-    D <-  chol_solve(U, XtSiZ) # p x q
+    D <- chol_solve(U, XtSiZ) # p x q
 
     # Stochastic part of restricted score for psi0
     s_psi[1] <- 0.5 * sum(Sie^2)
