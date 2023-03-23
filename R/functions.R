@@ -156,7 +156,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
   I_psi <- matrix(NA, r + 1, r + 1)
 
   # Pre-compute A = (I_q + Psi0 Z'Z)^{-1} Psi0 = B^{-1} Psi0
-  A <- Matrix::crossprod(Psi0, ZtZ) + Matrix::Diagonal(q) # q x q
+  A <- Matrix::crossprod(Psi0, ZtZ) + Matrix::Diagonal(q) # q x q storage
 
   # Add likelihood term before overwriting
   if(lik) ll <- Matrix::determinant(A, logarithm = TRUE)$modulus
@@ -188,7 +188,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
     A <- Matrix::tcrossprod(A, ZtZ) # q x q, called M in manuscript
     E <- Matrix::crossprod(ZtZ, A) # q x q storage
     ZtSiZ <-  (1/ psi0) * (ZtZ - E) # q x q
-    ZtSi2Z <-  (1 / psi0)^2 * (ZtZ - 2 * E + E %*% A) # q x q
+    J <-  (1 / psi0)^2 * (ZtZ - 2 * E + E %*% A) # q x q, ZtSi2Z right now
 
     # Inverses with XtZ
     D <- XtZ %*% A # p x q storage
@@ -202,10 +202,12 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
     XtSi3X <- (1 / psi0^3) * (XtX - 3 * C + 3 * G -
                                 D %*% Matrix::tcrossprod(A, D)) # p x p
 
-
-
     C <- chol_solve(U, XtSi2X) # p x p
     D <- chol_solve(U, XtSiZ) # p x q
+
+    ###########################################################################
+    ## SCORE AND INFORMATION FOR psi0 #########################################
+    ###########################################################################
 
     # Stochastic part of restricted score for psi0
     s_psi[1] <- 0.5 * sum(Sie^2)
@@ -215,29 +217,38 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
     s_psi[1] <- s_psi[1] + (0.5 / psi0) * sum(Matrix::diag(A))
     s_psi[1] <- s_psi[1] + 0.5 * sum(Matrix::diag(C))
 
-    # Stochastic part of score for psi
-    # Use recycling to compute v'H_i v for all Hi
-    v <- as(Matrix::crossprod(Z, Sie), "sparseVector") # sparse matrix does not
-                                                       # recycle, n x 1
-    s_psi[-1] <- 0.5 * colSums(matrix(as.vector(Matrix::crossprod(v, H) * v),
-                                      nrow = q))
-
-    # Non-stochastic part of score for psi
-    v <- as(ZtSiZ - Matrix::crossprod(XtSiZ, D), "sparseVector") # pq x 1 from n x 1
-    s_psi[-1] <- s_psi[-1] - 0.5 * colSums(matrix(Matrix::colSums(v * H), nrow = q))
-  }
-
-  if(finf){
-
-
     I_psi[1, 1] <- (0.5 / psi0^2) * (n - 2 * sum(Matrix::diag(A)) +
-                                     sum(Matrix::t(A) * A))
+                                       sum(Matrix::t(A) * A))
     I_psi[1, 1] <- I_psi[1, 1] - sum(Matrix::diag(chol_solve(U, XtSi3X)))
     I_psi[1, 1] <- I_psi[1, 1] + 0.5 * sum(C * t(C))
+    ###########################################################################
 
-    #v <-
 
-  }
+    ###########################################################################
+    ## SCORE AND INFORMATION FOR psi ##########################################
+    ###########################################################################
+    v <- as.vector(Matrix::crossprod(Z, Sie))
+    s_psi[-1] <- 0.5 * colSums(matrix(as.vector(Matrix::crossprod(v, H)) * v,
+                                                                     nrow = q))
+    v <- as.vector(ZtSiZ - Matrix::crossprod(XtSiZ, D)) # pq
+    s_psi[-1] <- s_psi[-1] - 0.5 * colSums(matrix(Matrix::colSums(v * H), nrow = q))
+
+    J <- J - 2 * Matrix::crossprod(D, XtSi2Z) + Matrix::crossprod(XtSiZ, C %*% D)
+    w <- as.vector(J) # q^2, 2ot needed in lower-level language
+    I_psi[1, -1] <- 0.5 * colSums(matrix(Matrix::colSums(w * H), nrow = q))
+
+    H <- Matrix::crossprod(ZtSiZ, H)
+    H2 <- Matrix::crossprod(XtSiZ, D %*% H)
+
+    for(ii in 1:r){
+      idx1 <- ((ii - 1) * q + 1):(ii * q)
+      for(jj in ii:r)
+        idx2 <-  ((jj - 1) * q + 1):(jj * q)
+        I_psi[ii + 1, jj + 1] <- 0.5 * sum(H[, idx1] * Matrix::t(H[, idx1])) -
+          sum(H[, idx1] * Matrix::t(H2[, idx2])) +
+          0.5 *  sum(H2[, idx1] * Matrix::t(H2[, idx1]))
+    }
+}
 
   return(list("ll" = ll, "score" = s_psi, "finf" = I_psi, "beta" = beta_tilde,
               "I_b_inv" = XtSiX))
