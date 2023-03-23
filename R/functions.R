@@ -132,12 +132,12 @@ uni_test_stat <- function(test_seq, test_idx, psi, psi0, Z, ZtZXe, e, H)
 
 chol_solve <- function(U, b)
 {
-  backsolve(U, backsolve(U, b, transpose = T))
+  Matrix::solve(U, Matrix::solve(Matrix::t(U), b))
 }
 
 
 #' @export
-res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
+res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, score = FALSE,
                    finf = FALSE, lik = TRUE)
 {
   # Define dimensions
@@ -201,7 +201,6 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
     XtSi2X <- (1 / psi0)^2 * (XtX - 2 * C + G) # p x p
     XtSi3X <- (1 / psi0^3) * (XtX - 3 * C + 3 * G -
                                 D %*% Matrix::tcrossprod(A, D)) # p x p
-
     C <- chol_solve(U, XtSi2X) # p x p
     D <- chol_solve(U, XtSiZ) # p x q
 
@@ -220,7 +219,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
     I_psi[1, 1] <- (0.5 / psi0^2) * (n - 2 * sum(Matrix::diag(A)) +
                                        sum(Matrix::t(A) * A))
     I_psi[1, 1] <- I_psi[1, 1] - sum(Matrix::diag(chol_solve(U, XtSi3X)))
-    I_psi[1, 1] <- I_psi[1, 1] + 0.5 * sum(C * t(C))
+    I_psi[1, 1] <- I_psi[1, 1] + 0.5 * sum(C * Matrix::t(C))
     ###########################################################################
 
 
@@ -235,21 +234,23 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
 
     J <- J - 2 * Matrix::crossprod(D, XtSi2Z) + Matrix::crossprod(XtSiZ, C %*% D)
     w <- as.vector(J) # q^2, 2ot needed in lower-level language
-    I_psi[1, -1] <- 0.5 * colSums(matrix(Matrix::colSums(w * H), nrow = q))
+    I_psi[-1, 1] <- 0.5 * colSums(matrix(Matrix::colSums(w * H), nrow = q))
 
     H <- Matrix::crossprod(ZtSiZ, H)
     H2 <- Matrix::crossprod(XtSiZ, D %*% H)
 
     for(ii in 1:r){
       idx1 <- ((ii - 1) * q + 1):(ii * q)
-      for(jj in ii:r)
+      for(jj in 1:ii){
         idx2 <-  ((jj - 1) * q + 1):(jj * q)
-        I_psi[ii + 1, jj + 1] <- 0.5 * sum(H[, idx1] * Matrix::t(H[, idx1])) -
-          sum(H[, idx1] * Matrix::t(H2[, idx2])) +
-          0.5 *  sum(H2[, idx1] * Matrix::t(H2[, idx1]))
+        I_psi[ii + 1, jj + 1] <- 0.5 * sum(H[, idx1] * Matrix::t(H[, idx2])) -
+          sum(H[, idx1] * Matrix::t(H2[, idx2])) + 0.5 *
+          sum(H2[, idx1] * Matrix::t(H2[, idx2]))
+      }
     }
 }
 
-  return(list("ll" = ll, "score" = s_psi, "finf" = I_psi, "beta" = beta_tilde,
+  I_psi <- Matrix::forceSymmetric(I_psi, "L")
+  return(list("ll" = ll[1], "score" = s_psi, "finf" = I_psi, "beta" = beta_tilde,
               "I_b_inv" = XtSiX))
 }

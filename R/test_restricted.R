@@ -31,13 +31,13 @@ loglik_psi <- function(psi){
   Psi1 <- matrix(c(psi[2], psi[3], psi[3], psi[4]), 2, 2)
   Psi <-  Matrix::kronecker(Matrix::Diagonal(300), Psi1)
   Psi0 <- Psi / psi0
-  res_ll(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H, Psi0, psi0, score = FALSE,
+  res_ll(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, score = FALSE,
     finf = FALSE, lik = TRUE)$ll
 }
 
 numerical_score <- numDeriv::grad(loglik_psi, c(psi0_hat, Psi_hat[1, 1],
                                                 Psi_hat[2, 1], Psi_hat[2, 2]))
-analytical_score <-  res_ll(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, H,
+analytical_score <-  res_ll(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H,
                             Psi0 = Psi_hat / psi0_hat, psi0 = psi0_hat,
                             score = TRUE, finf = FALSE, lik = FALSE)$score
 
