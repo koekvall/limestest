@@ -29,8 +29,7 @@ YtZ <- Matrix::crossprod(Y, Z)
 loglik_psi <- function(psi){
   psi0 <- psi[1]
   Psi1 <- matrix(c(psi[2], psi[3], psi[3], psi[4]), 2, 2)
-  Psi <-  Matrix::kronecker(Matrix::Diagonal(300), Psi1)
-  Psi0 <- Psi / psi0
+  Psi0 <-  Matrix::kronecker(Matrix::Diagonal(300), Psi1 / psi0)
   res_ll(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, score = FALSE,
     finf = FALSE, lik = TRUE)$ll
 }

@@ -155,7 +155,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, score = FALS
   # Fisher information to return
   I_psi <- matrix(NA, r + 1, r + 1)
 
-  # Pre-compute A = (I_q + Psi0 Z'Z)^{-1} Psi0 = B^{-1} Psi0
+  # Pre-compute A = (I_q + Psi0 Z'Z)^{-1} Psi0
   A <- Matrix::crossprod(Psi0, ZtZ) + Matrix::Diagonal(q) # q x q storage
 
   # Add likelihood term before overwriting
@@ -165,7 +165,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, score = FALS
 
   # Terms for log-restricted likelihood
   XtZA <- XtZ %*% A # q x q
-  XtSiX <- (1/ psi0) * (XtX - Matrix::tcrossprod(XtZA, XtZ)) # p x p
+  XtSiX <- (1 / psi0) * (XtX - Matrix::tcrossprod(XtZA, XtZ)) # p x p
   U <- Matrix::chol(XtSiX) # p x p
 
   XtSiY <- (1/ psi0) * (XtY - XtZ %*% Matrix::tcrossprod(A, YtZ)) # p x 1
@@ -241,9 +241,9 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, score = FALS
 
     for(ii in 1:r){
       idx1 <- ((ii - 1) * q + 1):(ii * q)
-      for(jj in 1:ii){
+      for(jj in ii:r){
         idx2 <-  ((jj - 1) * q + 1):(jj * q)
-        I_psi[ii + 1, jj + 1] <- 0.5 * sum(H[, idx1] * Matrix::t(H[, idx2])) -
+        I_psi[jj + 1, ii + 1] <- 0.5 * sum(H[, idx1] * Matrix::t(H[, idx2])) -
           sum(H[, idx1] * Matrix::t(H2[, idx2])) + 0.5 *
           sum(H2[, idx1] * Matrix::t(H2[, idx2]))
       }
