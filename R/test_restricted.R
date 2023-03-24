@@ -26,7 +26,7 @@ ZtZ <- Matrix::crossprod(Z)
 YtZ <- Matrix::crossprod(Y, Z)
 
 
-loglik_psi <- function(psi){
+loglik_test <- function(psi){
   psi0 <- psi[1]
   Psi1 <- matrix(c(psi[2], psi[3], psi[3], psi[4]), 2, 2)
   Psi0 <-  Matrix::kronecker(Matrix::Diagonal(300), Psi1 / psi0)
@@ -34,7 +34,7 @@ loglik_psi <- function(psi){
     finf = FALSE, lik = TRUE)$ll
 }
 
-numerical_score <- numDeriv::grad(loglik_psi, c(psi0_hat, Psi_hat[1, 1],
+numerical_score <- numDeriv::grad(loglik_test, c(psi0_hat, Psi_hat[1, 1],
                                                 Psi_hat[2, 1], Psi_hat[2, 2]))
 analytical_score <-  res_ll(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H,
                             Psi0 = Psi_hat / psi0_hat, psi0 = psi0_hat,

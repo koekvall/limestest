@@ -1,13 +1,18 @@
 #' @export
-score_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, finf = TRUE)
+loglik_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, loglik = TRUE,
+                       score = TRUE, finf = TRUE)
 {
   # Define dimensions
   n <- length(e)
   q <- ncol(Psi0)
   r <- ncol(H) / q # Assumes H = [H_1, ... , H_r], where H_j is q by q
   p <- ncol(ZtZXe) - q - 1
+
+  # loglikelihood to return
+  ll <- NA
+
   # Score vector to return
-  s_psi <- rep(0, r + 1)
+  s_psi <- rep(NA, r + 1)
 
   # Fisher information to return
   I_psi <- matrix(NA, r + 1, r + 1)
@@ -16,12 +21,25 @@ score_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, finf = TRUE)
   # and Psi0Zte (column q + p + 1)
   A <- Matrix::crossprod(Psi0, ZtZXe)
 
+  # Add loglik term before overwriting
+  if(loglik){
+    ll <- Matrix::determinant(A[, 1:q] + Matrix::diag(q))$modulus +
+      n * log(psi0)
+  }
+
   # Matrix denoted M in manuscript is A[, 1:q]
   A <- Matrix::solve(A[, 1:q] + Matrix::Diagonal(q), A, sparse = TRUE)
 
   # Score for error variance psi_0
   # NB: REPLACE e by Sigma^{-1}e
+  if(loglik){
+   e_save <- e
+  }
   e <- (1 / psi0) * (e - Z %*% A[, q + p + 1]) # = Sigma^{-1}e
+  if(loglik){
+    ll <- -0.5 * (ll + sum(e * e_save))
+  }
+
   trace_M <- sum(Matrix::diag(A[, 1:q]))
   s_psi[1] <- 0.5 * sum(e^2) - (0.5 / psi0) * (n - trace_M)
 
@@ -66,22 +84,21 @@ score_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, finf = TRUE)
   }
 
   I_psi <- Matrix::forceSymmetric(I_psi, uplo = "U")
-  return(list("score" = s_psi, "finf" = I_psi))
-
+  return(list("ll" = ll,  "score" = s_psi, "finf" = I_psi))
 }
-#' @export
-loglik <- function(ZtZ, Zte, e, Psi0, psi0){
-  n <- length(e)
-  B <- Matrix::crossprod(Psi0, ZtZ) + Matrix::Diagonal(ncol(ZtZ))
-  two_neg_ll <- n * log(psi0) + Matrix::determinant(B, logarithm = TRUE)$modulus
-  two_neg_ll <- two_neg_ll + sum(e^2)/psi0
 
-  two_neg_ll <- two_neg_ll - Matrix::crossprod(Zte, Matrix::solve(B,
-                                            Matrix::crossprod(Psi0, Zte))) / psi0
-
-  return(-0.5 * as.vector(two_neg_ll))
-
-}
+# loglik <- function(ZtZ, Zte, e, Psi0, psi0){
+#   n <- length(e)
+#   B <- Matrix::crossprod(Psi0, ZtZ) + Matrix::Diagonal(ncol(ZtZ))
+#   two_neg_ll <- n * log(psi0) + Matrix::determinant(B, logarithm = TRUE)$modulus
+#   two_neg_ll <- two_neg_ll + sum(e^2)/psi0
+#
+#   two_neg_ll <- two_neg_ll - Matrix::crossprod(Zte, Matrix::solve(B,
+#                                             Matrix::crossprod(Psi0, Zte))) / psi0
+#
+#   return(-0.5 * as.vector(two_neg_ll))
+#
+# }
 
 #' @export
 get_Psi <- function(psi, H){
