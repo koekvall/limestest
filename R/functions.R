@@ -213,8 +213,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, score = FALS
   #############################################################################
 
 
-  if(finf | score){
-
+  if(finf & score){
     A <- Matrix::tcrossprod(A, ZtZ) # q x q, called M in manuscript
     s_psi[1] <- s_psi[1] - (0.5 / psi0) * n + (0.5 / psi0) * sum(Matrix::diag(A))
     I_psi[1, 1] <- (0.5 / psi0^2) * (n - 2 * sum(Matrix::diag(A)) +
@@ -261,6 +260,23 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, score = FALS
           sum(H2[, idx1] * Matrix::t(H2[, idx2]))
       }
     }
+  } else if (score){
+    A <- Matrix::tcrossprod(A, ZtZ) # q x q, called M in manuscript
+    s_psi[1] <- s_psi[1] - (0.5 / psi0) * n + (0.5 / psi0) * sum(Matrix::diag(A))
+
+    D <- XtZ %*% A # p x q storage
+
+    C <- Matrix::tcrossprod(B, XtZ) # p x p storage
+    C <- chol_solve(U, (1 / psi0)^2 * (XtX - 2 * C + B %*% Matrix::tcrossprod(ZtZ, B)))
+    s_psi[1] <- s_psi[1] + 0.5 * sum(Matrix::diag(C))
+
+    A <- Matrix::crossprod(ZtZ, A)
+    A <- (1/ psi0) * (ZtZ - A)
+
+    XtSiZ <- (1 / psi0) * (XtZ - D) # p x q
+    D <- chol_solve(U, XtSiZ) # p x q
+    v <- as.vector(A - Matrix::crossprod(XtSiZ, D)) # pq
+    s_psi[-1] <- s_psi[-1] - 0.5 * colSums(matrix(Matrix::colSums(v * H), nrow = q))
   }
 
   I_psi <- Matrix::forceSymmetric(I_psi, "L")
