@@ -30,15 +30,15 @@ loglik_test <- function(psi){
   psi0 <- psi[1]
   Psi1 <- matrix(c(psi[2], psi[3], psi[3], psi[4]), 2, 2)
   Psi0 <-  Matrix::kronecker(Matrix::Diagonal(300), Psi1 / psi0)
-  res_ll(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, score = FALSE,
-    finf = FALSE, lik = TRUE)$ll
+  res_ll(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, score = FALSE,
+    finf = FALSE)$ll
 }
 
 numerical_score <- numDeriv::grad(loglik_test, c(psi0_hat, Psi_hat[1, 1],
                                                 Psi_hat[2, 1], Psi_hat[2, 2]))
 analytical_score <-  res_ll(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H,
-                            Psi0 = Psi_hat / psi0_hat, psi0 = psi0_hat,
-                            score = TRUE, finf = FALSE, lik = FALSE)$score
+                            Psi0 = Psi_hat / psi0_hat, psi0 = psi0_hat, lik = FALSE,
+                            score = TRUE, finf = FALSE)$score
 
 
 cat("The max absolute difference between numerical and analytical score is: ",

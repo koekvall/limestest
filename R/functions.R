@@ -1,3 +1,26 @@
+#' loglik_psi
+#'
+#' Calculates the log-likelihood, score vector and Fisher information matrix
+#' for the variance parameter vector \code{psi} in a linear mixed effects model.
+#'
+#' @param Z A matrix of fixed effects.
+#' @param ZtZXe Pre-computed matrix with of Z'[Z, X, e]
+#' @param e The residual vector.
+#' @param H Matrix of derivatives of Psi with respect to elements of psi.
+#'          Assumes H = [H_1, ... , H_r], where H_j is q by q.
+#' @param Psi0 Coavariance matrix of random effects (Psi) divided by error
+#'             variance psi0, with dimensions q by q.
+#' @param psi0 The error variance.
+#' @param loglik If \code{TRUE} (default), the log-likelihood will be calculated.
+#' @param score If \code{TRUE} (default), the score vector will be calculated.
+#' @param finf If \code{TRUE} (default), the Fisher information matrix will be calculated.
+#'
+#' @return A list with components:
+#' \item{ll}{The log-likelihood.}
+#' \item{score}{The score vector.}
+#' \item{finf}{The Fisher information matrix.}
+#'
+#' @import Matrix
 #' @export
 loglik_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, loglik = TRUE,
                        score = TRUE, finf = TRUE)
@@ -153,9 +176,45 @@ chol_solve <- function(U, b)
 }
 
 
+#' Compute Restricted Likelihood, Score and Information
+#'
+#' Computes the restricted (residual) likelihood, score, and information matrix
+#' for a linear mixed effects model
+#'
+#' @param XtX An n x p matrix of the crossproduct of the design matrix of fixed
+#' effects (X) with itself.
+#' @param XtY An n x 1 vector of the crossproduct of the design matrix of fixed
+#' effects (X) with the response vector (Y).
+#' @param XtZ An n x q matrix of the crossproduct of the design matrix of fixed
+#' effects (X) with the design matrix of random effects (Z).
+#' @param ZtZ A q x q matrix of the crossproduct of the design matrix of random
+#' effects (Z) with itself.
+#' @param YtZ A 1 x q matrix of the crossproduct of the response vector (Y) with
+#' the design matrix of random effects (Z).
+#' @param Y An n x 1 vector of the response variable.
+#' @param X An n x p matrix of the design matrix of fixed effects.
+#' @param Z An n x q matrix of the design matrix of random effects.
+#' @param H A q x rq matrix, where H = [H_1, ..., H_r], with H_j being the
+#' derivative of Psi with respect to psi_j
+#' @param Psi0 The covariance matrix of the random effects (Psi) divided by the
+#' error variance (psi0)
+#' @param psi0 A scalar value of the error variance.
+#' @param lik If \code{TRUE} (default), the log-likelihood will be computed.
+#' @param score If \code{TRUE} (default), the score vector will be computed.
+#' @param finf If \code{TRUE} (default), the Fisher information matrix will be
+#' computed.
+#'
+#' @return A list with elements:
+#' \describe{
+#' \item{res_ll}{A scalar value of the restricted log-likelihood.}
+#' \item{s_psi}{A (r + 1) x 1 vector of the restricted score of the variance parameters.}
+#' \item{I_psi}{A (r + 1) x (r + 1) matrix of the restricted  information of the
+#' variance parameters.}
+#' }
+#' @import Matrix
 #' @export
-res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, score = FALSE,
-                   finf = FALSE, lik = TRUE)
+res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, score = FALSE,
+                   finf = FALSE)
 {
   # Define dimensions
   n <- length(Y)
