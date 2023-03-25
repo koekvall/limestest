@@ -179,83 +179,79 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, score = FALS
   if(lik) ll <- Matrix::determinant(A, logarithm = TRUE)$modulus
 
   A <- Matrix::solve(A, Psi0)
+  B <- XtZ %*% A # q x q
 
-  # Terms for log-restricted likelihood
-  XtZA <- XtZ %*% A # q x q
-  XtSiX <- (1 / psi0) * (XtX - Matrix::tcrossprod(XtZA, XtZ)) # p x p
-  U <- Matrix::chol(XtSiX) # p x p
+  # Create XtSiX
+  U <- (1 / psi0) * (XtX - Matrix::tcrossprod(B, XtZ)) # p x p, now XtSiX
+  U <- Matrix::chol(U) # replace XtSiZ by its Cholesky root
 
-  XtSiY <- (1/ psi0) * (XtY - XtZ %*% Matrix::tcrossprod(A, YtZ)) # p x 1
-  beta_tilde <- chol_solve(U, XtSiY) # p x 1
-  e <- Y - X %*% beta_tilde # n x 1
-  # This storage could be saved if score = F
-  Sie <- (1 / psi0) * (e - Z %*% (A %*% Matrix::crossprod(Z, e))) # n x 1
+  # Create XtSiY for use in beta_tilde
+  beta_tilde <- (1/ psi0) * (XtY - XtZ %*% Matrix::tcrossprod(A, YtZ)) # p x 1
+  beta_tilde <- chol_solve(U, beta_tilde)
+
+  # Replace Y by residuals
+  Y <- Y - X %*% beta_tilde
+
+  # n x 1 vector for storing \Sigma^{-1}e
+  a <- (1 / psi0) * (Y - Z %*% (A %*% Matrix::crossprod(Z, Y))) # n x 1
 
   if(lik){
     ll <- ll + 2 * sum(log(Matrix::diag(U)))
-    ll <- ll + sum(e * Sie) + n * log(psi0)
+    ll <- ll + sum(Y * a) + n * log(psi0)
     ll <- -0.5 * ll
   }
 
-  if(score | finf){ # Do finf here for now
+  if(score){
+    # Stochastic part of restricted score for psi
+    s_psi[1] <- 0.5 * sum(a^2)
+    v <- as.vector(Matrix::crossprod(Z, a)) # q x 1 vector storage
+    s_psi[-1] <- 0.5 * colSums(matrix(as.vector(Matrix::crossprod(v, H)) * v,
+                                      nrow = q))
+  }
+  #############################################################################
+  ## NOTHING BELOW SHOULD DEPEND ON Y.
+  #############################################################################
 
-    # Some of these can be avoided if !finf
 
-    # Inverses with ZtZ
+  if(finf | score){
+
     A <- Matrix::tcrossprod(A, ZtZ) # q x q, called M in manuscript
-    E <- Matrix::crossprod(ZtZ, A) # q x q storage
-    ZtSiZ <-  (1/ psi0) * (ZtZ - E) # q x q
-    J <-  (1 / psi0)^2 * (ZtZ - 2 * E + E %*% A) # q x q, ZtSi2Z right now
+    s_psi[1] <- s_psi[1] - (0.5 / psi0) * n + (0.5 / psi0) * sum(Matrix::diag(A))
+    I_psi[1, 1] <- (0.5 / psi0^2) * (n - 2 * sum(Matrix::diag(A)) +
+                                       sum(Matrix::t(A) * A))
 
-    # Inverses with XtZ
+    E <- Matrix::crossprod(ZtZ, A) # q x q storage
+
     D <- XtZ %*% A # p x q storage
+
     XtSiZ <- (1 / psi0) * (XtZ - D) # p x q
     XtSi2Z <- (1 / psi0)^2 * (XtZ - 2 * D + D %*% A) # p x q
 
-    # Inverses with XtX
-    C <- Matrix::tcrossprod(XtZA, XtZ) # p x p storage
-    G <- XtZA %*% Matrix::tcrossprod(ZtZ, XtZA) # p x q
+
+    C <- Matrix::tcrossprod(B, XtZ) # p x p storage
+    G <- B %*% Matrix::tcrossprod(ZtZ, B) # p x q
     XtSi2X <- (1 / psi0)^2 * (XtX - 2 * C + G) # p x p
-    XtSi3X <- (1 / psi0^3) * (XtX - 3 * C + 3 * G -
-                                D %*% Matrix::tcrossprod(A, D)) # p x p
     C <- chol_solve(U, XtSi2X) # p x p
-    D <- chol_solve(U, XtSiZ) # p x q
-
-    ###########################################################################
-    ## SCORE AND INFORMATION FOR psi0 #########################################
-    ###########################################################################
-
-    # Stochastic part of restricted score for psi0
-    s_psi[1] <- 0.5 * sum(Sie^2)
-
-    # Subtract mean of stochastic part
-    s_psi[1] <- s_psi[1] - (0.5 / psi0) * n
-    s_psi[1] <- s_psi[1] + (0.5 / psi0) * sum(Matrix::diag(A))
+    I_psi[1, 1] <- I_psi[1, 1] + 0.5 * sum(C * Matrix::t(C))
     s_psi[1] <- s_psi[1] + 0.5 * sum(Matrix::diag(C))
 
-    I_psi[1, 1] <- (0.5 / psi0^2) * (n - 2 * sum(Matrix::diag(A)) +
-                                       sum(Matrix::t(A) * A))
+    XtSi3X <- (1 / psi0^3) * (XtX - 3 * C + 3 * G -
+                                D %*% Matrix::tcrossprod(A, D)) # p x p
+    # A (q x q), G (p x q) ARE FREE
+    A <- (1 / psi0)^2 * (ZtZ - 2 * E + E %*% A) # ZtSi2Z right now
+    E <-  (1/ psi0) * (ZtZ - E) # Now holds ZtSiZ
+    D <- chol_solve(U, XtSiZ) # p x q
+    A <- A - 2 * Matrix::crossprod(D, XtSi2Z) + Matrix::crossprod(XtSiZ, C %*% D)
+    I_psi[-1, 1] <- 0.5 * colSums(matrix(Matrix::colSums(as.vector(A) * H), nrow = q))
     I_psi[1, 1] <- I_psi[1, 1] - sum(Matrix::diag(chol_solve(U, XtSi3X)))
-    I_psi[1, 1] <- I_psi[1, 1] + 0.5 * sum(C * Matrix::t(C))
-    ###########################################################################
 
 
-    ###########################################################################
-    ## SCORE AND INFORMATION FOR psi ##########################################
-    ###########################################################################
-    v <- as.vector(Matrix::crossprod(Z, Sie))
-    s_psi[-1] <- 0.5 * colSums(matrix(as.vector(Matrix::crossprod(v, H)) * v,
-                                                                     nrow = q))
-    v <- as.vector(ZtSiZ - Matrix::crossprod(XtSiZ, D)) # pq
+    v <- as.vector(E - Matrix::crossprod(XtSiZ, D)) # pq
     s_psi[-1] <- s_psi[-1] - 0.5 * colSums(matrix(Matrix::colSums(v * H), nrow = q))
 
-    J <- J - 2 * Matrix::crossprod(D, XtSi2Z) + Matrix::crossprod(XtSiZ, C %*% D)
-    w <- as.vector(J) # q^2, 2ot needed in lower-level language
-    I_psi[-1, 1] <- 0.5 * colSums(matrix(Matrix::colSums(w * H), nrow = q))
-
-    H <- Matrix::crossprod(ZtSiZ, H)
-    H2 <- Matrix::crossprod(XtSiZ, D %*% H)
-
+    H <- Matrix::crossprod(E, H)
+    H2 <- Matrix::crossprod(XtSiZ, D %*% H) # Storage can be avoided by
+                                            # muliply in loop
     for(ii in 1:r){
       idx1 <- ((ii - 1) * q + 1):(ii * q)
       for(jj in ii:r){
@@ -265,9 +261,9 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, score = FALS
           sum(H2[, idx1] * Matrix::t(H2[, idx2]))
       }
     }
-}
+  }
 
   I_psi <- Matrix::forceSymmetric(I_psi, "L")
   return(list("ll" = ll[1], "score" = s_psi, "finf" = I_psi, "beta" = beta_tilde,
-              "I_b_inv" = XtSiX))
+              "I_b_inv_chol" = U))
 }
