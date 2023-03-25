@@ -260,6 +260,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, score = FALS
           sum(H2[, idx1] * Matrix::t(H2[, idx2]))
       }
     }
+    I_psi <- Matrix::forceSymmetric(I_psi, "L")
   } else if (score){
     A <- Matrix::tcrossprod(A, ZtZ) # q x q, called M in manuscript
     s_psi[1] <- s_psi[1] - (0.5 / psi0) * n + (0.5 / psi0) * sum(Matrix::diag(A))
@@ -278,8 +279,6 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, score = FALS
     v <- as.vector(A - Matrix::crossprod(XtSiZ, D)) # pq
     s_psi[-1] <- s_psi[-1] - 0.5 * colSums(matrix(Matrix::colSums(v * H), nrow = q))
   }
-
-  I_psi <- Matrix::forceSymmetric(I_psi, "L")
   return(list("ll" = ll[1], "score" = s_psi, "finf" = I_psi, "beta" = beta_tilde,
               "I_b_inv_chol" = U))
 }
