@@ -1,22 +1,22 @@
-# set.seed(335)
-# library(Matrix)
-# num_reps <- 1e3
-# num_cluster <- 100
-# num_ind <- 10
-# Z <- Matrix::bdiag(replicate(num_cluster, cbind(1, rnorm(num_ind)),
-#                              simplify = FALSE))
-# X <- matrix(rnorm(nrow(Z) * 2), nrow = nrow(Z), ncol = 2)
-# Psi1 <- matrix(c(1, -0.8, -0.8, 1), 2, 2)
-# psi0 <- 0.5
-# Psi <- Matrix::kronecker(Matrix::Diagonal(num_cluster), Psi1)
-# Psi0 <- Matrix::kronecker(Matrix::Diagonal(num_cluster), Psi1 / psi0)
-# H1 <- Matrix::kronecker(Matrix::Diagonal(num_cluster), matrix(c(1, 0, 0, 0), 2, 2))
-# H2 <- Matrix::kronecker(Matrix::Diagonal(num_cluster), matrix(c(0, 1, 1, 0), 2, 2))
-# H3 <- Matrix::kronecker(Matrix::Diagonal(num_cluster), matrix(c(0, 0, 0, 1), 2, 2))
-# H <- cbind(H1, H2, H3)
-# R <-  Matrix::kronecker(Matrix::Diagonal(num_cluster), chol(Psi1))
-#
-# y_outside <- rnorm(nrow(Z), sd = sqrt(psi0)) + Z %*% crossprod(R, rnorm(ncol(R)))
+set.seed(335)
+library(Matrix)
+num_reps <- 1e3
+num_cluster <- 100
+num_ind <- 10
+Z <- Matrix::bdiag(replicate(num_cluster, cbind(1, rnorm(num_ind)),
+                             simplify = FALSE))
+X <- matrix(rnorm(nrow(Z) * 2), nrow = nrow(Z), ncol = 2)
+Psi1 <- matrix(c(1, -0.8, -0.8, 1), 2, 2)
+psi0 <- 0.5
+Psi <- Matrix::kronecker(Matrix::Diagonal(num_cluster), Psi1)
+Psi0 <- Matrix::kronecker(Matrix::Diagonal(num_cluster), Psi1 / psi0)
+H1 <- Matrix::kronecker(Matrix::Diagonal(num_cluster), matrix(c(1, 0, 0, 0), 2, 2))
+H2 <- Matrix::kronecker(Matrix::Diagonal(num_cluster), matrix(c(0, 1, 1, 0), 2, 2))
+H3 <- Matrix::kronecker(Matrix::Diagonal(num_cluster), matrix(c(0, 0, 0, 1), 2, 2))
+H <- cbind(H1, H2, H3)
+R <-  Matrix::kronecker(Matrix::Diagonal(num_cluster), chol(Psi1))
+
+y_outside <- rnorm(nrow(Z), sd = sqrt(psi0)) + Z %*% crossprod(R, rnorm(ncol(R)))
 
 # ###############################################################################
 # ## CHECK IF MC ESTIMATE OF FINF IS CLOSE #######################################
@@ -65,33 +65,36 @@
 ################################################################################
 ## CHECK IF P-VALUES ARE UNIFORM ###############################################
 ################################################################################
-# one_sim_test <- function(seed){
-#   set.seed(seed)
-#   y <- rnorm(nrow(Z), sd = sqrt(psi0)) + Z %*% crossprod(R, rnorm(ncol(R)))
-#
-#   stuff <- limestest::res_ll(XtX = crossprod(X),
-#                              XtY = crossprod(X, y),
-#                              XtZ = crossprod(X, Z),
-#                              ZtZ = crossprod(Z),
-#                              YtZ = crossprod(y, Z),
-#                              Y = y,
-#                              X = X,
-#                              Z = Z,
-#                              H = H,
-#                              Psi0 = Psi0,
-#                              psi0 = psi0,
-#                              score = TRUE,
-#                              finf = TRUE,
-#                              lik = TRUE)
-#   test_stat <- as.vector(crossprod(stuff$score, solve(stuff$finf, stuff$score)))
-#
-#   pchisq(test_stat, df = 4, lower = F)
-#
-# }
-# p_vals <- sapply(1:num_reps, one_sim_test)
-# print(mean(p_vals < 0.05))
-# plot(quantile(p_vals, seq(0.01, 0.99, 0.01)))
+one_sim_test <- function(seed){
+  set.seed(seed)
+  y <- rnorm(nrow(Z), sd = sqrt(psi0)) + Z %*% crossprod(R, rnorm(ncol(R)))
 
+  stuff <- limestest::res_ll(XtX = crossprod(X),
+                             XtY = crossprod(X, y),
+                             XtZ = crossprod(X, Z),
+                             ZtZ = crossprod(Z),
+                             YtZ = crossprod(y, Z),
+                             Y = y,
+                             X = X,
+                             Z = Z,
+                             H = H,
+                             Psi0 = Psi0,
+                             psi0 = psi0,
+                             score = TRUE,
+                             finf = TRUE,
+                             lik = TRUE)
+  test_stat <- as.vector(crossprod(stuff$score, solve(stuff$finf, stuff$score)))
+
+  pchisq(test_stat, df = 4, lower = F)
+
+}
+library(doParallel)
+cl <- makeCluster(6)
+registerDoParallel(cl)
+p_vals <- foreach(ii=1:1e3, .combine = c, .errorhandling = "remove") %dopar% one_sim_test(ii)
+print(mean(p_vals < 0.05))
+plot(quantile(p_vals, seq(0.01, 0.99, 0.01)))
+stopCluster(cl)
 ###############################################################################
 
 
