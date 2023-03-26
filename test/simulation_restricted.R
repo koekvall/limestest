@@ -6,7 +6,7 @@ num_ind <- 10
 Z <- Matrix::bdiag(replicate(num_cluster, cbind(1, rnorm(num_ind)),
                              simplify = FALSE))
 X <- matrix(rnorm(nrow(Z) * 2), nrow = nrow(Z), ncol = 2)
-Psi1 <- matrix(c(1, -0.8, -0.8, 1), 2, 2)
+Psi1 <- matrix(c(1, -0.99, -0.99, 1), 2, 2)
 psi0 <- 0.5
 Psi <- Matrix::kronecker(Matrix::Diagonal(num_cluster), Psi1)
 Psi0 <- Matrix::kronecker(Matrix::Diagonal(num_cluster), Psi1 / psi0)

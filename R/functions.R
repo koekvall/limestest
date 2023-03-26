@@ -179,7 +179,7 @@ chol_solve <- function(U, b)
 #' Compute Restricted Likelihood, Score and Information
 #'
 #' Computes the restricted (residual) likelihood, score, and information matrix
-#' for a linear mixed effects model
+#' for the variance parameter \code{psi} a linear mixed effects model
 #'
 #' @param XtX An n x p matrix of the crossproduct of the design matrix of fixed
 #' effects (X) with itself.
@@ -289,7 +289,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, 
     C <- Matrix::tcrossprod(B, XtZ) # p x p storage
     G <- B %*% Matrix::tcrossprod(ZtZ, B) # p x q
     XtSi2X <- (1 / psi0)^2 * (XtX - 2 * C + G) # p x p
-    C <- chol_solve(U, XtSi2X) # p x p
+    C <- chol_solve(U, XtSi2X)
     I_psi[1, 1] <- I_psi[1, 1] + 0.5 * sum(C * Matrix::t(C))
     s_psi[1] <- s_psi[1] + 0.5 * sum(Matrix::diag(C))
 
@@ -298,14 +298,13 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, 
     # A (q x q), G (p x q) ARE FREE
     A <- (1 / psi0)^2 * (ZtZ - 2 * E + E %*% A) # ZtSi2Z right now
     E <-  (1/ psi0) * (ZtZ - E) # Now holds ZtSiZ
-    D <- chol_solve(U, XtSiZ) # p x q
+    D <- chol_solve(U, XtSiZ)
     A <- A - 2 * Matrix::crossprod(D, XtSi2Z) + Matrix::crossprod(XtSiZ, C %*% D)
     I_psi[-1, 1] <- 0.5 * colSums(matrix(Matrix::colSums(as.vector(A) * H), nrow = q))
     I_psi[1, 1] <- I_psi[1, 1] - sum(Matrix::diag(chol_solve(U, XtSi3X)))
 
-
-    v <- as.vector(E - Matrix::crossprod(XtSiZ, D)) # pq
-    s_psi[-1] <- s_psi[-1] - 0.5 * colSums(matrix(Matrix::colSums(v * H), nrow = q))
+    s_psi[-1] <- s_psi[-1] - 0.5 * colSums(matrix(Matrix::colSums(
+      as.vector(E - Matrix::crossprod(XtSiZ, D)) * H), nrow = q))
 
     H <- Matrix::crossprod(E, H)
     H2 <- Matrix::crossprod(XtSiZ, D %*% H) # Storage can be avoided by
