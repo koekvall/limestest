@@ -241,8 +241,12 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, 
   B <- XtZ %*% A # q x q
 
   # Create XtSiX
-  U <- (1 / psi0) * (XtX - Matrix::tcrossprod(B, XtZ)) # p x p, now XtSiX
-  U <- Matrix::chol(U) # replace XtSiZ by its Cholesky root
+  U <- Matrix::forceSymmetric((1 / psi0) * (XtX - Matrix::tcrossprod(B, XtZ))) # p x p, now XtSiX
+  U <- try(Matrix::chol(U)) # replace XtSiZ by its Cholesky root
+  if(inherits(U,"try-error")){
+     return(list("ll" = -Inf, "score" = s_psi, "finf" = I_psi, "beta" = rep(NA, p),
+              "I_b_inv_chol" = matrix(NA, p, p)))
+  }
 
   # Create XtSiY for use in beta_tilde
   beta_tilde <- (1/ psi0) * (XtY - XtZ %*% Matrix::tcrossprod(A, YtZ)) # p x 1
@@ -256,7 +260,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, 
 
   if(lik){
     ll <- ll + 2 * sum(log(Matrix::diag(U)))
-    ll <- ll + sum(Y * a) + n * log(psi0)
+    ll <- ll + sum(Y * a) + n * log(2 * pi * psi0)
     ll <- -0.5 * ll
   }
 
@@ -270,7 +274,6 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, 
   #############################################################################
   ## NOTHING BELOW SHOULD DEPEND ON Y.
   #############################################################################
-
 
   if(finf & score){
     A <- Matrix::tcrossprod(A, ZtZ) # q x q, called M in manuscript

@@ -6,15 +6,18 @@ num_ind <- 10
 Z <- Matrix::bdiag(replicate(num_cluster, cbind(1, rnorm(num_ind)),
                              simplify = FALSE))
 X <- matrix(rnorm(nrow(Z) * 2), nrow = nrow(Z), ncol = 2)
-Psi1 <- matrix(c(1, -0.99, -0.99, 1), 2, 2)
-psi0 <- 0.5
+Psi1 <- matrix(c(1, 0, 0, 1), 2, 2)
+psi0 <- 0.01
 Psi <- Matrix::kronecker(Matrix::Diagonal(num_cluster), Psi1)
 Psi0 <- Matrix::kronecker(Matrix::Diagonal(num_cluster), Psi1 / psi0)
 H1 <- Matrix::kronecker(Matrix::Diagonal(num_cluster), matrix(c(1, 0, 0, 0), 2, 2))
 H2 <- Matrix::kronecker(Matrix::Diagonal(num_cluster), matrix(c(0, 1, 1, 0), 2, 2))
 H3 <- Matrix::kronecker(Matrix::Diagonal(num_cluster), matrix(c(0, 0, 0, 1), 2, 2))
 H <- cbind(H1, H2, H3)
-R <-  Matrix::kronecker(Matrix::Diagonal(num_cluster), chol(Psi1))
+
+Psi1_eig <- eigen(Psi1)
+R1 <- tcrossprod(diag(sqrt(Psi1_eig$values), ncol(Psi1)), Psi1_eig$vectors)
+R <-  Matrix::kronecker(Matrix::Diagonal(num_cluster), R1)
 
 y_outside <- rnorm(nrow(Z), sd = sqrt(psi0)) + Z %*% crossprod(R, rnorm(ncol(R)))
 
