@@ -60,4 +60,7 @@ my_obj <- function(x){
   }
 }
 
-trust(my_obj, psi_hat, 1, 100)
+trust_fit <- trust(my_obj, psi_hat, 1, 100)
+
+my_obj(trust_fit$argument)$value
+my_obj(psi_hat)$value
