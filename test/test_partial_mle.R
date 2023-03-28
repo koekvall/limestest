@@ -48,16 +48,13 @@ score_test <- function(x){
 
 my_obj <- function(x){
 
-  if(any(x <= 0)){
-    return(list("value" = Inf))
-  } else{
     psi0_arg <- x[1]
     Psi1_arg <- matrix(c(x[2], 0, 0, x[3]), 2, 2)
     Psi0_arg <-  Matrix::kronecker(Matrix::Diagonal(300), Psi1_arg / psi0_arg)
     stuff <- res_ll(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0_arg, psi0_arg, lik = TRUE, score = TRUE,
            finf = TRUE)
     return(list("value" = -stuff$ll, "gradient" = -stuff$score, "hessian" = as.matrix(stuff$finf)))
-  }
+
 }
 
 trust_fit <- trust(my_obj, psi_hat, 1, 100)

@@ -69,5 +69,5 @@ variance parameters.}
 }
 \description{
 Computes the restricted (residual) likelihood, score, and information matrix
-for a linear mixed effects model
+for the variance parameter \code{psi} a linear mixed effects model
 }
