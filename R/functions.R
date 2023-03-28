@@ -81,7 +81,7 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, loglik = TRUE,
     # recycling, where * denotes elementwise multiplication
     # The "if" is because the calculation is a byproduct of a more expensive one
     # (B %*% H) done to get Fisher information
-    H <- H * as(B, "sparseVector")
+    H <- as.matrix(H) * a.vector(B)
 
     s_psi[-1] <- s_psi[-1] + (0.5 / psi0) * colSums(matrix(Matrix::colSums(H), nrow = q))
   } else{
@@ -92,7 +92,7 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, loglik = TRUE,
     # Subtract identity matrix from M
     Matrix::diag(A[, 1:q]) <- Matrix::diag(A[, 1:q]) - 1
 
-    D <- matrix(Matrix::colSums(as(A[, 1:q], "sparseVector")  * H), nrow = q)
+    D <- matrix(Matrix::colSums(as.vector(A[, 1:q])  * as.matrix(H)), nrow = q)
 
     I_psi[1, -1] <- (0.5 / psi0^2) * Matrix::colSums(D)
 
