@@ -140,14 +140,13 @@ one_sim_test <- function(seed){
   # c(pchisq(test_stat, df = 1, lower = F),
   #   pchisq(test_stat_REML, df = 1, lower = F))
 
-  # test_stat <- as.vector(crossprod(stuff$score, solve(stuff$finf, stuff$score)))
-  # test_stat_REML <- as.vector(crossprod(stuff_REML$score,
-  #                                       solve(stuff_REML$finf, stuff_REML$score)))
-  #
-  # c(pchisq(test_stat, df = 3, lower = F),
-  #   pchisq(test_stat_REML, df = 3, lower = F))
+  test_stat <- as.vector(crossprod(stuff$score, solve(stuff$finf, stuff$score)))
+  test_stat_REML <- as.vector(crossprod(stuff_REML$score,
+                                        solve(stuff_REML$finf, stuff_REML$score)))
 
-  c(stuff_REML$score, diag(stuff_REML$finf), stuff$score, diag(stuff$finf))
+  c(pchisq(test_stat, df = 3, lower = F),
+    pchisq(test_stat_REML, df = 3, lower = F))
+
 
 }
 cl <- makeCluster(8)
