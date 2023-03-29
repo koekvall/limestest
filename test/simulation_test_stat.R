@@ -6,7 +6,7 @@ num_reps <- 1e3
 ## INDEPENDENT CLUSTERS ########################################################
 ################################################################################
 num_cluster <- 10
-num_ind <- 12
+num_ind <- 5
 Z <- Matrix::bdiag(replicate(num_cluster, cbind(1, rnorm(num_ind)),
                              simplify = FALSE))
 X <- matrix(rnorm(nrow(Z) * 2), nrow = nrow(Z), ncol = 2)
@@ -83,7 +83,7 @@ stopCluster(cl)
 ################################################################################
 ## CROSSED RANDOM EFFECTS ######################################################
 ################################################################################
-m <- 20 # Number of units
+m <- 5 # Number of units
 Z <- as(cbind(Matrix::kronecker(Matrix::diag(1, nrow = m), matrix(1, m, 1)),
            Matrix::kronecker(matrix(1, m, 1), Matrix::diag(1, nrow = m))), "sparseMatrix")
 X <- cbind(1, matrix(rnorm(m^2), m^2, 1))

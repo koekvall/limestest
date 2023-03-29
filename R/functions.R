@@ -292,7 +292,6 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, 
     C <- Matrix::tcrossprod(B, XtZ) # p x p storage, here XtZA ZtX
     G <- B %*% Matrix::tcrossprod(ZtZ, B) # p x q, here XtZA ZtZ AtZtX
     XtSi2X <- (1 / psi0)^2 * (XtX - 2 * C + G) # p x p
-    # ERROR IS HERE, BELOW NOT PD
     XtSi3X <- (1 / psi0^3) * (XtX - 3 * C + 3 * G -
                                 D %*% tcrossprod(A, B)) # p x p
     C <- chol_solve(U, XtSi2X)
