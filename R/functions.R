@@ -277,14 +277,14 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, 
 
   if(finf & score){
     A <- Matrix::tcrossprod(A, ZtZ) # q x q, called M in manuscript
+
     s_psi[1] <- s_psi[1] - (0.5 / psi0) * n + (0.5 / psi0) * sum(Matrix::diag(A))
+
     I_psi[1, 1] <- (0.5 / psi0^2) * (n - 2 * sum(Matrix::diag(A)) +
                                        sum(Matrix::t(A) * A))
 
     E <- Matrix::crossprod(ZtZ, A) # q x q storage
-
     D <- XtZ %*% A # p x q storage
-
     XtSiZ <- (1 / psi0) * (XtZ - D) # p x q
     XtSi2Z <- (1 / psi0)^2 * (XtZ - 2 * D + D %*% A) # p x q
 
@@ -293,18 +293,23 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, 
     G <- B %*% Matrix::tcrossprod(ZtZ, B) # p x q
     XtSi2X <- (1 / psi0)^2 * (XtX - 2 * C + G) # p x p
     C <- chol_solve(U, XtSi2X)
+
     I_psi[1, 1] <- I_psi[1, 1] + 0.5 * sum(C * Matrix::t(C))
+
     s_psi[1] <- s_psi[1] + 0.5 * sum(Matrix::diag(C))
 
-    XtSi3X <- (1 / psi0^3) * (XtX - 3 * C + 3 * G -
+    # ERROR IS HERE, BELOW NOT PD
+    XtSi3X <- (1 / psi0^3) * (XtX - 3 * C + 3 * G +
                                 D %*% Matrix::tcrossprod(A, D)) # p x p
+    I_psi[1, 1] <- I_psi[1, 1] - sum(Matrix::diag(chol_solve(U, XtSi3X)))
     # A (q x q), G (p x q) ARE FREE
     A <- (1 / psi0)^2 * (ZtZ - 2 * E + E %*% A) # ZtSi2Z right now
     E <-  (1/ psi0) * (ZtZ - E) # Now holds ZtSiZ
     D <- chol_solve(U, XtSiZ)
     A <- A - 2 * Matrix::crossprod(D, XtSi2Z) + Matrix::crossprod(XtSiZ, C %*% D)
+
     I_psi[-1, 1] <- 0.5 * colSums(matrix(Matrix::colSums(as.vector(A) * H), nrow = q))
-    I_psi[1, 1] <- I_psi[1, 1] - sum(Matrix::diag(chol_solve(U, XtSi3X)))
+
 
     s_psi[-1] <- s_psi[-1] - 0.5 * colSums(matrix(Matrix::colSums(
       as.vector(E - Matrix::crossprod(XtSiZ, D)) * H), nrow = q))

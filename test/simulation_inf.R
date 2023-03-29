@@ -19,7 +19,7 @@ test_mc_sigma_crossed <- function(psi_test = c(1, 0, 1), num_reps = 1e3){
     set.seed(seed)
     y <- rnorm(nrow(Z), sd = sqrt(psi0)) + Z %*% crossprod(R, rnorm(ncol(R)))
 
-    limestest::res_ll(XtX = crossprod(X),
+   stuff_REML <- limestest::res_ll(XtX = crossprod(X),
                       XtY = crossprod(X, y),
                       XtZ = crossprod(X, Z),
                       ZtZ = crossprod(Z),
@@ -31,17 +31,28 @@ test_mc_sigma_crossed <- function(psi_test = c(1, 0, 1), num_reps = 1e3){
                       Psi0 = Psi0,
                       psi0 = psi0,
                       score = TRUE,
-                      finf = TRUE,
-                      lik = TRUE)$score
-
+                      finf = FALSE,
+                      lik = TRUE)
+    e <- y - X %*% stuff_REML$beta
+    score_LL <- limestest::loglik_psi(Z = Z,
+                                   ZtZXe = cbind(crossprod(Z), crossprod(Z, X), crossprod(Z, e)),
+                                   e = e,
+                                   H = H,
+                                   Psi0 = Psi0,
+                                   psi0 = psi0,
+                                   loglik = TRUE,
+                                   score = TRUE,
+                                   finf = TRUE)$score
+  c(stuff_REML$score, score_LL)
   }
   cl <- makeCluster(8)
   registerDoParallel(cl)
   out <- foreach(ii=1:num_reps, .combine = rbind, .errorhandling = "remove") %dopar% one_sim_score(ii)
   stopCluster(cl)
-  MC_inf<- cov(out)
+  MC_inf_REML<- cov(out[, 1:3])
+  MC_inf_LL <- cov(out[, 4:6])
   y_outside <- rep(0, nrow(Z))
-  AN_inf <- limestest::res_ll(XtX = crossprod(X),
+  AN_inf_REML <- limestest::res_ll(XtX = crossprod(X),
                               XtY = crossprod(X, y_outside),
                               XtZ = crossprod(X, Z),
                               ZtZ = crossprod(Z),
@@ -55,10 +66,27 @@ test_mc_sigma_crossed <- function(psi_test = c(1, 0, 1), num_reps = 1e3){
                               score = TRUE,
                               finf = TRUE,
                               lik = TRUE)$finf
+
+  AN_inf_LL <- limestest::loglik_psi(Z = Z,
+                        ZtZXe = cbind(crossprod(Z), crossprod(Z, X), crossprod(Z, y_outside)),
+                        e = y_outside,
+                        H = H,
+                        Psi0 = Psi0,
+                        psi0 = psi0,
+                        loglik = TRUE,
+                        score = TRUE,
+                        finf = TRUE)$finf
+  cat("FOR REML: \n")
   cat("MC information: \n")
-  print(MC_inf)
+  print(MC_inf_REML)
   cat("Analytical information: \n")
-  print(as.matrix(AN_inf))
+  print(as.matrix(AN_inf_REML))
+
+  cat("FOR LL: \n")
+  cat("MC information: \n")
+  print(MC_inf_LL)
+  cat("Analytical information: \n")
+  print(as.matrix(AN_inf_LL))
 }
 
 test_mc_sigma_crossed(psi_test = c(1, 1, 0))
