@@ -22,6 +22,7 @@
 #'
 #' @import Matrix
 #' @export
+#' @useDynLib limestest, .registration=TRUE
 loglik_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, loglik = TRUE,
                        score = TRUE, finf = TRUE)
 {

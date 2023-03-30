@@ -134,4 +134,5 @@ test_crossed_data <- function(psi_test = c(1, 1, 0)){
       max(abs(numerical_score - analytical_score) / numerical_score), "\n")
 }
 cat("Test on simulated crossed random effects data: \n")
+
 test_crossed_data()

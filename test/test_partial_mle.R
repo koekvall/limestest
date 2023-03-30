@@ -13,7 +13,7 @@ Y <- getME(fit, "y")
 H1 <- Matrix::kronecker(Matrix::Diagonal(300), matrix(c(1, 0, 0, 0), 2, 2))
 # H2 <- Matrix::kronecker(Matrix::Diagonal(300), matrix(c(0, 1, 1, 0), 2, 2))
 H3 <- Matrix::kronecker(Matrix::Diagonal(300), matrix(c(0, 0, 0, 1), 2, 2))
-H <- cbind(H1, H3)
+H <- as(cbind(H1, H3), "sparseMatrix")
 VC <- as.data.frame(VarCorr(fit))
 Psi_hat <- Matrix::kronecker(Matrix::Diagonal(300), diag(VC[1:2, 4], 2))
 psi0_hat <- attr(VarCorr(fit), "sc")^2
@@ -28,13 +28,13 @@ YtZ <- Matrix::crossprod(Y, Z)
 
 
 loglik_test <- function(x){
-  if(any(x <= 0)){
+  if(any(x < 0)){
     return(-Inf)
   }
   psi0_arg <- x[1]
   Psi1_arg <- matrix(c(x[2], 0, 0, x[3]), 2, 2)
   Psi0_arg <-  Matrix::kronecker(Matrix::Diagonal(300), Psi1_arg / psi0_arg)
-  res_ll(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0_arg, psi0_arg, lik = TRUE, score = FALSE,
+  limestest::res_ll(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0_arg, psi0_arg, lik = TRUE, score = FALSE,
          finf = FALSE)$ll
 }
 
@@ -42,7 +42,7 @@ score_test <- function(x){
   psi0_arg <- x[1]
   Psi1_arg <- matrix(c(x[2], 0, 0, x[3]), 2, 2)
   Psi0_arg <-  Matrix::kronecker(Matrix::Diagonal(300), Psi1_arg / psi0_arg)
-  res_ll(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0_arg, psi0_arg, lik = FALSE, score = TRUE,
+  limestest::res_ll(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0_arg, psi0_arg, lik = FALSE, score = TRUE,
          finf = FALSE)$score
 }
 
@@ -50,14 +50,17 @@ my_obj <- function(x){
 
     psi0_arg <- x[1]
     Psi1_arg <- matrix(c(x[2], 0, 0, x[3]), 2, 2)
-    Psi0_arg <-  Matrix::kronecker(Matrix::Diagonal(300), Psi1_arg / psi0_arg)
-    stuff <- res_ll(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0_arg, psi0_arg, lik = TRUE, score = TRUE,
+    Psi0_arg <-  as(Matrix::kronecker(Matrix::Diagonal(300), Psi1_arg / psi0_arg), "sparseMatrix")
+    stuff <- limestest::res_ll(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0_arg, psi0_arg, lik = TRUE, score = TRUE,
            finf = TRUE)
     return(list("value" = -stuff$ll, "gradient" = -stuff$score, "hessian" = as.matrix(stuff$finf)))
 
 }
 
 trust_fit <- trust(my_obj, psi_hat, 1, 100)
+optim_fit <- optim(par = psi_hat, fn = function(x)-loglik_test(x), gr = function(x)-score_test(x),
+                   lower = c(0, 0, 0), method = "L-BFGS-B")
 
 my_obj(trust_fit$argument)$value
+-my_obj(optim_fit$par)$value
 my_obj(psi_hat)$value
