@@ -310,14 +310,12 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, 
     A <- A - 2 * Matrix::crossprod(D, XtSi2Z) + Matrix::crossprod(XtSiZ, C %*% D)
 
     I_psi[-1, 1] <- 0.5 * colSums(matrix(Matrix::colSums(as.vector(A) * H), nrow = q))
-
-
     s_psi[-1] <- s_psi[-1] - 0.5 * colSums(matrix(Matrix::colSums(
       as.vector(E - Matrix::crossprod(XtSiZ, D)) * H), nrow = q))
 
-    H <- Matrix::crossprod(E, H)
     H2 <- Matrix::crossprod(XtSiZ, D %*% H) # Storage can be avoided by
-                                            # muliply in loop
+    # muliply in loop
+    H <- Matrix::crossprod(E, H) # = ZtSiZ %*% H
     for(ii in 1:r){
       idx1 <- ((ii - 1) * q + 1):(ii * q)
       for(jj in ii:r){

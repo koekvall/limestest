@@ -5,14 +5,14 @@ num_reps <- 1e3
 ################################################################################
 ## INDEPENDENT CLUSTERS ########################################################
 ################################################################################
-num_cluster <- 30
+num_cluster <- 40
 num_ind <- 5
 Z <- Matrix::bdiag(replicate(num_cluster, cbind(1, rnorm(num_ind)),
                              simplify = FALSE))
 X <- matrix(rnorm(nrow(Z) * 20), nrow = nrow(Z), ncol = 20)
 b <- runif(ncol(X))
-Psi1 <- matrix(c(1, 0, 0, 1), 2, 2)
-psi0 <- 0.5
+Psi1 <- matrix(c(0.1, 0, 0, 0.1), 2, 2)
+psi0 <- 1
 Psi <- Matrix::kronecker(Matrix::Diagonal(num_cluster), Psi1)
 Psi0 <- Matrix::kronecker(Matrix::Diagonal(num_cluster), Psi1 / psi0)
 H1 <- Matrix::kronecker(Matrix::Diagonal(num_cluster), matrix(c(1, 0, 0, 0), 2, 2))
@@ -88,7 +88,7 @@ Z <- as(cbind(Matrix::kronecker(Matrix::diag(1, nrow = m), matrix(1, m, 1)),
            Matrix::kronecker(matrix(1, m, 1), Matrix::diag(1, nrow = m))), "sparseMatrix")
 X <- cbind(1, matrix(rnorm(m^2), m^2, 1))
 b <- rep(0, ncol(X))
-Psi1 <- matrix(c(0, 0, 0, 1), 2, 2)
+Psi1 <- matrix(c(0.1, 0, 0, 0.1), 2, 2)
 psi0 <- 1
 Psi <- Matrix::kronecker(Psi1, Matrix::diag(1, m))
 Psi0 <- Matrix::kronecker(Psi1 / psi0, Matrix::diag(1, m))
