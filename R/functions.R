@@ -315,6 +315,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, 
 
     H2 <- Matrix::crossprod(XtSiZ, D %*% H) # Storage can be avoided by
     # muliply in loop
+    # Has to come after H2 since H is overwritten
     H <- Matrix::crossprod(E, H) # = ZtSiZ %*% H
     for(ii in 1:r){
       idx1 <- ((ii - 1) * q + 1):(ii * q)
