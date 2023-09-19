@@ -85,7 +85,7 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, loglik = TRUE,
     # recycling, where * denotes elementwise multiplication
     # The "if" is because the calculation is a byproduct of a more expensive one
     # (B %*% H) done to get Fisher information
-    H <- as.matrix(H) * a.vector(B)
+    H <- as.matrix(H) * as.vector(B)
 
     s_psi[-1] <- s_psi[-1] + (0.5 / psi0) * colSums(matrix(Matrix::colSums(H), nrow = q))
   } else{
@@ -115,17 +115,16 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, loglik = TRUE,
                             (A[, 1:q] + Matrix::Diagonal(q, 1)) %*% A[, q + p + 1]))
       I_psi[1, 1] <- I_psi[1, 1] + sum(e * u)
 
-      v <- Matrix::crossprod(Z, u) # = Z' Sigma^{-2}e
+      v <- as.vector(Matrix::crossprod(Z, u)) # = Z' Sigma^{-2}e
       I_psi[1, -1] <- I_psi[1, -1] + colSums(matrix(v * w, ncol = r))
 
-      w <- v * w
       for(ii in 1:r){
         first_idx <- ((ii - 1) * q + 1):(ii * q)
         for(jj in ii:r){
           second_idx <- ((jj - 1) * q + 1):(jj * q)
           I_psi[ii + 1, jj + 1] <- I_psi[ii + 1, jj + 1] - (1 / psi0) * sum(crossprod(w[first_idx], B) * w[second_idx])
         }
-    }
+      }
     }
   }
   I_psi <- Matrix::forceSymmetric(I_psi, uplo = "U")
