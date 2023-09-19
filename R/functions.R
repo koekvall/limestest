@@ -14,6 +14,8 @@
 #' @param loglik If \code{TRUE} (default), the log-likelihood will be calculated.
 #' @param score If \code{TRUE} (default), the score vector will be calculated.
 #' @param finf If \code{TRUE} (default), the Fisher information matrix will be calculated.
+#' @param expected If \code{TRUE} (detault), return expected information;
+#' otherwise observed.
 #'
 #' @return A list with components:
 #' \item{ll}{The log-likelihood.}
@@ -24,7 +26,7 @@
 #' @export
 #' @useDynLib limestest, .registration=TRUE
 loglik_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, loglik = TRUE,
-                       score = TRUE, finf = TRUE)
+                       score = TRUE, finf = TRUE, expected = TRUE)
 {
   # Define dimensions
   n <- length(e)
@@ -56,7 +58,7 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, loglik = TRUE,
 
   # Score for error variance psi_0
   # NB: REPLACE e by Sigma^{-1}e
-  if(loglik){
+  if(loglik | (finf & !expected)){
    e_save <- e
   }
   e <- (1 / psi0) * (e - Z %*% A[, q + p + 1]) # = Sigma^{-1}e
@@ -70,7 +72,8 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, loglik = TRUE,
 
   # Use recycling to compute v'H_i v for all Hi
   v <- as(Matrix::crossprod(Z, e), "sparseVector") # sparse matrix does not recycle
-  s_psi[-1] <- 0.5 * colSums(matrix(as.vector(Matrix::crossprod(v, H) * v), nrow = q))
+  w <- Matrix::crossprod(v, H) # Used later if !expected
+  s_psi[-1] <- 0.5 * colSums(matrix(as.vector(w * v), nrow = q))
 
   # B = Z'Z (M - I_q) in paper notation
   B <- A[, 1:q]
@@ -105,8 +108,26 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, loglik = TRUE,
         I_psi[ii + 1, jj + 1] <- (0.5 / psi0^2) * sum(Matrix::t(H[, second_idx]) * H[, first_idx])
       }
     }
-  }
+    if(!expected){
+      I_psi <- -I_psi
+      # u = Sigma^{-2}e. Some calculations could be saved from before
+      u <- (1 / psi0^2) * (e_save + Z %*% (-2 * A[, q + p + 1] +
+                            (A[, 1:q] + Matrix::Diagonal(q, 1)) %*% A[, q + p + 1]))
+      I_psi[1, 1] <- I_psi[1, 1] + sum(e * u)
 
+      v <- Matrix::crossprod(Z, u) # = Z' Sigma^{-2}e
+      I_psi[1, -1] <- I_psi[1, -1] + colSums(matrix(v * w, ncol = r))
+
+      w <- v * w
+      for(ii in 1:r){
+        first_idx <- ((ii - 1) * q + 1):(ii * q)
+        for(jj in ii:r){
+          second_idx <- ((jj - 1) * q + 1):(jj * q)
+          I_psi[ii + 1, jj + 1] <- I_psi[ii + 1, jj + 1] - (1 / psi0) * sum(crossprod(w[first_idx], B) * w[second_idx])
+        }
+    }
+    }
+  }
   I_psi <- Matrix::forceSymmetric(I_psi, uplo = "U")
   return(list("ll" = ll,  "score" = s_psi, "finf" = I_psi))
 }
