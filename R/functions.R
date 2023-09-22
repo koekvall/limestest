@@ -49,8 +49,8 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, loglik = TRUE,
 
   # Add loglik term before overwriting
   if(loglik){
-    ll <- Matrix::determinant(A[, 1:q] + Matrix::diag(q))$modulus +
-      n * log(psi0)
+    ll <- -0.5 * Matrix::determinant(A[, 1:q] + Matrix::Diagonal(q))$modulus -
+      0.5 * n * log(psi0)
   }
 
   # Matrix denoted M in manuscript is A[, 1:q]
@@ -63,7 +63,7 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, loglik = TRUE,
   }
   e <- (1 / psi0) * (e - Z %*% A[, q + p + 1]) # = Sigma^{-1}e
   if(loglik){
-    ll <- -0.5 * (ll + sum(e * e_save))
+    ll <- ll  - 0.5 * sum(e * e_save)
   }
 
   trace_M <- sum(Matrix::diag(A[, 1:q]))
