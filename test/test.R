@@ -2,6 +2,7 @@ library(lme4)
 library(Matrix)
 library(limestest)
 library(rstiefel)
+library(merDeriv)
 data(fev1)
 fit <- lmer(exp(logfev1) ~ age + ht + baseage + baseht + (age|id),
             data = fev1, REML = FALSE)
@@ -40,25 +41,33 @@ numerical_score <- numDeriv::grad(loglik_test, c(psi0_test, Psi_test[1, 1],
 analytical_score <- loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
                               Psi0 = Psi_test / psi0_test, psi0 = psi0_test, loglik = F,
                               score = T, finf = F)$score
+mer_score <- colSums(merDeriv::estfun.lmerMod(fit))[c(9, 6:8)]
 
 numerical_hess <- numDeriv::hessian(loglik_test, c(psi0_hat, Psi_test[1, 1],
                                                 Psi_test[2, 1], Psi_test[2, 2]))
 analytical_hess <- -loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
                                  Psi0 = Psi_test/psi0_test, psi0 = psi0_test, loglik = F,
                                  score = T, finf = T, expected = F)$finf
+mer_hess <- -solve(merDeriv::vcov.lmerMod(object = fit, full = TRUE, expected = FALSE)[6:9, 6:9])[c(4, 1:3), c(4, 1:3)]
 
 cat("The max absolute difference between numerical and analytical score at MLE is: ",
     max(abs(numerical_score - analytical_score)), "\n")
 cat("The max relative difference between numerical and analytical score at MLE is: ",
     max(abs(numerical_score - analytical_score) / numerical_score), "\n")
-
+cat("The max absolute difference between merDeriv and analytical score at MLE is: ",
+    max(abs(mer_score - analytical_score)), "\n")
+cat("The max relative difference between merDeriv and analytical score at MLE is: ",
+    max(abs(mer_score - analytical_score) / mer_score), "\n")
 
 
 cat("The max absolute difference between numerical and analytical Hessian at MLE is: ",
     max(abs(numerical_hess - analytical_hess)), "\n")
 cat("The max relative difference between numerical and analytical Hessian at MLE is: ",
     max(abs(numerical_hess - analytical_hess) / numerical_hess), "\n")
-
+cat("The max absolute difference between merDeriv and analytical Hessian at MLE is: ",
+    max(abs(mer_hess - analytical_hess)), "\n")
+cat("The max relative difference between merDeriv and analytical Hessian at MLE is: ",
+    max(abs(mer_hess - analytical_hess) / mer_hess), "\n")
 
 # Test derivatives at random point
 psi0_test <- runif(1, min = psi0_hat / 10, psi0_hat * 10)
