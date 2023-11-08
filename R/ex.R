@@ -41,19 +41,20 @@ sourceCpp("./src/try.cpp")
 source("./R/try.R")
 
 l <- loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
-           Psi0 = Psi_test / psi0_test, psi0 = psi0_test, loglik = T,
-           score = T, finf = T, expected=F)
+                Psi0 = Psi_test / psi0_test, psi0 = psi0_test, loglik = T,
+                score = T, finf = T, expected=T)
 
-lr <- loglik_psiRcpp(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+lr <- loglik_psiRcpp(Z = Z, #ZtZXe = ZtZXe,
+                     e = e, H = H,
                      Psi0 = Psi_test / psi0_test, psi0 = psi0_test, loglik = T,
-                     score = T, finf = T, expected=F)
-#resll
+                     score = T, finf = T, expected=T)
+#res_ll
+# check I(1:r,1:r) in finf=T
 l <- res_ll(XtX = crossprod(X), XtY = crossprod(X,y),XtZ = crossprod(X,Z),ZtZ = crossprod(Z),YtZ = crossprod(y,Z),
             Y=y, X=X, Z = Z, H = H, Psi0 = Psi_test / psi0_test, psi0 = psi0_test, lik = T,
-                score = F, finf = T)
+            score = T, finf = T)
 
 lr <- res_llRcpp(X=X, Y=y, Z = Z, H = H,
-                     Psi0 = Psi_test / psi0_test, psi0 = psi0_test, lik = T,
-                     score = F, finf = T)
-
+                 Psi0 = Psi_test / psi0_test, psi0 = psi0_test, lik = T,
+                 score = T, finf = T)
 
