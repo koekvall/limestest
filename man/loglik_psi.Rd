@@ -13,7 +13,8 @@ loglik_psi(
   psi0,
   loglik = TRUE,
   score = TRUE,
-  finf = TRUE
+  finf = TRUE,
+  expected = TRUE
 )
 }
 \arguments{
@@ -36,6 +37,9 @@ variance psi0, with dimensions q by q.}
 \item{score}{If \code{TRUE} (default), the score vector will be calculated.}
 
 \item{finf}{If \code{TRUE} (default), the Fisher information matrix will be calculated.}
+
+\item{expected}{If \code{TRUE} (detault), return expected information;
+otherwise observed.}
 }
 \value{
 A list with components:

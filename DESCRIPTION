@@ -13,5 +13,5 @@ RoxygenNote: 7.2.3
 Depends: 
     R (>= 2.10)
 LazyData: true
-Imports: Rcpp (>= 1.0.10), RcppEigen
+Imports: Rcpp (>= 1.0.10), RcppEigen, Matrix
 LinkingTo: Rcpp, RcppEigen

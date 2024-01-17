@@ -37,24 +37,41 @@ Psi1_test <- Psi_hat[1:2, 1:2]
 Psi_test <-  Matrix::kronecker(Matrix::Diagonal(300), Psi1_test)
 
 library(Rcpp)
-sourceCpp("./src/try.cpp")
-source("./R/try.R")
+sourceCpp("./src/functions_cpp.cpp")
+source("./R/functions.R")
 
-l <- loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
-                Psi0 = Psi_test / psi0_test, psi0 = psi0_test, loglik = T,
-                score = T, finf = T, expected=T)
+starttime <- Sys.time()
+for (i in 1:100) {
+  l <- loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+                  Psi0 = Psi_test / psi0_test, psi0 = psi0_test, loglik = T,
+                  finf = T, expected=T)
+}
+Sys.time()- starttime # 1.69 s
 
+starttime <- Sys.time()
+for (i in 1:100) {
 lr <- loglik_psiRcpp(Z = Z, #ZtZXe = ZtZXe,
                      e = e, H = H,
                      Psi0 = Psi_test / psi0_test, psi0 = psi0_test, loglik = T,
-                     score = T, finf = T, expected=T)
+                     finf = T, expected=T)
+}
+Sys.time()- starttime # 0.56 s
 #res_ll
 # check I(1:r,1:r) in finf=T
-l <- res_ll(XtX = crossprod(X), XtY = crossprod(X,y),XtZ = crossprod(X,Z),ZtZ = crossprod(Z),YtZ = crossprod(y,Z),
-            Y=y, X=X, Z = Z, H = H, Psi0 = Psi_test / psi0_test, psi0 = psi0_test, lik = T,
-            score = T, finf = T)
+starttime <- Sys.time()
+for (i in 1:100) {
+  l <- res_ll(XtX = crossprod(X), XtY = crossprod(X,y),XtZ = crossprod(X,Z),ZtZ = crossprod(Z),YtZ = crossprod(y,Z),
+              Y=y, X=X, Z = Z, H = H, Psi0 = Psi_test / psi0_test, psi0 = psi0_test, lik = T,
+              score = T, finf = F)
+}
+Sys.time()- starttime # 11.02915 secs
+starttime <- Sys.time()
+for (i in 1:100) {
+  lr <- res_llRcpp(X=X, Y=y, Z = Z, H = H,
+                   Psi0 = Psi_test / psi0_test, psi0 = psi0_test, lik = T,
+                   score = T, finf = F)
+}
+Sys.time()- starttime # 1.423625 secs
 
-lr <- res_llRcpp(X=X, Y=y, Z = Z, H = H,
-                 Psi0 = Psi_test / psi0_test, psi0 = psi0_test, lik = T,
-                 score = T, finf = T)
+
 

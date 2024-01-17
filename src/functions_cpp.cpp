@@ -1,6 +1,8 @@
-#include <Rcpp.h>
-using namespace Rcpp;
 #include <RcppEigen.h>
+#include <Rcpp.h>
+// [[Rcpp::depends(RcppEigen)]]
+
+using namespace Rcpp;
 
 
 // [[Rcpp::export]]
@@ -55,22 +57,23 @@ List loglik_psiRcpp(Eigen::MappedSparseMatrix<double> Z,
   A = solver.solve(A).eval();
   Ae = solver.solve(Ae).eval();
 
-  Eigen::VectorXd e_save(n) ;
-  if(loglik | (finf & !expected)){
-    e_save = e;
-  }
-  e = (1.0 / psi0) * (e - Z * Ae).eval(); // = Sigma^{-1}e
+  // Eigen::VectorXd e_save(n);
+  // if(loglik | (finf & !expected)){
+  //   e_save = e;
+  // }
+  // update e would cause loglik_psiRcpp return different values each time, not sure why... declare a new variable enew instead
+  Eigen::VectorXd enew = (1.0 / psi0) * (e - Z * Ae).eval(); // = Sigma^{-1}e
   if (loglik) {
-    ll = ll - 0.5 * e.dot(e_save);
+    ll = ll - 0.5 * enew.dot(e);
   }
 
   // find trace of M
   double trace_M = A.diagonal().sum();
 
-  s_psi(0) = 0.5 * e.dot(e) - (0.5 / psi0) * (n - trace_M);
+  s_psi(0) = 0.5 * enew.dot(enew) - (0.5 / psi0) * (n - trace_M);
 
   // v is Z'Sigma^{-1}e, w is e'Sigma^{-1}Z[H1...Hr]
-  Eigen::SparseMatrix<double> v = (Z.transpose() * e).sparseView(); // v is not sparse in the example
+  Eigen::SparseMatrix<double> v = (Z.transpose() * enew).sparseView(); // v is not sparse in the example
   Eigen::SparseMatrix<double> w = v.transpose() * H;
 
   for (int i = 1; i <= r; i++) {
@@ -109,8 +112,8 @@ List loglik_psiRcpp(Eigen::MappedSparseMatrix<double> Z,
     if (!expected) {
       I_psi = -I_psi.eval();
       // u = Sigma^{-2}e. Some calculations could be saved from before
-      Eigen::VectorXd u = (1.0 / (psi0 * psi0)) * (e_save + Z * (-2 * Ae + (A + Eigen::MatrixXd::Identity(q,q).sparseView()) * Ae));
-      I_psi(0, 0) += e.dot(u);
+      Eigen::VectorXd u = (1.0 / (psi0 * psi0)) * (e + Z * (-2 * Ae + (A + Eigen::MatrixXd::Identity(q,q).sparseView()) * Ae));
+      I_psi(0, 0) += enew.dot(u);
       Eigen::VectorXd Zu = (Z.transpose() * u);
 
       for (int i = 1; i <= r; i++) {
@@ -119,9 +122,10 @@ List loglik_psiRcpp(Eigen::MappedSparseMatrix<double> Z,
         I_psi(i, 0) += temp(0,0);
         for (int j = i; j <= r; j++) {
           I_psi(i, j) -= (1 / psi0) * (w.middleCols((i-1)*q,q) * B).cwiseProduct(w.middleCols((j-1)*q,q)).sum();
-          if (i != j) {
-            I_psi(j, i) -= (1 / psi0) * (w.middleCols((i-1)*q,q) * B).cwiseProduct(w.middleCols((j-1)*q,q)).sum();
-          }
+          I_psi(j, i) = I_psi(i, j);
+          // if (i != j) {
+          //   I_psi(j, i) -= (1 / psi0) * (w.middleCols((i-1)*q,q) * B).cwiseProduct(w.middleCols((j-1)*q,q)).sum();
+          // }
         }
       }
     }
@@ -159,17 +163,16 @@ List res_llRcpp(Eigen::Map<Eigen::MatrixXd> X,
   Eigen::MatrixXd XtX = X.transpose() * X;
   Eigen::VectorXd ZtY = Z.transpose() * Y;
 
-  // Pre-compute A = (I_q + Psi0 Z'Z)^{-1} Psi0
-  Eigen::SparseMatrix<double> A = Psi0 * ZtZ + Eigen::MatrixXd::Identity(q,q).sparseView();
+  // Pre-compute (I_q + Psi0 Z'Z)^{-1} Psi0
   // solver for Psi0ZtZ + I_q
   Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
-  solver.compute(A);
+  solver.compute(Psi0 * ZtZ + Eigen::MatrixXd::Identity(q,q).sparseView());
 
   if (lik) {
     ll = solver.logAbsDeterminant();
   }
 
-  A = solver.solve(Psi0);
+  Eigen::SparseMatrix<double> A = solver.solve(Psi0);
   Eigen::MatrixXd B = XtZ * A;
 
   //Create XtSiX
@@ -188,20 +191,19 @@ List res_llRcpp(Eigen::Map<Eigen::MatrixXd> X,
       Named("I_b_inv_chol") = Eigen::MatrixXd::Constant(p, p, NA_REAL));
   }
 
-  // Create XtSiY for use in beta_tilde
-  Eigen::VectorXd beta_tilde = (1.0 / psi0) * (X.transpose()*Y - XtZ * (A * ZtY));
+  // Create XtSiY
   // (1/ psi0) * (XtY - XtZ %*% Matrix::tcrossprod(A, YtZ))
-  beta_tilde = llt.solve(beta_tilde);
+  Eigen::VectorXd beta_tilde = llt.solve((1.0 / psi0) * (X.transpose()*Y - XtZ * (A * ZtY)));
 
-  // Replace Y by residuals
-  Y = (Y - X * beta_tilde).eval();
+  // e is residuals, again directly changing y would cause result to be different each time running the function
+  Eigen::VectorXd e = Y - X * beta_tilde;
 
   // n x 1 vector for storing \Sigma^{-1}e
-  Eigen::VectorXd a = (1.0 / psi0) * (Y - Z * (A * ZtY));
+  Eigen::VectorXd a = (1.0 / psi0) * (e - Z * (A * (Z.transpose() * e)));
 
   if (lik) {
     ll += 2 * log(llt.matrixL().determinant());
-    ll += Y.dot(a) + n * log(2 * M_PI * psi0);
+    ll += e.dot(a) + n * log(2 * M_PI * psi0);
     ll *= -0.5;
   }
 
