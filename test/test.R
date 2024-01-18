@@ -149,7 +149,7 @@ cat("The max relative difference between numerical and analytical Hessian at ran
 test.R <- loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
                     Psi0 = Psi_test / psi0_test, psi0 = psi0_test, loglik = T,
                     score = T, finf = T, expected = F)
-test.Rcpp <- loglik_psiRcpp(Z = Z, e = e, H = H,
+test.Rcpp <- limestest:::loglik_psiRcpp(Z = Z, e = e, H = H,
                      Psi0 = Psi_test / psi0_test, psi0 = psi0_test, loglik = T,
                      score = T, finf = T, expected = F)
 
@@ -158,7 +158,7 @@ restest.R <- res_ll(XtX = crossprod(X), XtY = crossprod(X,y), XtZ = crossprod(X,
                     Y=y, X=X, Z = Z, H = H, Psi0 = Psi_test / psi0_test, psi0 = psi0_test, lik = T,
                     score = T, finf = T)
 
-restest.Rcpp <- res_llRcpp(X=X, Y=y, Z=Z, H = H,
+restest.Rcpp <- limestest:::res_llRcpp(X=X, Y=y, Z=Z, H = H,
                             Psi0 = Psi_test / psi0_test, psi0 = psi0_test, lik = T,
                             score = T, finf = T)
 

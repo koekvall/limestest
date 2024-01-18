@@ -71,8 +71,9 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, loglik = TRUE,
 
 
   # Use recycling to compute v'H_i v for all Hi
-  v <- as(Matrix::crossprod(Z, e), "sparseVector") # sparse matrix does not recycle
-  w <- Matrix::crossprod(v, H) # Used later if !expected
+  v <- as.vector(Matrix::crossprod(Z, e)) # sparse matrix does not recycle
+  w <- as.vector(Matrix::crossprod(v, H)) # Used later if !expected
+
   s_psi[-1] <- 0.5 * colSums(matrix(as.vector(w * v), nrow = q))
 
   # B = Z'Z (M - I_q) in paper notation
