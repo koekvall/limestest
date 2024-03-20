@@ -71,8 +71,8 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, loglik = TRUE,
 
 
   # Use recycling to compute v'H_i v for all Hi
-  v <- as(Matrix::crossprod(Z, e), "sparseVector") # sparse matrix does not recycle
-  w <- Matrix::crossprod(v, H) # Used later if !expected
+  v <- as.vector(Matrix::crossprod(Z, e)) # sparse matrix does not recycle
+  w <- as.vector(Matrix::crossprod(v, H)) # Used later if !expected
   s_psi[-1] <- 0.5 * colSums(matrix(as.vector(w * v), nrow = q))
 
   # B = Z'Z (M - I_q) in paper notation
@@ -367,4 +367,58 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, 
   }
   return(list("ll" = ll[1], "score" = s_psi, "finf" = I_psi, "beta" = beta_tilde,
               "I_b_inv_chol" = U))
+}
+
+
+
+
+# test to CI? support set is R+? grid is not possible?
+
+confint_recov <- function(object, reml = T, rangedef = c(-100,100), ngrid = 200) { # test on ?
+  X <- getME(object, "X")
+  Z <- getME(object, "Z")
+  y <- getME(object, "y")
+
+  covInfo <- covInfo(object)
+  H <- covInfo$H
+  inits <- covInfo$estimates
+  grid <- seq(rangedef[1], rangedef[2], length.out = ngrid)
+
+  if (reml) {
+    XtX <- crossprod(X)
+    XtY <- crossprod(X,y)
+    XtZ <- crossprod(X,Z)
+    ZtZ <- crossprod(Z)
+    YtZ <- crossprod(y,Z)
+    for (i in 2:length(inits)) { # number of pars, first is psi0; to make CI range of psi is R?
+      #par <- inits[i]
+      order.par <- i-1
+      for (g in grid) {
+        #par <- g
+        Psilist <- res_est(XtX, XtY, XtZ, ZtZ, YtZ, y, X, Z, H, psi1 = g, order.par = order.par, inits = inits[-(order.par+1)])
+        loglik <- res_ll(XtX, XtY, XtZ, ZtZ, YtZ, y, X, Z, H, Psi0 = Psilist$Psi0, psi0 = Psilist$psi0,
+                         lik = TRUE, score = TRUE, finf = TRUE)
+        finv <- Matrix::solve(loglik$finf)[2,2]
+        test <- loglik$score[2]^2 * finv
+      }
+    }
+
+
+  } else { # ordinary mle
+    beta_hat <- fixef(object)
+    e <- y - X %*% beta_hat
+    ZtZXe <- Matrix::crossprod(Z, cbind(Z, X, e))
+
+    for (i in 2:length(inits)) { # number of pars, first is psi0
+      order.par <- i-1
+      for (g in grid) {
+        Psilist <- est_par(Z, ZtZXe, e, H, par, order.par = order.par, inits = inits)
+        loglik <- loglik_psi(Z, ZtZXe, e, H, Psilist$Psi0, Psilist$psi0, loglik = TRUE,
+                             score = TRUE, finf = TRUE, expected = TRUE)
+        finv <- Matrix::solve(loglik$finf)[2,2]
+        test <- loglik$score[2]^2 * finv
+      }
+    }
+
+  }
 }
