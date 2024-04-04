@@ -25,7 +25,7 @@ est_par <- function(Z, ZtZXe, e, H, par.test, order.par, inits = NULL, position 
       if (position$row[rinds[i]] != position$col[rinds[i]]) {
         inits[i+1] = 0
       } else if (position$row[rinds[i]] == position$row[order.par] | position$row[rinds[i]] == position$col[order.par]) {
-        # nui is var related to par.test, set starting point to be 2*abs(par.test)
+        # nui is variance related to par.test, set starting point to be 2*abs(par.test)
         inits[i+1] = 2 * abs(par.test)
       }
     }
@@ -214,7 +214,7 @@ res_est <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, par.test, order.par, in
       if (position$row[rinds[i]] != position$col[rinds[i]]) {
         inits[i+1] = 0
       } else if (position$row[rinds[i]] == position$row[order.par] | position$row[rinds[i]] == position$col[order.par]) {
-        # nui is var related to par.test, set starting point to be 2*abs(par.test)
+        # nui is variance related to par.test, set starting point to be 2*abs(par.test)
         inits[i+1] = 2 * abs(par.test)
       }
     }
@@ -440,7 +440,7 @@ confint_recov <- function(object, reml = T, ngrid = 200, conf.level = 0.95, grid
       inits <- covinfo$estimates
       print(paste("range for", i-1, "is..", inits[i]-qnorm(grid.conf)*sds[i], ",", inits[i]+qnorm(grid.conf)*sds[i]))
       #grid <- seq(inits[i]-qnorm(grid.conf)*sds[i], inits[i]+qnorm(grid.conf)*sds[i], length.out = ngrid)
-      grid <- seq(0, inits[i]+qnorm(grid.conf)*sds[i], length.out = ngrid)
+      grid <- seq(min(0,inits[i]-qnorm(grid.conf)*sds[i]), max(0,inits[i]+qnorm(grid.conf)*sds[i]), length.out = ngrid)
       for (j in  1:ngrid) {
         print(paste("grid", grid[j], "begin......"))
         # find reml Psi for each grid
