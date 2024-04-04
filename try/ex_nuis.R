@@ -18,7 +18,7 @@ Lambda <- getME(fit, "Lambda")
 psi0_hat <- getME(fit, "sigma")
 Psi_hat <- psi0_hat^2 * tcrossprod(Lambda)
 
-getME(fit, "GP") # groups pointer vector
+getME(fit, "gp") # groups pointer vector
 
 
 psi0_test <- attr(VarCorr(fit), "sc")^2
@@ -108,14 +108,47 @@ Orthodont$nsex <- as.numeric(Orthodont$Sex=="Male")
 Orthodont$nsexage <- with(Orthodont, nsex*age)
 fit3 <- lmer(distance ~ age + (age|Subject) + (0+nsex|Subject)+(0 + nsexage|Subject) , data=Orthodont) #
 
-par <- 5
+
+covInfo(fit)$estimates
+tcrossprod(getME(fit, "Tlist")[[1]])# * getME(fit, "sigma")^2
+#as.matrix(Matrix::bdiag(VarCorr(fit)))
 
 
-score <- scoretest_par(object = fit3, par = par, order.par = 1, reml = F)
+# ## find sds
+# #1
+# fitFun <- update(fit,devFunOnly=TRUE)
+# library(numDeriv)
+# fit_thpar <- getME(fit,"theta")
+# h <- hessian(fitFun, fit_thpar)
+# #g <- grad(fitFun, fit_thpar)
+# library(MASS)
+# sqrt(diag(ginv(h)))
+#
+# #2
+# library(merDeriv)
+# sqrt(diag(vcov(fit, full = TRUE)))
+# vv <- vcov(fit, full = TRUE)
+# colnames(vv)
+# sqrt(diag(vv)[grepl("^cov", colnames(vv))])
+#
+# #3
+# dd.ML <- lme4:::devfun2(fit,useSc=TRUE,signames=FALSE)
+# vv <- as.data.frame(VarCorr(fit)) ## need ML estimates!
+# pars <- vv[,"sdcor"]
+# library("numDeriv")
+# hh1 <- hessian(dd.ML,pars)
+# vv2 <- 2*solve(hh1)  ## 2* converts from log-likelihood to deviance scale
+# sqrt(diag(vv2))
+
+
+# when testing var, off-diag force to zero to get a starting point in trust; when testing cov, other off-diag to zero, var to 2|cov|
+par <-   5 # 0.06
+score <- scoretest_par(object = fit, par.test = par, order.par = 1, reml = T)
 score
 
-
-
+start <- Sys.time()
+confint_recov(fit, ngrid = 10,reml=T)
+difftime(Sys.time(), start) # ngrid=10,3.212237 mins for ml, 41 sec for reml
 
 # ###########
 # # previous construct H
