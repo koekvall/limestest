@@ -5,6 +5,15 @@
 using namespace Rcpp;
 
 
+//' get_PsiRcpp
+//'
+//' Constructs the covariance matrix from the covariance parameters
+//' This function is implemented in C++ and is faster than the equivalent function \code{get_Psi}
+//'
+//' @param psi1 Covariance parameter vector
+//' @param H Matrix of derivatives of Psi with respect to elements of psi.
+//'        Assumes H = [H_1, ... , H_r], where H_j is q by q.
+//' @return The covariance matrix Psi
 // [[Rcpp::export]]
 Eigen::SparseMatrix<double> get_PsiRcpp(Eigen::Map<Eigen::VectorXd> psi, Eigen::MappedSparseMatrix<double> H) { //
   int q = H.rows();
@@ -16,7 +25,32 @@ Eigen::SparseMatrix<double> get_PsiRcpp(Eigen::Map<Eigen::VectorXd> psi, Eigen::
   return Psi;
 }
 
-
+//' loglik_psiRcpp
+//'
+//' Calculates the log-likelihood, score vector and Fisher information matrix
+//' for the variance parameter vector \code{psi} in a linear mixed effects model.
+//' This function is implemented in C++ and is faster than the equivalent function \code{loglik_psi}
+//'
+//' @param Z A matrix of fixed effects.
+//' @param e The residual vector.
+//' @param H Matrix of derivatives of Psi with respect to elements of psi.
+//'        Assumes H = [H_1, ... , H_r], where H_j is q by q.
+//' @param Psi0 Coavariance matrix of random effects (Psi) divided by error
+//'        variance psi0, with dimensions q by q.
+//' @param psi0 The error variance
+//' @param loglik If \code{TRUE} (default), the log-likelihood will be calculated.
+//' @param score If \code{TRUE} (default), the score vector will be calculated.
+//' @param finf If \code{TRUE} (default), the Fisher information matrix will be calculated.
+//' @param expected If \code{TRUE} (detault), return expected information;
+//'        otherwise observed.
+//'
+//' @return A list with components:
+//' \item{ll}{The log-likelihood.}
+//' \item{score}{The score vector.}
+//' \item{finf}{The Fisher information matrix.}
+//'
+//' @import Matrix
+//' @useDynLib limestest, .registration=TRUE
 // [[Rcpp::export]]
 List loglik_psiRcpp(Eigen::MappedSparseMatrix<double> Z,
                     Eigen::Map<Eigen::VectorXd> e,
@@ -134,7 +168,34 @@ List loglik_psiRcpp(Eigen::MappedSparseMatrix<double> Z,
 }
 
 
-
+//' Compute Restricted Likelihood, Score and Information
+//'
+//' Computes the restricted (residual) likelihood, score, and information matrix
+//' for the variance parameter \code{psi} a linear mixed effects model
+//'
+//' @param X An n x p matrix of the design matrix of fixed effects.
+//' @param Y An n x 1 vector of the response variable.
+//' @param Z An n x q matrix of the design matrix of random effects.
+//' @param H A q x rq matrix, where H = [H_1, ..., H_r], with H_j being the
+//' derivative of Psi with respect to psi_j
+//' @param Psi0 The covariance matrix of the random effects (Psi) divided by the
+//' error variance (psi0)
+//' @param psi0 A scalar value of the error variance.
+//' @param lik If \code{TRUE} (default), the log-likelihood will be computed.
+//' @param score If \code{TRUE} (default), the score vector will be computed.
+//' @param finf If \code{TRUE} (default), the Fisher information matrix will be
+//' computed.
+//'
+//' @return A list with elements:
+//' \describe{
+//' \item{ll}{A scalar value of the restricted log-likelihood.}
+//' \item{score}{A (r + 1) x 1 vector of the restricted score of the variance parameters.}
+//' \item{finf}{A (r + 1) x (r + 1) matrix of the restricted  information of the
+//' variance parameters.}
+//' \item{beta}{}
+//' \item{I_b_inv_chol}{}
+//' }
+//' @import Matrix
 // [[Rcpp::export]]
 List res_llRcpp(Eigen::Map<Eigen::MatrixXd> X,
                 Eigen::Map<Eigen::VectorXd> Y,

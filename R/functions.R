@@ -264,7 +264,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, 
 
   # Create XtSiX
   U <- Matrix::forceSymmetric((1 / psi0) * (XtX - Matrix::tcrossprod(B, XtZ))) # p x p, now XtSiX
-  U <- try(Matrix::chol(U)) # replace XtSiZ by its Cholesky root
+  U <- try(Matrix::chol(U)) # replace XtSiX by its Cholesky root
   if(inherits(U,"try-error")){
      return(list("ll" = -Inf, "score" = s_psi, "finf" = I_psi, "beta" = rep(NA, p),
               "I_b_inv_chol" = matrix(NA, p, p)))
@@ -368,4 +368,152 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, 
   }
   return(list("ll" = ll[1], "score" = s_psi, "finf" = I_psi, "beta" = beta_tilde,
               "I_b_inv_chol" = U))
+}
+
+# function which takes input of an lme4 model object and returns the matrix H
+# A matrix of derivatives of Psi with respect to the elements of psi.
+# H = [H_1, ... , H_r], where H_j is q by q.
+# q is the dimension of the random effects vector U (Psi is qxq)
+# r is the dimension of psi (how many parameters there are parameterizing Psi)
+getH <- function(fit) {
+  # Getting what we need from the fit
+  mform <- formula(fit)
+  bars <- findbars(mform)
+  fr <- model.frame(subbars(mform), data = mc_data_frame)
+
+  # Code from the lme4 function mkReTrms to get the template version of the matrix Lambdat
+  drop.unused.levels = TRUE
+  reorder.terms = TRUE
+  reorder.vars = FALSE
+
+  names(bars) <- lme4:::barnames(bars)
+  term.names <- vapply(bars, deparse1, "")
+  # get component blocks
+  blist <- lapply(bars, lme4:::mkBlist, fr, drop.unused.levels,
+                  reorder.vars = reorder.vars)
+  nl <- vapply(blist, `[[`, 0L, "nl")   # no. of levels per term
+
+  # order terms stably by decreasing number of levels in the factor
+  if (reorder.terms) {
+    if (any(diff(nl) > 0)) {
+      ord <- rev(order(nl))
+      blist      <- blist     [ord]
+      nl         <- nl        [ord]
+      term.names <- term.names[ord]
+    }
+  }
+
+  ## Create and install Lambdat, Lind, etc.  This must be done after
+  ## any potential reordering of the terms.
+  cnms <- lapply(blist, `[[`, "cnms")   # list of column names of the
+  # model matrix per term
+  nc <- lengths(cnms)                   # no. of columns per term
+  # (in lmer jss:  p_i)
+  nth <- as.integer((nc * (nc+1))/2)    # no. of parameters per term
+  # (in lmer jss:  ??)
+  nb <- nc * nl                         # no. of random effects per term
+
+  boff <- cumsum(c(0L, nb))             # offsets into b
+  thoff <- cumsum(c(0L, nth))           # offsets into theta
+
+  # Lambdat with placeholder integers
+  Lambdat <-
+    t(do.call(sparseMatrix,
+              do.call(rbind,
+                      lapply(seq_along(blist), function(i)
+                      {
+                        mm <- matrix(seq_len(nb[i]), ncol = nc[i],
+                                     byrow = TRUE)
+                        dd <- diag(nc[i])
+                        ltri <- lower.tri(dd, diag = TRUE)
+                        ii <- row(dd)[ltri]
+                        jj <- col(dd)[ltri]
+                        ## unused: dd[cbind(ii, jj)] <- seq_along(ii)
+                        data.frame(i = as.vector(mm[, ii]) + boff[i],
+                                   j = as.vector(mm[, jj]) + boff[i],
+                                   x = as.double(rep.int(seq_along(ii),
+                                                         rep.int(nl[i], length(ii))) +
+                                                   thoff[i]))
+                      }))))
+
+  # Psi with placeholder integers
+  Psi <- t(Lambdat) %*% Lambdat
+
+  # unique values
+  unPsiVals <- unique(as.vector(Psi))
+  unPsiVals <- unPsiVals[unPsiVals != 0]
+
+  # construct the H matrix
+  H <- matrix(, nrow = nrow(Psi), ncol = 0)
+  for (val in unPsiVals) {
+    H <- cbind(H, 1*(Psi == val))
+  }
+  return(H)
+}
+
+
+# function which takes input of an lme4 model object, and null values of:
+# psi0, the variance of the elements of the error vector and
+# Psi, the covariance matrix of the random effects
+# The function returns values of the score statistics with and without use of
+# the restricted likelihood function.
+lmm_scorestat <- function(fit, psi0, Psi) {
+
+  # Dividing Psi by psi0 for use in the limestest functions
+  Psi0 <- Psi/psi0
+
+  # Obtaining the matrix H
+  H <- getH(fit)
+
+  # extract the rest of the design from the model
+  X <- getME(fit, "X")
+  y <- getME(fit, "y")
+  Z <- getME(fit, "Z")
+
+  # cross products
+  XtX <- crossprod(X)
+  ZtZ <- crossprod(Z)
+  XtZ <- crossprod(X, Z)
+  XtY <- crossprod(X, y)
+  YtZ <- crossprod(y, Z)
+
+  # residual log likelihood, score, and finf
+  stuff_REML <- limestest::res_ll(XtX = XtX,
+                                  XtY = XtY,
+                                  XtZ = XtZ,
+                                  ZtZ = ZtZ,
+                                  YtZ = YtZ,
+                                  Y = y,
+                                  X = X,
+                                  Z = Z,
+                                  H = H,
+                                  Psi0 = Psi0,
+                                  psi0 = psi0,
+                                  score = TRUE,
+                                  finf = TRUE,
+                                  lik = TRUE)
+
+  # calculate residuals
+  e <- y - X %*% stuff_REML$beta
+  # cross product w/ residuals
+  Zte <- crossprod(Z, e)
+
+  # log likelihood, score, and finf of psi at the null values
+  stuff <- limestest::loglik_psi(Z = Z,
+                                 ZtZXe = cbind(ZtZ, t(XtZ), Zte),
+                                 e = e,
+                                 H = H,
+                                 Psi0 = Psi0,
+                                 psi0 = psi0,
+                                 loglik = TRUE,
+                                 score = TRUE,
+                                 finf = TRUE)
+
+  # score statistics
+  test_stat <- as.vector(crossprod(stuff$score, solve(stuff$finf, stuff$score)))
+  test_stat_REML <- as.vector(crossprod(stuff_REML$score,
+                                        solve(stuff_REML$finf, stuff_REML$score)))
+
+  # return
+  return(c(test_stat, test_stat_REML))
 }
