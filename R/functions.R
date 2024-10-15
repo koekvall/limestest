@@ -483,8 +483,11 @@ getNullPsi <- function(fit, psiNull) {
 # Psi, the covariance matrix of the random effects
 # The function returns values of the score statistics with and without use of
 # the restricted likelihood function.
-lmm_scorestat <- function(fit, psi0, Psi) {
+lmm_scorestat <- function(fit, psiNull_error, psiNull_re) {
 
+  # Forming the matrix Psi from the vector of null values
+  Psi <- getNullPsi(fit, psiNull_re)
+  psi0 <- psiNull_error
   # Dividing Psi by psi0 for use in the limestest functions
   Psi0 <- Psi/psi0
 

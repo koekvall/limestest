@@ -68,8 +68,8 @@ loglik_psiRcpp <- function(Z, e, H, Psi0, psi0, loglik = TRUE, score = TRUE, fin
 #' \item{score}{A (r + 1) x 1 vector of the restricted score of the variance parameters.}
 #' \item{finf}{A (r + 1) x (r + 1) matrix of the restricted  information of the
 #' variance parameters.}
-#' \item{beta}{}
-#' \item{I_b_inv_chol}{}
+#' \item{beta}{Maximum likelihood estimate for the fixed effects parameter}
+#' \item{I_b_inv_chol}{Inverse of the Cholesky root of the information matrix for the fixed effects parameter beta}
 #' }
 #' @import Matrix
 res_llRcpp <- function(X, Y, Z, H, Psi0, psi0, lik = TRUE, score = FALSE, finf = FALSE) {
