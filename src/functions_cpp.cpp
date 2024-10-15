@@ -192,8 +192,8 @@ List loglik_psiRcpp(Eigen::MappedSparseMatrix<double> Z,
 //' \item{score}{A (r + 1) x 1 vector of the restricted score of the variance parameters.}
 //' \item{finf}{A (r + 1) x (r + 1) matrix of the restricted  information of the
 //' variance parameters.}
-//' \item{beta}{}
-//' \item{I_b_inv_chol}{}
+//' \item{beta}{Maximum likelihood estimate for the fixed effects parameter}
+//' \item{I_b_inv_chol}{Inverse of the Cholesky root of the information matrix for the fixed effects parameter beta}
 //' }
 //' @import Matrix
 // [[Rcpp::export]]

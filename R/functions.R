@@ -370,12 +370,10 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, 
               "I_b_inv_chol" = U))
 }
 
-# function which takes input of an lme4 model object and returns the matrix H
-# A matrix of derivatives of Psi with respect to the elements of psi.
-# H = [H_1, ... , H_r], where H_j is q by q.
-# q is the dimension of the random effects vector U (Psi is qxq)
-# r is the dimension of psi (how many parameters there are parameterizing Psi)
-getH <- function(fit) {
+# function which takes input of lme4 model object and returns the template structure
+# of the covariance matrix of the random effects Psi.
+# with a different integer in each unique element of the matrix
+getPsiStruct <- function(fit) {
   # Getting what we need from the fit
   mform <- formula(fit)
   bars <- findbars(mform)
@@ -438,7 +436,17 @@ getH <- function(fit) {
 
   # Psi with placeholder integers
   Psi <- t(Lambdat) %*% Lambdat
+  return(Psi)
+}
 
+# function which takes input of an lme4 model object and returns the matrix H
+# A matrix of derivatives of Psi with respect to the elements of psi.
+# H = [H_1, ... , H_r], where H_j is q by q.
+# q is the dimension of the random effects vector U (Psi is qxq)
+# r is the dimension of psi (how many parameters there are parameterizing Psi)
+getH <- function(fit) {
+  # get the structure of the Psi matrix
+  Psi <- getPsiStruct(fit)
   # unique values
   unPsiVals <- unique(as.vector(Psi))
   unPsiVals <- unPsiVals[unPsiVals != 0]
@@ -449,6 +457,24 @@ getH <- function(fit) {
     H <- cbind(H, 1*(Psi == val))
   }
   return(H)
+}
+
+# function takes input of a model object and null values for the covariance
+# parameters and returns the entire covariance matrix Psi under the null
+getNullPsi <- function(fit, psiNull) {
+  stopifnot("`psiNull` must have length equal to the number of covariance parameters
+            in the model object" = (length(psiNull) == getME(fit, m)))
+  # get the structure of the Psi matrix
+  Psi <- getPsiStruct(fit)
+  # unique values
+  unPsiVals <- unique(as.vector(Psi))
+  unPsiVals <- unPsiVals[unPsiVals != 0]
+
+  # fill the matrix with the null values
+  for (j in 1:length(unPsiVals)) {
+    Psi[Psi == unPsiVals[j]] <- psiNull[j]
+  }
+  return(Psi)
 }
 
 
