@@ -463,7 +463,7 @@ getH <- function(fit) {
 # parameters and returns the entire covariance matrix Psi under the null
 getNullPsi <- function(fit, psiNull) {
   stopifnot("`psiNull` must have length equal to the number of covariance parameters
-            in the model object" = (length(psiNull) == getME(fit, m)))
+            in the model object" = (length(psiNull) == getME(fit, "m")))
   # get the structure of the Psi matrix
   Psi <- getPsiStruct(fit)
   # unique values
