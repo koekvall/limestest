@@ -461,20 +461,15 @@ getH <- function(fit) {
   return(H)
 }
 
-# function which takes input of an lme4 model object, and null values of:
-# psi0, the variance of the elements of the error vector and
-# Psi, the covariance matrix of the random effects
-# The function returns values of the score statistics with and without use of
-# the restricted likelihood function.
-#' @export
-lmm_scorestat <- function(fit, psiNull_error, psiNull_re) {
-
+# function which takes input of an lme4 model object and returns the
+# log likelihood, score, and fisher information matrix with and without use of
+# the restricted likelihood function
+lmm_stuff <- function(fit, psiNull_error, psiNull_re) {
   # Obtaining the matrix H
   H <- getH(fit)
 
   # Forming the matrix Psi from the vector of null values
   Psi <- get_Psi(psiNull_re, H)
-
   psi0 <- psiNull_error
   # Dividing Psi by psi0 for use in the limestest functions
   Psi0 <- Psi/psi0
@@ -522,6 +517,21 @@ lmm_scorestat <- function(fit, psiNull_error, psiNull_re) {
                                  loglik = TRUE,
                                  score = TRUE,
                                  finf = TRUE)
+  return(list(stuff, stuff_REML))
+}
+
+# function which takes input of an lme4 model object, and null values of:
+# psi0, the variance of the elements of the error vector and
+# Psi, the covariance matrix of the random effects
+# The function returns values of the score statistics with and without use of
+# the restricted likelihood function.
+#' @export
+lmm_scorestat <- function(fit, psiNull_error, psiNull_re) {
+
+  # get fisher info and score
+  stuff2 <- lmm_stuff(fit, psiNull_error, psiNull_re)
+  stuff <- stuff2[[1]]
+  stuff_REML <- stuff2[[2]]
 
   # score statistics
   test_stat <- as.vector(crossprod(stuff$score, solve(stuff$finf, stuff$score)))
@@ -530,4 +540,41 @@ lmm_scorestat <- function(fit, psiNull_error, psiNull_re) {
 
   # return
   return(c(test_stat, test_stat_REML))
+}
+
+# Function for calculating the score statistic for a single parameter at a time
+# with all other parameters fixed at their maximum likelihood estimate
+# psi is the value of our single parameter at which to evaluate the score
+# j is the index of the parameter in the vector of covariance parameters
+scoreStatOneParam <- function(fit, psi, j) {
+
+  # maximum likelihood estimate "psihat"
+  Lambda <- getME(fit, "Lambda")
+  Psi <- Lambda %*% t(Lambda)
+  unPsiVals <- unique(as.vector(Psi))
+  unPsiVals <- unPsiVals[unPsiVals != 0]
+  psihat <- unPsiVals
+
+  # maximum likelihood estimate of the error variance
+  psihat_error <- sigma(fit)^2
+
+  # replacing the jth element with our value
+  psihat[j] <- psi
+
+  # evaluating the score
+  allstuff <- lmm_stuff(fit, psihat_error, psihat)
+  # choose REML or not right here: index 1 not REML, index 2 is REML
+  stuff <- allstuff[[1]]
+  # obtain the score for the given index
+  # (first index of this vector is for the error variance)
+  score <- stuff$score[j+1]
+
+  # calculate efficient information (ei)
+  I <- stuff[[3]][-1, -1]
+  ei <- I[j,j] - I[j, -j] %*% solve(I[-j, -j]) %*% I[-j, j]
+  ei <- ei[1,1]
+
+  # divide by the sqrt of the efficient information to get score test stat
+  scorestat <- score/sqrt(ei)
+  return(scorestat)
 }
