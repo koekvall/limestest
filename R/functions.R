@@ -571,7 +571,7 @@ scoreStatOneParam <- function(fit, psi, j) {
 
   # calculate efficient information (ei)
   I <- stuff[[3]][-1, -1]
-  ei <- I[j,j] - I[j, -j] %*% solve(I[-j, -j]) %*% I[-j, j]
+  ei <- I[j,j] - I[j, -j] %*% solve(I[-j, -j], I[-j, j])
   ei <- ei[1,1]
 
   # divide by the sqrt of the efficient information to get score test stat
