@@ -378,6 +378,7 @@ getPsiStruct <- function(fit) {
   # Getting what we need from the fit
   mform <- formula(fit)
   bars <- findbars(mform)
+  mc_data_frame <- fit@frame
   fr <- model.frame(subbars(mform), data = mc_data_frame)
 
   # Code from the lme4 function mkReTrms to get the template version of the matrix Lambdat
