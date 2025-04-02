@@ -123,7 +123,8 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, loglik = TRUE,
         first_idx <- ((ii - 1) * q + 1):(ii * q)
         for(jj in ii:r){
           second_idx <- ((jj - 1) * q + 1):(jj * q)
-          I_psi[ii + 1, jj + 1] <- I_psi[ii + 1, jj + 1] - (1 / psi0) * sum(crossprod(w[first_idx], B) * w[second_idx])
+          I_psi[ii + 1, jj + 1] <- I_psi[ii + 1, jj + 1] - (1 / psi0) *
+            sum(crossprod(w[first_idx], B) * w[second_idx])
         }
       }
     }
