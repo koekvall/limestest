@@ -252,7 +252,6 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, 
 
   # Fisher information to return
   I_psi <- matrix(NA, r + 1, r + 1)
-
   # Pre-compute A = (I_q + Psi0 Z'Z)^{-1} Psi0
   A <- Matrix::crossprod(Psi0, ZtZ) + Matrix::Diagonal(q) # q x q storage
 
@@ -377,6 +376,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, 
 getPsiStruct <- function(fit) {
   # Getting what we need from the fit
   mform <- formula(fit)
+  # findbars: determines the pairs of expressions that are separated by the vertical bar operator
   bars <- findbars(mform)
   mc_data_frame <- fit@frame
   fr <- model.frame(subbars(mform), data = mc_data_frame)
@@ -465,7 +465,8 @@ getH <- function(fit) {
 # function which takes input of an lme4 model object and returns the
 # log likelihood, score, and fisher information matrix with and without use of
 # the restricted likelihood function
-lmm_stuff <- function(fit, psiNull_error, psiNull_re) {
+lmm_stuff <- function(fit, psiNull_error, psiNull_re, loglik = TRUE,
+                      score = TRUE, finf = TRUE) {
   # Obtaining the matrix H
   H <- getH(fit)
 
@@ -499,9 +500,9 @@ lmm_stuff <- function(fit, psiNull_error, psiNull_re) {
                                   H = H,
                                   Psi0 = Psi0,
                                   psi0 = psi0,
-                                  score = TRUE,
-                                  finf = TRUE,
-                                  lik = TRUE)
+                                  loglik,
+                                  score,
+                                  finf)
 
   # calculate residuals
   e <- y - X %*% stuff_REML$beta
@@ -515,9 +516,9 @@ lmm_stuff <- function(fit, psiNull_error, psiNull_re) {
                                  H = H,
                                  Psi0 = Psi0,
                                  psi0 = psi0,
-                                 loglik = TRUE,
-                                 score = TRUE,
-                                 finf = TRUE)
+                                 loglik,
+                                 score,
+                                 finf)
   return(list(stuff, stuff_REML))
 }
 
@@ -548,16 +549,24 @@ lmm_scorestat <- function(fit, psiNull_error, psiNull_re) {
 # psi is the value of our single parameter at which to evaluate the score
 # j is the index of the parameter in the vector of covariance parameters
 scoreStatOneParam <- function(fit, psi, j) {
-
-  # maximum likelihood estimate "psihat"
-  Lambda <- getME(fit, "Lambda")
-  Psi <- Lambda %*% t(Lambda)
-  unPsiVals <- unique(as.vector(Psi))
-  unPsiVals <- unPsiVals[unPsiVals != 0]
-  psihat <- unPsiVals
-
   # maximum likelihood estimate of the error variance
   psihat_error <- sigma(fit)^2
+
+  # maximum likelihood estimate "psihat"
+
+  ## OLD ##
+  #Lambda <- getME(fit, "Lambda")
+  #Psi <- Lambda %*% t(Lambda)
+  #unPsiVals <- unique(Psi@x)
+  #m <- getME(fit, "m")
+  #while (length(unPsiVals) < m) {
+  #  unPsiVals <- c(unPsiVals, 0)
+  #}
+  #psihat <- unPsiVals
+  ##
+  psihat <- as.data.frame(VarCorr(fit))[,"vcov"]
+  # this was missing earlier: Lambda is scaled by the error variance so we need to do this
+  psihat <- psihat*psihat_error
 
   # replacing the jth element with our value
   psihat[j] <- psi
