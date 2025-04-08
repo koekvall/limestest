@@ -17,7 +17,8 @@ findbars(~ 1 + (1 | batch / cask))
 
 # This is the example from mkReTrms
 data("Pixel", package="nlme")
-mform <- pixel ~ day + I(day^2) + (day | Dog) + (1 | Side/Dog)
+Pixel$New <- rnorm(nrow(Pixel))
+mform <- pixel ~ day + I(day^2) + (day * New | Dog) + (1 | Side/Dog)
 bars <- findbars(mform)
 fr <- model.frame(subbars(mform),data=Pixel)
 
@@ -46,26 +47,37 @@ if (!length(bars))
   names(Ztlist) <- term.names
   q <- nrow(Zt)
   cnms <- lapply(blist, `[[`, "cnms")
+
+  # How many random terms are there per random effect part
   nc <- lengths(cnms)
+
+  # How many parameters are there per random effect part
   nth <- as.integer((nc * (nc + 1))/2)
+
+  # How many columns per random effect part
   nb <- nc * nl
   if (sum(nb) != q) {
     stop(sprintf("total number of RE (%d) not equal to nrow(Zt) (%d)",
                  sum(nb), q))
   }
+  # Offsets used for indexing correct submatrices of Psi
   boff <- cumsum(c(0L, nb))
   thoff <- cumsum(c(0L, nth))
-  Lambdat <- t(do.call(sparseMatrix, do.call(rbind, lapply(seq_along(blist),
-                                                           function(i) {
-                                                             mm <- matrix(seq_len(nb[i]), ncol = nc[i], byrow = TRUE)
-                                                             dd <- diag(nc[i])
-                                                             ltri <- lower.tri(dd, diag = TRUE)
-                                                             ii <- row(dd)[ltri]
-                                                             jj <- col(dd)[ltri]
-                                                             data.frame(i = as.vector(mm[, ii]) + boff[i], j = as.vector(mm[,
-                                                                                                                            jj]) + boff[i], x = as.double(rep.int(seq_along(ii),
-                                                                                                                                                                  rep.int(nl[i], length(ii))) + thoff[i]))
-                                                           }))))
+
+  make_sparse_core <- function(i) {
+    mm <- matrix(seq_len(nb[i]), ncol = nc[i], byrow = TRUE)
+    dd <- diag(nc[i])
+    ltri <- lower.tri(dd, diag = TRUE)
+    ii <- row(dd)[ltri]
+    jj <- col(dd)[ltri]
+    data.frame(i = as.vector(mm[, ii]) + boff[i],
+               j = as.vector(mm[, jj]) + boff[i],
+               x = as.double(rep.int(seq_along(ii), rep.int(nl[i], length(ii)))
+                             + thoff[i]))
+  }
+
+  # This gives an indexing matrix for upper triangle of RE covmat Psi
+  Psi_half <- t(do.call(sparseMatrix, do.call(rbind, lapply(seq_along(blist), make_sparse_core))))
   thet <- numeric(sum(nth))
   ll <- list(Zt = drop0(Zt), theta = thet, Lind = as.integer(Lambdat@x),
              Gp = unname(c(0L, cumsum(nb))))
