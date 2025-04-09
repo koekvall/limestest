@@ -15,22 +15,27 @@ findbars(~ 1 + (1 | batch / cask))
 # mkReTrms <- function (bars, fr, drop.unused.levels = TRUE, reorder.terms = TRUE,
 #          reorder.vars = FALSE)
 
-# This is the example from mkReTrms
+# This is a modified example from mkReTrms
 data("Pixel", package="nlme")
 Pixel$New <- rnorm(nrow(Pixel))
 mform <- pixel ~ day + I(day^2) + (day * New | Dog) + (1 | Side/Dog)
 bars <- findbars(mform)
 fr <- model.frame(subbars(mform),data=Pixel)
 
-
+get_Psi_idx <- function(bars, fr, drop.unused.levels = TRUE, reorder.terms = TRUE,
+                 reorder.vars = FALSE)
+{
 if (!length(bars))
   stop("No random effects terms specified in formula",
          call. = FALSE)
-  stopifnot(is.list(bars), vapply(bars, is.language, NA), inherits(fr,
-                                                                   "data.frame"))
+  stopifnot(is.list(bars), vapply(bars, is.language, NA), inherits(fr, "data.frame"))
   names(bars) <- lme4:::barnames(bars)
   term.names <- vapply(bars, deparse1, "")
-  blist <- lapply(bars, lme4:::mkBlist, fr, drop.unused.levels = TRUE, reorder.vars = FALSE)
+
+  blist <- lapply(bars, lme4:::mkBlist, fr,
+                  drop.unused.levels = drop.unused.levels,
+                  reorder.vars = reorder.vars)
+
   nl <- vapply(blist, `[[`, 0L, "nl")
   if (reorder.terms) {
     if (any(diff(nl) > 0)) {
@@ -41,11 +46,11 @@ if (!length(bars))
     }
   }
 
-
-  Ztlist <- lapply(blist, `[[`, "sm")
-  Zt <- do.call(rbind, Ztlist)
-  names(Ztlist) <- term.names
-  q <- nrow(Zt)
+  q <- sum(sapply(blist, function(x)nrow(x$sm)))
+  # Ztlist <- lapply(blist, `[[`, "sm")
+  # Zt <- do.call(rbind, Ztlist)
+  # names(Ztlist) <- term.names
+  # q <- nrow(Zt)
   cnms <- lapply(blist, `[[`, "cnms")
 
   # How many random terms are there per random effect part
@@ -76,28 +81,7 @@ if (!length(bars))
                              + thoff[i]))
   }
 
-  # This gives an indexing matrix for upper triangle of RE covmat Psi
-  Psi_half <- t(do.call(sparseMatrix, do.call(rbind, lapply(seq_along(blist), make_sparse_core))))
-  thet <- numeric(sum(nth))
-  ll <- list(Zt = drop0(Zt), theta = thet, Lind = as.integer(Lambdat@x),
-             Gp = unname(c(0L, cumsum(nb))))
-  ll$lower <- -Inf * (thet + 1)
-  ll$lower[unique(diag(Lambdat))] <- 0
-  ll$theta[] <- is.finite(ll$lower)
-  Lambdat@x[] <- ll$theta[ll$Lind]
-  ll$Lambdat <- Lambdat
-  fl <- lapply(blist, `[[`, "ff")
-  fnms <- names(fl)
-  if (length(fnms) > length(ufn <- unique(fnms))) {
-    fl <- fl[match(ufn, fnms)]
-    asgn <- match(fnms, ufn)
-  }
-  else asgn <- seq_along(fl)
-  names(fl) <- ufn
-  attr(fl, "assign") <- asgn
-  ll$flist <- fl
-  ll$cnms <- cnms
-  ll$Ztlist <- Ztlist
-  ll$nl <- nl
-  ll
-
+  # This gives an indexing matrix for lower triangle of RE covmat Psi
+  do.call(sparseMatrix, do.call(rbind, lapply(seq_along(blist),
+                                                 make_sparse_core)))
+}
