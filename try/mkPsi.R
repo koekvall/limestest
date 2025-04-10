@@ -22,7 +22,8 @@ bars <- findbars(mform)
 fr <- model.frame(subbars(mform), data = Pixel)
 fit <- lme4::lmer(mform, data = Pixel)
 
-mkPsi <- function(lmerfit){
+# Make lower triangular part of Psi
+make_Psi_ltri <- function(lmerfit){
   # Lambdat has the right structure, but not the same entries as Psi
   Psi_half <- lme4::getME(lmerfit, "Lambdat")
   Psi_half <- t(Psi_half) # Make lower-triangular
@@ -39,9 +40,20 @@ mkPsi <- function(lmerfit){
   Psi_half@x <- psi[param_idx]
 }
 
-mkH <- function(lmerfit)
+# Make list of H matrices
+make_H_list <- function(lmerfit)
 {
-
+  H <- lme4::getME(lmerfit, "Lambdat")
+  H <- t(Psi_half) # Make lower-triangular
+  param_idx <- lme4::getME(lmerfit, "Lind")
+  H@x <- param_idx
+  # Make list of H matrices
+  lapply(seq_len(getME(lmerfit, "m")),
+         function(i){
+           M <- H
+           M@x <- 1 * (i == M@x)
+           Matrix::drop0(M)
+         })
 }
 
 # THE BELOW CAN BE USED TO CREATE AND INDEXING FOR PSI IF LAMBDAT IS UNAVAILABLE
