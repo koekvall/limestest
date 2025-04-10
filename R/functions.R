@@ -133,43 +133,28 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi0, psi0, loglik = TRUE,
   return(list("ll" = ll,  "score" = s_psi, "finf" = I_psi))
 }
 
-# loglik <- function(ZtZ, Zte, e, Psi0, psi0){
-#   n <- length(e)
-#   B <- Matrix::crossprod(Psi0, ZtZ) + Matrix::Diagonal(ncol(ZtZ))
-#   two_neg_ll <- n * log(psi0) + Matrix::determinant(B, logarithm = TRUE)$modulus
-#   two_neg_ll <- two_neg_ll + sum(e^2)/psi0
-#
-#   two_neg_ll <- two_neg_ll - Matrix::crossprod(Zte, Matrix::solve(B,
-#                                             Matrix::crossprod(Psi0, Zte))) / psi0
-#
-#   return(-0.5 * as.vector(two_neg_ll))
-#
-# }
-
-#' @export
-get_Psi <- function(psi, H){
-  q <- nrow(H)
-  r <- ncol(H) / q
-  Psi <- matrix(0, q, q)
-  for(ii in 1:r){
-    Psi <- Psi + psi[ii] * H[, ((ii - 1) * q + 1):(ii * q)]
+Psi_from_Hlist <- function(psi, Hlist)
+{
+  for(ii in seq_len(length(Hlist))){
+    Hlist[[ii]] <- Hlist[[ii]] * psi[ii]
   }
-  Psi
+  do.call(cbind, Hlist)
 }
 
 #' @export
-uni_test_stat <- function(test_seq, test_idx, psi, psi0, Z, ZtZXe, e, H)
+uni_test_stat <- function(test_seq, test_idx, psi, psi0, Z, ZtZXe, e, Hlist)
 {
   # first element of test_seq has to agree with psi[test_idx]
   m <- length(test_seq)
   test_stat <- rep(0, m)
-  for(ii in 1:m){
+  H <- do.call(cbind, Hlist)
+  for(ii in seq_len(m)){
     if(ii > 1){
       # Update tested parameter
       psi[test_idx] <- test_seq[ii]
       # Do one-step Fisher scoring update (with previous Information)
       # for non-tested parameters
-      Psi <- getPsi(psi, H)
+      Psi <- Psi_from_Hlist(psi, Hlist)
       s <- score_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
                      Psi0 = Psi / psi0,
                      psi0 = psi0, finf = FALSE)
@@ -177,7 +162,7 @@ uni_test_stat <- function(test_seq, test_idx, psi, psi0, Z, ZtZXe, e, H)
         solve(score_inf$finf[-test_idx. -test_idx], s)
     }
 
-    Psi <- get_Psi(psi, H)
+    Psi <- Psi_from_Hlist(psi, Hlist)
     score_inf <- score_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
                            Psi0 = Psi / psi0,
                            psi0 = psi0, finf = TRUE)
@@ -370,97 +355,66 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, 
               "I_b_inv_chol" = U))
 }
 
-# function which takes input of lme4 model object and returns the template structure
-# of the covariance matrix of the random effects Psi.
-# with a different integer in each unique element of the matrix
+#' Get the covariance matrix of random effects
+#'
+#' Returns the covariance matrix of the random effects in a linear mixed model,
+#' either as estimated by lme4::lmer or evaluated at a particular parameter value
+#' supplied as an argument.
+#'
+#' @param lmerfit An lmerMod object from fitting a linear mixed model using lme4::lmer
+#' @param psi Optional vector with covariance parameters (see details)
+#'
+#' @return A usually sparse covariance matrix of random effects of type dsCMatrix
+#'
+#' @details
+#' If psi is not supplied, the estimated covariance matrix is returned. If psi is
+#' supplied, the covariance matrix is calculated using those parameter values instead.
+#' psi should be NULL (default) or a numeric vector of length getME(lmerfit, "m").
+#' In the latter case the elements should be ordered as those in the vcov column of
+#' as.data.frame(VarCorr(lmerfit), order = "lower.tri"). In particular, the last
+#' element is the error variance.
+#'
+#'
 #' @export
-getPsiStruct <- function(fit) {
-  # Getting what we need from the fit
-  mform <- formula(fit)
-  # findbars: determines the pairs of expressions that are separated by the vertical bar operator
-  bars <- findbars(mform)
-  mc_data_frame <- fit@frame
-  fr <- model.frame(subbars(mform), data = mc_data_frame)
-
-  # Code from the lme4 function mkReTrms to get the template version of the matrix Lambdat
-  drop.unused.levels = TRUE
-  reorder.terms = TRUE
-  reorder.vars = FALSE
-
-  names(bars) <- lme4:::barnames(bars)
-  term.names <- vapply(bars, deparse1, "")
-  # get component blocks
-  blist <- lapply(bars, lme4:::mkBlist, fr, drop.unused.levels,
-                  reorder.vars = reorder.vars)
-  nl <- vapply(blist, `[[`, 0L, "nl")   # no. of levels per term
-
-  # order terms stably by decreasing number of levels in the factor
-  if (reorder.terms) {
-    if (any(diff(nl) > 0)) {
-      ord <- rev(order(nl))
-      blist      <- blist     [ord]
-      nl         <- nl        [ord]
-      term.names <- term.names[ord]
-    }
+get_Psi <- function(lmerfit, psi = NULL){
+  if(is.null(psi)){
+    # Extract variances and covariances of random effects ordered as in the covmat
+    # lower.tri may seem wrong since we are creaing upper tringular Psi,
+    # but appears to conform with the indexing in getME(, "Lind")
+    psi <- as.data.frame(VarCorr(lmerfit), order = "lower.tri")$vcov
   }
 
-  ## Create and install Lambdat, Lind, etc.  This must be done after
-  ## any potential reordering of the terms.
-  cnms <- lapply(blist, `[[`, "cnms")   # list of column names of the
-  # model matrix per term
-  nc <- lengths(cnms)                   # no. of columns per term
-  # (in lmer jss:  p_i)
-  nth <- as.integer((nc * (nc+1))/2)    # no. of parameters per term
-  # (in lmer jss:  ??)
-  nb <- nc * nl                         # no. of random effects per term
+  # Lambdat has the right structure, but not the same entries as Psi
+  Psi_half <- lme4::getME(lmerfit, "Lambdat")
 
-  boff <- cumsum(c(0L, nb))             # offsets into b
-  thoff <- cumsum(c(0L, nth))           # offsets into theta
+  # Separate error variance and covariance matrix for random effects
+  psi0 <- psi[length(psi)]
+  psi <- psi[-length(psi)]
 
-  # Lambdat with placeholder integers
-  Lambdat <-
-    t(do.call(sparseMatrix,
-              do.call(rbind,
-                      lapply(seq_along(blist), function(i)
-                      {
-                        mm <- matrix(seq_len(nb[i]), ncol = nc[i],
-                                     byrow = TRUE)
-                        dd <- diag(nc[i])
-                        ltri <- lower.tri(dd, diag = TRUE)
-                        ii <- row(dd)[ltri]
-                        jj <- col(dd)[ltri]
-                        ## unused: dd[cbind(ii, jj)] <- seq_along(ii)
-                        data.frame(i = as.vector(mm[, ii]) + boff[i],
-                                   j = as.vector(mm[, jj]) + boff[i],
-                                   x = as.double(rep.int(seq_along(ii),
-                                                         rep.int(nl[i], length(ii))) +
-                                                   thoff[i]))
-                      }))))
+  # Fill in the upper triangular part of Psi with the extracted elements
+  param_idx <- lme4::getME(lmerfit, "Lind")
+  Psi_half@x <- psi[param_idx]
 
-  # Psi with placeholder integers
-  Psi <- t(Lambdat) %*% Lambdat
-  return(Psi)
+  # Return symmetric matrix
+  Matrix::forceSymmetric(Psi_half, uplo = "U")
 }
 
-# function which takes input of an lme4 model object and returns the matrix H
-# A matrix of derivatives of Psi with respect to the elements of psi.
-# H = [H_1, ... , H_r], where H_j is q by q.
-# q is the dimension of the random effects vector U (Psi is qxq)
-# r is the dimension of psi (how many parameters there are parameterizing Psi)
-#' @export
-getH <- function(fit) {
-  # get the structure of the Psi matrix
-  Psi <- getPsiStruct(fit)
-  # unique values
-  unPsiVals <- unique(as.vector(Psi))
-  unPsiVals <- unPsiVals[unPsiVals != 0]
+# Make list of H matrices
+get_H_list <- function(lmerfit)
+{
+  # Psi, and hence H, has the same structure as Lambda
+  H <- lme4::getME(lmerfit, "Lambdat")
+  param_idx <- lme4::getME(lmerfit, "Lind")
 
-  # construct the H matrix
-  H <- matrix(, nrow = nrow(Psi), ncol = 0)
-  for (val in unPsiVals) {
-    H <- cbind(H, 1*(Psi == val))
-  }
-  return(H)
+  # Replace values by parameter index
+  H@x <- param_idx
+  # Return list of H matrices
+  lapply(seq_len(getME(lmerfit, "m")),
+         function(i){
+           M <- H
+           M@x <- as.numeric(i == M@x)
+           Matrix::forceSymmetric(Matrix::drop0(M), uplo = "U")
+         })
 }
 
 # function which takes input of an lme4 model object and returns the
@@ -469,10 +423,10 @@ getH <- function(fit) {
 lmm_stuff <- function(fit, psiNull_error, psiNull_re, loglik = TRUE,
                       score = TRUE, finf = TRUE) {
   # Obtaining the matrix H
-  H <- getH(fit)
+  Hlist <- get_Hlist(fit)
 
   # Forming the matrix Psi from the vector of null values
-  Psi <- get_Psi(psiNull_re, H)
+  Psi <- Psi_from_Hlist(Hlist, psiNull_re)
   psi0 <- psiNull_error
   # Dividing Psi by psi0 for use in the limestest functions
   Psi0 <- Psi/psi0

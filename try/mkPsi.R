@@ -17,18 +17,19 @@ findbars(~ 1 + (1 | batch / cask))
 data("Pixel", package="nlme")
 Pixel$New <- rnorm(nrow(Pixel))
 # mform <- pixel ~ day + I(day^2) + (day * New | Dog) + (1 | Side/Dog)
-mform <- pixel ~ day + I(day^2) + (day | Dog) + (1 | Side/Dog)
+mform <- pixel ~ day + I(day^2) + (day * New | Dog) + (1 | Side/Dog)
 bars <- findbars(mform)
 fr <- model.frame(subbars(mform), data = Pixel)
 fit <- lme4::lmer(mform, data = Pixel)
 
-# Make lower triangular part of Psi
-make_Psi_ltri <- function(lmerfit){
+# Make Psi
+make_Psi <- function(lmerfit){
   # Lambdat has the right structure, but not the same entries as Psi
   Psi_half <- lme4::getME(lmerfit, "Lambdat")
-  Psi_half <- t(Psi_half) # Make lower-triangular
 
   # Extract variances and covariances of random effects ordered as in the covmat
+  # lower.tri may seem wrong since we are creaing upper tringular Psi,
+  # but appears to conform with the indexing in getME(, "Lind")
   psi <- as.data.frame(VarCorr(lmerfit), order = "lower.tri")$vcov
 
   # Separate error variance and covariance matrix for random effects
@@ -38,21 +39,24 @@ make_Psi_ltri <- function(lmerfit){
   # Fill in the lower-triangular part of Psi with the extracted elements
   param_idx <- lme4::getME(lmerfit, "Lind")
   Psi_half@x <- psi[param_idx]
+  Matrix::forceSymmetric(Psi_half, uplo = "U")
 }
 
 # Make list of H matrices
 make_H_list <- function(lmerfit)
 {
+  # Psi, and hence H, has the same structure as Lambda
   H <- lme4::getME(lmerfit, "Lambdat")
-  H <- t(Psi_half) # Make lower-triangular
   param_idx <- lme4::getME(lmerfit, "Lind")
+
+  # Replace values by parameter index
   H@x <- param_idx
-  # Make list of H matrices
+  # Return list of H matrices
   lapply(seq_len(getME(lmerfit, "m")),
          function(i){
            M <- H
-           M@x <- 1 * (i == M@x)
-           Matrix::drop0(M)
+           M@x <- as.numeric(i == M@x)
+           Matrix::forceSymmetric(Matrix::drop0(M), uplo = "U")
          })
 }
 
