@@ -1,7 +1,7 @@
 #' loglik_psi
 #'
 #' Calculates the log-likelihood, score vector and Fisher information matrix
-#' for the variance parameter vector \code{psi} in a linear mixed effects model.
+#' for the covariance parameter vector \code{psi} in a linear mixed effects model.
 #'
 #' @param Z A matrix of fixed effects.
 #' @param ZtZXe Pre-computed matrix with of Z'[Z, X, e]
