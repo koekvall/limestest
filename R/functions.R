@@ -379,7 +379,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi0, psi0, lik = TRUE, 
 get_Psi <- function(lmerfit, psi = NULL){
   if(is.null(psi)){
     # Extract variances and covariances of random effects ordered as in the covmat
-    # lower.tri may seem wrong since we are creaing upper tringular Psi,
+    # lower.tri may seem wrong since we are creating upper triangular Psi,
     # but appears to conform with the indexing in getME(, "Lind")
     psi <- as.data.frame(VarCorr(lmerfit), order = "lower.tri")$vcov
   }
