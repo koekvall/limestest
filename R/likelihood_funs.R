@@ -169,9 +169,9 @@ chol_solve <- function(U, b)
 #'
 #' @return A list with elements:
 #' \describe{
-#' \item{res_ll}{A scalar value of the restricted log-likelihood.}
-#' \item{s_psi}{A (r + 1) x 1 vector of the restricted score of the variance parameters.}
-#' \item{I_psi}{A (r + 1) x (r + 1) matrix of the restricted  information of the
+#' \item{ll}{A scalar value of the restricted log-likelihood.}
+#' \item{score}{A (r + 1) x 1 vector of the restricted score of the variance parameters.}
+#' \item{finf}{A (r + 1) x (r + 1) matrix of the restricted  information of the
 #' variance parameters.}
 #' }
 #' @import Matrix

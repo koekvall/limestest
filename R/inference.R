@@ -1,3 +1,70 @@
+partial_min <- function(opt_idx, precomp, psi_start, REML = TRUE,
+                           expected = TRUE, ...)
+{
+
+  H <- do.call(cbind, precomp$Hlist)
+  r <- length(psi_start)
+  #############################################################################
+  # Define the objective function to be minimized
+  #############################################################################
+  if(REML){
+    obj_fun <- function(psi_arg){
+      psi_start[opt_idx] <- psi_arg
+      Psi0 <- (1 / psi_start[r]) * Psi_from_Hlist(psi = psi_start,
+                                                  Hlist = precomp$Hlist)
+      ll_things <- res_ll(XtX = precomp$XtX,
+             XtY = precomp$XtY,
+             XtZ = precomp$XtZ,
+             ZtZ = precomp$ZtZ,
+             YtZ = precomp$YtZ,
+             Y = precomp$Y,
+             X = precomp$X,
+             Z = precomp$Z,
+             H = H,
+             Psi0 = Psi0,
+             psi0 = psi_start[r],
+             lik = TRUE,
+             score = TRUE,
+             finf = TRUE)
+      # Return obj_fun
+      list("value" = -ll_things$ll, "gradient" = -ll_things$score[opt_idx],
+                            "hessian" = ll_things$finf[opt_idx, opt_idx])
+    }
+
+  } else{
+    ZtZXe <- cbind(precomp$ZtZ, precomp$ZtX, precomp$Y)
+    obj_fun <- function(psi_arg){
+      psi_start[opt_idx] <- psi_arg
+      Psi0 <- (1 / psi_start[r]) * Psi_from_Hlist(psi = psi_start,
+                                                  Hlist = precomp$Hlist)
+      ll_things <- loglik_psi(Z = precomp$Z,
+                              ZtZXe = ZtZXe,
+                              e = precomp$Y,
+                              H = H,
+                              Psi0 = Psi0,
+                              psi0 = psi_start[r],
+                              loglik = TRUE,
+                              score = TRUE,
+                              finf = TRUE,
+                              expected = expected)
+    }
+
+    # Return obj_fun
+    list("value" = -ll_things$ll, "gradient" = -ll_things$score[opt_idx],
+         "hessian" = ll_things$finf[opt_idx, opt_idx])
+  }
+
+  #############################################################################
+  # Do minimization
+  #############################################################################
+  fit <- trust::trust(objfun = obj_fun, parinit = psi_start[opt_idx], rinit  = 1,
+                      rmax = 100, ...)
+  # Return results
+  psi_start[opt_idx] <- fit$argument
+  list("psihat" = psi_start, "ll" = -fit$value, "conv" = fit$converged,
+       "iter" = fit$iterations)
+}
+
 Psi_from_Hlist <- function(psi, Hlist)
 {
   for(ii in seq_len(length(Hlist))){
@@ -64,7 +131,9 @@ score_stat <- function(psi, test_idx, precomp, REML = TRUE, expected = TRUE,
   if(signed){
     ed <- eigen(infmat, symmetric = TRUE)
     infmat <- ed$vectors %*% (sqrt(ed$values) * t(ed$vectors))
-    test_stat <- solve(infmat, ll_things$score[test_idx]) # Inefficient but stable
+
+    # Inefficient since eigen decomposition available, but may be more stable
+    test_stat <- solve(infmat, ll_things$score[test_idx])
   } else{
     test_stat <- crossprod(ll_things$score[test_idx], solve(infmat,
                                                            ll_things$score[test_idx]))
