@@ -1,57 +1,25 @@
-partial_min <- function(opt_idx, precomp, psi_start, REML = TRUE,
+partial_min <- function(opt_idx, precomp, psi_start, b = NULL, REML = TRUE,
                            expected = TRUE, ...)
 {
-  browser()
+  if(!is.null(b) & REML){
+    warning("Coefficient vector supplied but not used by restricted likelihood")
+    b <- NULL
+  }
   H <- do.call(cbind, precomp$Hlist)
   r <- length(psi_start)
   #############################################################################
   # Define the objective function to be minimized
   #############################################################################
-  if(REML){
-    obj_fun <- function(psi_arg){
-      psi_start[opt_idx] <- psi_arg
-      Psi_r <- (1 / psi_start[r]) * Psi_from_Hlist(psi = psi_start,
-                                                  Hlist = precomp$Hlist)
-      ll_things <- res_ll(XtX = precomp$XtX,
-             XtY = precomp$XtY,
-             XtZ = precomp$XtZ,
-             ZtZ = precomp$ZtZ,
-             YtZ = precomp$YtZ,
-             Y = precomp$Y,
-             X = precomp$X,
-             Z = precomp$Z,
-             H = H,
-             Psi_r = Psi_r,
-             psi_r = psi_start[r],
-             lik = TRUE,
-             score = TRUE,
-             finf = TRUE)
-      # Return obj_fun
-      list("value" = -ll_things$ll, "gradient" = -ll_things$score[opt_idx],
-                            "hessian" = ll_things$finf[opt_idx, opt_idx])
-    }
-
-  } else{
-    ZtZXe <- cbind(precomp$ZtZ, precomp$ZtX, precomp$Y)
-    obj_fun <- function(psi_arg){
-      psi_start[opt_idx] <- psi_arg
-      Psi_r <- (1 / psi_start[r]) * Psi_from_Hlist(psi = psi_start,
-                                                  Hlist = precomp$Hlist)
-      ll_things <- loglik_psi(Z = precomp$Z,
-                              ZtZXe = ZtZXe,
-                              e = precomp$Y,
-                              H = H,
-                              Psi_r = Psi_r,
-                              psi_r = psi_start[r],
-                              loglik = TRUE,
-                              score = TRUE,
-                              finf = TRUE,
-                              expected = expected)
-    }
-
-    # Return obj_fun
-    list("value" = -ll_things$ll, "gradient" = -ll_things$score[opt_idx],
-         "hessian" = ll_things$finf[opt_idx, opt_idx])
+  obj_fun <- function(x){
+    psi_arg <- psi_start
+    psi_arg[opt_idx] <- x
+    ll_things <- limestest:::loglikelihood(psi = psi_arg,
+                                           b = b,
+                                           precomp = precomp,
+                                           REML = REML,
+                                           expected = expected)
+    list("value" = -ll_things$value, "gradient" = -ll_things$score,
+         "hessian" = ll_things$infmat)
   }
 
   #############################################################################
@@ -61,14 +29,14 @@ partial_min <- function(opt_idx, precomp, psi_start, REML = TRUE,
                       rmax = 100, ...)
   # Return results
   psi_start[opt_idx] <- fit$argument
-  list("psihat" = psi_start, "ll" = -fit$value, "conv" = fit$converged,
+  list("psihat" = psi_start, "value" = -fit$value, "conv" = fit$converged,
        "iter" = fit$iterations)
 }
 
 Psi_from_Hlist <- function(psi, Hlist)
 {
   for(ii in seq_len(length(Hlist))){
-    Hlist[[ii]] <- Hlist[[ii]]@x <- psi[ii]
+    Hlist[[ii]] <- Hlist[[ii]] * psi[ii]
   }
   do.call(cbind, Hlist)
 }

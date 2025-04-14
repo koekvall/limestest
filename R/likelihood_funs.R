@@ -32,7 +32,7 @@ loglikelihood <-function(psi, b = NULL, precomp, REML = TRUE, getval = TRUE,
                         finf = getinf)
   } else{
     precomp$Y <- precomp$Y - precomp$X %*% b
-    ZtZXe <- cbind(precomp$ZtZ, precomp$ZtX, precomp$Y)
+    ZtZXe <- cbind(precomp$ZtZ, precomp$ZtX, t(precomp$YtZ))
     ll_things <- loglik_psi(Z = precomp$Z,
                             ZtZXe = ZtZXe,
                             e = precomp$Y,
@@ -82,17 +82,18 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, loglik = TRUE,
   # Define dimensions
   n <- length(e)
   q <- ncol(Psi_r)
-  r <- ncol(H) / q # Assumes H = [H_1, ... , H_r], where H_j is q by q
+  rm1 <- ncol(H) / q # Assumes H = [H_1, ... , H_{r-1}], where H_j is q by q
+  r <- rm1 + 1
   p <- ncol(ZtZXe) - q - 1
 
   # loglikelihood to return
   ll <- NA
 
   # Score vector to return
-  s_psi <- rep(NA, r + 1)
+  s_psi <- rep(NA, r)
 
   # Fisher information to return
-  I_psi <- matrix(NA, r + 1, r + 1)
+  I_psi <- matrix(NA, r, r)
 
   # Pre-compute Psi_rZtZ (columns 1:q), Pzi0ZtX (columns (q + 1):(q + p)),
   # and Psi_rZte (column q + p + 1)
@@ -107,7 +108,7 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, loglik = TRUE,
   # Matrix denoted M in manuscript is A[, 1:q]
   A <- Matrix::solve(A[, 1:q] + Matrix::Diagonal(q), A, sparse = TRUE)
 
-  # Score for error variance psi_0
+  # Score for error variance psi_r
   # NB: REPLACE e by Sigma^{-1}e
   if(loglik | (finf & !expected)){
    e_save <- e
@@ -118,14 +119,14 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, loglik = TRUE,
   }
 
   trace_M <- sum(Matrix::diag(A[, 1:q]))
-  s_psi[1] <- 0.5 * sum(e^2) - (0.5 / psi_r) * (n - trace_M)
+  s_psi[r] <- 0.5 * sum(e^2) - (0.5 / psi_r) * (n - trace_M)
 
 
   # Use recycling to compute v'H_i v for all Hi
   v <- as.vector(Matrix::crossprod(Z, e)) # sparse matrix does not recycle
   w <- as.vector(Matrix::crossprod(v, H)) # Used later if !expected
 
-  s_psi[-1] <- 0.5 * colSums(matrix(as.vector(w * v), nrow = q))
+  s_psi[-r] <- 0.5 * colSums(matrix(as.vector(w * v), nrow = q))
 
   # B = Z'Z (M - I_q) in paper notation
   B <- A[, 1:q]
@@ -139,10 +140,10 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, loglik = TRUE,
     # (B %*% H) done to get Fisher information
     H <- as.matrix(H) * as.vector(B)
 
-    s_psi[-1] <- s_psi[-1] + (0.5 / psi_r) * colSums(matrix(Matrix::colSums(H), nrow = q))
+    s_psi[-r] <- s_psi[-r] + (0.5 / psi_r) * colSums(matrix(Matrix::colSums(H), nrow = q))
   } else{
     H <- B %*% H
-    I_psi[1, 1] <- (0.5 / psi_r^2) * (n - 2 * trace_M +
+    I_psi[r, r] <- (0.5 / psi_r^2) * (n - 2 * trace_M +
     sum(Matrix::t(A[, 1:q]) * A[, 1:q]))
 
     # Subtract identity matrix from M
@@ -150,14 +151,14 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, loglik = TRUE,
 
     D <- matrix(Matrix::colSums(as.vector(A[, 1:q])  * as.matrix(H)), nrow = q)
 
-    I_psi[1, -1] <- (0.5 / psi_r^2) * Matrix::colSums(D)
+    I_psi[-r, r] <- (0.5 / psi_r^2) * Matrix::colSums(D)
 
-    for(ii in 1:r){
+    for(ii in 1:rm1){
       first_idx <- ((ii - 1) * q + 1):(ii * q)
-      s_psi[1 + ii] <- s_psi[1 + ii] + (0.5 / psi_r) * sum(Matrix::diag(H[, first_idx]))
-      for(jj in ii:r){
+      s_psi[ii] <- s_psi[ii] + (0.5 / psi_r) * sum(Matrix::diag(H[, first_idx]))
+      for(jj in ii:rm1){
         second_idx <- ((jj - 1) * q + 1):(jj * q)
-        I_psi[ii + 1, jj + 1] <- (0.5 / psi_r^2) * sum(Matrix::t(H[, second_idx]) * H[, first_idx])
+        I_psi[ii, jj] <- (0.5 / psi_r^2) * sum(Matrix::t(H[, second_idx]) * H[, first_idx])
       }
     }
     if(!expected){
@@ -165,16 +166,16 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, loglik = TRUE,
       # u = Sigma^{-2}e. Some calculations could be saved from before
       u <- (1 / psi_r^2) * (e_save + Z %*% (-2 * A[, q + p + 1] +
                             (A[, 1:q] + Matrix::Diagonal(q, 1)) %*% A[, q + p + 1]))
-      I_psi[1, 1] <- I_psi[1, 1] + sum(e * u)
+      I_psi[r, r] <- I_psi[r, r] + sum(e * u)
 
       v <- as.vector(Matrix::crossprod(Z, u)) # = Z' Sigma^{-2}e
-      I_psi[1, -1] <- I_psi[1, -1] + colSums(matrix(v * w, ncol = r))
+      I_psi[-r, r] <- I_psi[-r, r] + colSums(matrix(v * w, ncol = rm1))
 
-      for(ii in 1:r){
+      for(ii in 1:rm1){
         first_idx <- ((ii - 1) * q + 1):(ii * q)
-        for(jj in ii:r){
+        for(jj in ii:rm1){
           second_idx <- ((jj - 1) * q + 1):(jj * q)
-          I_psi[ii + 1, jj + 1] <- I_psi[ii + 1, jj + 1] - (1 / psi_r) *
+          I_psi[ii, jj] <- I_psi[ii, jj] - (1 / psi_r) *
             sum(crossprod(w[first_idx], B) * w[second_idx])
         }
       }
@@ -213,7 +214,7 @@ chol_solve <- function(U, b)
 #' @param Psi_r The covariance matrix of the random effects (Psi) divided by the
 #' error variance (psi_r)
 #' @param psi_r A scalar value of the error variance.
-#' @param lik If \code{TRUE} (default), the log-likelihood will be computed.
+#' @param loglik If \code{TRUE} (default), the log-likelihood will be computed.
 #' @param score If \code{TRUE} (default), the score vector will be computed.
 #' @param finf If \code{TRUE} (default), the Fisher information matrix will be
 #' computed.
@@ -227,28 +228,29 @@ chol_solve <- function(U, b)
 #' }
 #' @import Matrix
 #' @export
-res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi_r, psi_r, lik = TRUE, score = FALSE,
-                   finf = FALSE)
+res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi_r, psi_r,
+                   loglik = TRUE, score = FALSE, finf = FALSE)
 {
   # Define dimensions
   n <- length(Y)
   q <- ncol(Psi_r)
-  r <- ncol(H) / q # Assumes H = [H_1, ... , H_r], where H_j is q by q
+  rm1 <- ncol(H) / q # Assumes H = [H_1, ... , H_{r - 1}], where H_j is q by q
+  r <- rm1 + 1
   p <- ncol(XtX)
 
   # Loglikelihood to return
   ll <- NA
 
   # Score vector to return
-  s_psi <- rep(NA, r + 1)
+  s_psi <- rep(NA, r)
 
   # Fisher information to return
-  I_psi <- matrix(NA, r + 1, r + 1)
+  I_psi <- matrix(NA, r, r)
   # Pre-compute A = (I_q + Psi_r Z'Z)^{-1} Psi_r
   A <- Matrix::crossprod(Psi_r, ZtZ) + Matrix::Diagonal(q) # q x q storage
 
   # Add likelihood term before overwriting
-  if(lik) ll <- Matrix::determinant(A, logarithm = TRUE)$modulus
+  if(loglik) ll <- Matrix::determinant(A, logarithm = TRUE)$modulus
 
   A <- Matrix::solve(A, Psi_r)
   B <- XtZ %*% A # q x q
@@ -271,7 +273,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi_r, psi_r, lik = TRUE
   # n x 1 vector for storing \Sigma^{-1}e
   a <- (1 / psi_r) * (Y - Z %*% (A %*% Matrix::crossprod(Z, Y))) # n x 1
 
-  if(lik){
+  if(loglik){
     ll <- ll + 2 * sum(log(Matrix::diag(U)))
     ll <- ll + sum(Y * a) + n * log(2 * pi * psi_r)
     ll <- -0.5 * ll
@@ -279,21 +281,21 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi_r, psi_r, lik = TRUE
 
   if(score){
     # Stochastic part of restricted score for psi
-    s_psi[1] <- 0.5 * sum(a^2)
+    s_psi[r] <- 0.5 * sum(a^2)
     v <- as.vector(Matrix::crossprod(Z, a)) # q x 1 vector storage
-    s_psi[-1] <- 0.5 * colSums(matrix(as.vector(Matrix::crossprod(v, H)) * v,
+    s_psi[-r] <- 0.5 * colSums(matrix(as.vector(Matrix::crossprod(v, H)) * v,
                                       nrow = q))
   }
   #############################################################################
   ## NOTHING BELOW SHOULD DEPEND ON Y.
   #############################################################################
 
-  if(finf & score){
+  if(finf){
     A <- Matrix::tcrossprod(A, ZtZ) # q x q, called M in manuscript
 
-    s_psi[1] <- s_psi[1] - (0.5 / psi_r) * n + (0.5 / psi_r) * sum(Matrix::diag(A))
+    s_psi[r] <- s_psi[r] - (0.5 / psi_r) * n + (0.5 / psi_r) * sum(Matrix::diag(A))
 
-    I_psi[1, 1] <- (0.5 / psi_r^2) * (n - 2 * sum(Matrix::diag(A)) +
+    I_psi[r, r] <- (0.5 / psi_r^2) * (n - 2 * sum(Matrix::diag(A)) +
                                        sum(Matrix::t(A) * A))
 
     E <- Matrix::crossprod(ZtZ, A) # q x q storage
@@ -309,45 +311,44 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi_r, psi_r, lik = TRUE
                                 D %*% tcrossprod(A, B)) # p x p
     C <- chol_solve(U, XtSi2X)
 
-    I_psi[1, 1] <- I_psi[1, 1] + 0.5 * sum(C * Matrix::t(C))
+    I_psi[r, r] <- I_psi[r, r] + 0.5 * sum(C * Matrix::t(C))
 
-    s_psi[1] <- s_psi[1] + 0.5 * sum(Matrix::diag(C))
+    s_psi[r] <- s_psi[r] + 0.5 * sum(Matrix::diag(C))
 
 
-    I_psi[1, 1] <- I_psi[1, 1] - sum(Matrix::diag(chol_solve(U, XtSi3X)))
+    I_psi[r, r] <- I_psi[r, r] - sum(Matrix::diag(chol_solve(U, XtSi3X)))
     # A (q x q), G (p x q) ARE FREE
     A <- (1 / psi_r)^2 * (ZtZ - 2 * E + E %*% A) # ZtSi2Z right now
     E <-  (1/ psi_r) * (ZtZ - E) # Now holds ZtSiZ
     D <- chol_solve(U, XtSiZ)
     A <- A - 2 * Matrix::crossprod(D, XtSi2Z) + Matrix::crossprod(XtSiZ, C %*% D)
 
-    I_psi[-1, 1] <- 0.5 * colSums(matrix(Matrix::colSums(as.vector(A) * H), nrow = q))
-    s_psi[-1] <- s_psi[-1] - 0.5 * colSums(matrix(Matrix::colSums(
+    I_psi[-r, r] <- 0.5 * colSums(matrix(Matrix::colSums(as.vector(A) * H), nrow = q))
+    s_psi[-r] <- s_psi[-r] - 0.5 * colSums(matrix(Matrix::colSums(
       as.vector(E - Matrix::crossprod(XtSiZ, D)) * H), nrow = q))
 
     H2 <- Matrix::crossprod(XtSiZ, D %*% H) # Storage can be avoided by
     # muliply in loop
     # Has to come after H2 since H is overwritten
     H <- Matrix::crossprod(E, H) # = ZtSiZ %*% H
-    for(ii in 1:r){
+    for(ii in 1:rm1){
       idx1 <- ((ii - 1) * q + 1):(ii * q)
-      for(jj in ii:r){
+      for(jj in ii:rm1){
         idx2 <-  ((jj - 1) * q + 1):(jj * q)
-        I_psi[jj + 1, ii + 1] <- 0.5 * sum(H[, idx1] * Matrix::t(H[, idx2])) -
+        I_psi[ii, jj] <- 0.5 * sum(H[, idx1] * Matrix::t(H[, idx2])) -
           sum(H[, idx1] * Matrix::t(H2[, idx2])) + 0.5 *
           sum(H2[, idx1] * Matrix::t(H2[, idx2]))
       }
     }
-    I_psi <- Matrix::forceSymmetric(I_psi, "L")
   } else if (score){
     A <- Matrix::tcrossprod(A, ZtZ) # q x q, called M in manuscript
-    s_psi[1] <- s_psi[1] - (0.5 / psi_r) * n + (0.5 / psi_r) * sum(Matrix::diag(A))
+    s_psi[r] <- s_psi[r] - (0.5 / psi_r) * n + (0.5 / psi_r) * sum(Matrix::diag(A))
 
     D <- XtZ %*% A # p x q storage
 
     C <- Matrix::tcrossprod(B, XtZ) # p x p storage
     C <- chol_solve(U, (1 / psi_r)^2 * (XtX - 2 * C + B %*% Matrix::tcrossprod(ZtZ, B)))
-    s_psi[1] <- s_psi[1] + 0.5 * sum(Matrix::diag(C))
+    s_psi[r] <- s_psi[r] + 0.5 * sum(Matrix::diag(C))
 
     A <- Matrix::crossprod(ZtZ, A)
     A <- (1/ psi_r) * (ZtZ - A)
@@ -355,8 +356,9 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi_r, psi_r, lik = TRUE
     XtSiZ <- (1 / psi_r) * (XtZ - D) # p x q
     D <- chol_solve(U, XtSiZ) # p x q
     v <- as.vector(A - Matrix::crossprod(XtSiZ, D)) # pq
-    s_psi[-1] <- s_psi[-1] - 0.5 * colSums(matrix(Matrix::colSums(v * H), nrow = q))
+    s_psi[-r] <- s_psi[-r] - 0.5 * colSums(matrix(Matrix::colSums(v * H), nrow = q))
   }
+  I_psi <- Matrix::forceSymmetric(I_psi, uplo = "U")
   return(list("ll" = ll[1], "score" = s_psi, "finf" = I_psi, "beta" = beta_tilde,
               "I_b_inv_chol" = U))
 }
