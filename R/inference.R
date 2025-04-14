@@ -10,7 +10,7 @@ partial_min <- function(opt_idx, precomp, psi_start, REML = TRUE,
   if(REML){
     obj_fun <- function(psi_arg){
       psi_start[opt_idx] <- psi_arg
-      Psi0 <- (1 / psi_start[r]) * Psi_from_Hlist(psi = psi_start,
+      Psi_r <- (1 / psi_start[r]) * Psi_from_Hlist(psi = psi_start,
                                                   Hlist = precomp$Hlist)
       ll_things <- res_ll(XtX = precomp$XtX,
              XtY = precomp$XtY,
@@ -21,8 +21,8 @@ partial_min <- function(opt_idx, precomp, psi_start, REML = TRUE,
              X = precomp$X,
              Z = precomp$Z,
              H = H,
-             Psi0 = Psi0,
-             psi0 = psi_start[r],
+             Psi_r = Psi_r,
+             psi_r = psi_start[r],
              lik = TRUE,
              score = TRUE,
              finf = TRUE)
@@ -35,14 +35,14 @@ partial_min <- function(opt_idx, precomp, psi_start, REML = TRUE,
     ZtZXe <- cbind(precomp$ZtZ, precomp$ZtX, precomp$Y)
     obj_fun <- function(psi_arg){
       psi_start[opt_idx] <- psi_arg
-      Psi0 <- (1 / psi_start[r]) * Psi_from_Hlist(psi = psi_start,
+      Psi_r <- (1 / psi_start[r]) * Psi_from_Hlist(psi = psi_start,
                                                   Hlist = precomp$Hlist)
       ll_things <- loglik_psi(Z = precomp$Z,
                               ZtZXe = ZtZXe,
                               e = precomp$Y,
                               H = H,
-                              Psi0 = Psi0,
-                              psi0 = psi_start[r],
+                              Psi_r = Psi_r,
+                              psi_r = psi_start[r],
                               loglik = TRUE,
                               score = TRUE,
                               finf = TRUE,
@@ -68,7 +68,7 @@ partial_min <- function(opt_idx, precomp, psi_start, REML = TRUE,
 Psi_from_Hlist <- function(psi, Hlist)
 {
   for(ii in seq_len(length(Hlist))){
-    Hlist[[ii]] <- Hlist[[ii]] * psi[ii]
+    Hlist[[ii]] <- Hlist[[ii]]@x <- psi[ii]
   }
   do.call(cbind, Hlist)
 }
@@ -85,10 +85,10 @@ score_stat <- function(psi, test_idx, precomp, REML = TRUE, expected = TRUE,
   k <- length(test_idx)
   stopifnot(all(test_idx %in% seq_len(r)), k <= r)
 
-  psi0 <- psi[r]
+  psi_r <- psi[r]
   psi <- psi[-r]
 
-  Psi0 <- (1 / psi0) * Psi_from_Hlist(psi = psi, Hlist = precomp$Hlist)
+  Psi_r <- (1 / psi_r) * Psi_from_Hlist(psi = psi, Hlist = precomp$Hlist)
   H <- do.call(cbind, precomp$Hlist)
 
   if(REML){
@@ -101,8 +101,8 @@ score_stat <- function(psi, test_idx, precomp, REML = TRUE, expected = TRUE,
                         X = precomp$X,
                         Z = precomp$Z,
                         H = H,
-                        Psi0 = Psi0,
-                        psi0 = psi0,
+                        Psi_r = Psi_r,
+                        psi_r = psi_r,
                         lik = FALSE,
                         score = TRUE,
                         finf = TRUE)
@@ -111,8 +111,8 @@ score_stat <- function(psi, test_idx, precomp, REML = TRUE, expected = TRUE,
                             ZtZXe = cbind(precomp$ZtZ, precomp$ZtX, precomp$Y),
                             e = precomp$Y,
                             H = H,
-                            Psi0 = Psi0,
-                            psi0 = psi0,
+                            Psi_r = Psi_r,
+                            psi_r = psi_r,
                             loglik = FALSE,
                             score = TRUE,
                             finf = TRUE,
@@ -142,7 +142,7 @@ score_stat <- function(psi, test_idx, precomp, REML = TRUE, expected = TRUE,
 }
 
 #' @export
-uni_test_stat <- function(test_seq, test_idx, psi, psi0, Z, ZtZXe, e, Hlist)
+uni_test_stat <- function(test_seq, test_idx, psi, psi_r, Z, ZtZXe, e, Hlist)
 {
   # first element of test_seq has to agree with psi[test_idx]
   m <- length(test_seq)
@@ -156,16 +156,16 @@ uni_test_stat <- function(test_seq, test_idx, psi, psi0, Z, ZtZXe, e, Hlist)
       # for non-tested parameters
       Psi <- Psi_from_Hlist(psi, Hlist)
       s <- score_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
-                     Psi0 = Psi / psi0,
-                     psi0 = psi0, finf = FALSE)
+                     Psi_r = Psi / psi_r,
+                     psi_r = psi_r, finf = FALSE)
       psi[-test_idx] <- psi[-test_idx] +
         solve(score_inf$finf[-test_idx. -test_idx], s)
     }
 
     Psi <- Psi_from_Hlist(psi, Hlist)
     score_inf <- score_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
-                           Psi0 = Psi / psi0,
-                           psi0 = psi0, finf = TRUE)
+                           Psi_r = Psi / psi_r,
+                           psi_r = psi_r, finf = TRUE)
 
     eff_inf <- score_inf$finf[test_idx, test_idx] -
       sum(solve(score_inf$finf[-test_idx, -test_idx],
