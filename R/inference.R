@@ -1,7 +1,7 @@
 partial_min <- function(opt_idx, precomp, psi_start, REML = TRUE,
                            expected = TRUE, ...)
 {
-
+  browser()
   H <- do.call(cbind, precomp$Hlist)
   r <- length(psi_start)
   #############################################################################

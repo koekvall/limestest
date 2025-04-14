@@ -43,7 +43,7 @@ get_Psi <- function(lmerfit, psi = NULL){
 }
 
 # Make list of H matrices
-get_H_list <- function(lmerfit)
+get_Hlist <- function(lmerfit)
 {
   # Psi, and hence H, has the same structure as Lambda
   H <- lme4::getME(lmerfit, "Lambdat")
