@@ -140,7 +140,8 @@ analytical_score <- res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = cros
 mer_score <- colSums(merDeriv::estfun.lmerMod(fit))[6:9]
 
 numerical_hess <- numDeriv::hessian(loglik_test, test_point)
-mer_hess <- -solve(merDeriv::vcov.lmerMod(object = fit, full = TRUE, expected = FALSE)[6:9, 6:9])
+
+
 mer_inf <- solve(merDeriv::vcov.lmerMod(object = fit, full = TRUE, expected = TRUE)[6:9, 6:9])
 analytical_inf <- res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
                                              ZtZ = crossprod(Z), YtZ = crossprod(Y, Z), Y = Y,
@@ -157,15 +158,11 @@ cat("The max absolute difference between merDeriv and analytical score at MLE is
 cat("The max relative difference between merDeriv and analytical score at MLE is: ",
     max(abs(mer_score - analytical_score) / mer_score), "\n")
 
+cat("The max absolute difference between merDeriv and analytical information at MLE is: ",
+    max(abs(mer_inf - analytical_inf)), "\n")
+cat("The max relative difference between merDeriv and analytical information at MLE is: ",
+    max(abs(mer_inf - analytical_inf) / mer_inf), "\n")
 
-cat("The max absolute difference between numerical and analytical Hessian at MLE is: ",
-    max(abs(numerical_hess - analytical_hess)), "\n")
-cat("The max relative difference between numerical and analytical Hessian at MLE is: ",
-    max(abs(numerical_hess - analytical_hess) / numerical_hess), "\n")
-cat("The max absolute difference between merDeriv and analytical Hessian at MLE is: ",
-    max(abs(mer_hess - analytical_hess)), "\n")
-cat("The max relative difference between merDeriv and analytical Hessian at MLE is: ",
-    max(abs(mer_hess - analytical_hess) / mer_hess), "\n")
 
 # Test derivatives at random point
 psir_test <- runif(1, min = psir_hat / 10, psir_hat * 10)
@@ -175,28 +172,25 @@ Psi1_test <- crossprod(U, diag(runif(2, min = min(ed$values) / 10, max = max(ed$
 Psi_test <- Matrix::kronecker(Matrix::Diagonal(300), Psi1_test)
 test_point <- c(Psi_test[1, 1], Psi_test[2, 1], Psi_test[2, 2], psir_test)
 numerical_score <- numDeriv::grad(loglik_test, test_point)
-analytical_score <- loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
-                               Psi_r = Psi_test / psir_test, psi_r = psir_test, loglik = F,
-                               score = T, finf = F)$score
+
+analytical_score <- res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
+                           ZtZ = crossprod(Z), YtZ = crossprod(Y, Z), Y = Y,
+                           X = X, Z = Z, H = H, Psi_r = Psi_test / psir_test,
+                           psi_r = psir_test, loglik = FALSE,
+                           score = TRUE, finf = FALSE)$score
 
 numerical_hess <- numDeriv::hessian(loglik_test, test_point)
-analytical_hess <- -loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
-                               Psi_r = Psi_test / psir_test, psi_r = psir_test, loglik = F,
-                               score = T, finf = T, expected = F)$finf
+
+analytical_inf <- res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
+                         ZtZ = crossprod(Z), YtZ = crossprod(Y, Z), Y = Y,
+                         X = X, Z = Z, H = H, Psi_r = Psi_test / psir_test,
+                         psi_r = psir_test, loglik = FALSE,
+                         score = TRUE, finf = TRUE)$finf
 
 cat("The max absolute difference between numerical and analytical score at random point is: ",
     max(abs(numerical_score - analytical_score)), "\n")
 cat("The max relative difference between numerical and analytical score at random point is: ",
     max(abs(numerical_score - analytical_score) / numerical_score), "\n")
-
-
-
-cat("The max absolute difference between numerical and analytical Hessian at random point is: ",
-    max(abs(numerical_hess - analytical_hess)), "\n")
-cat("The max relative difference between numerical and analytical Hessian at random point is: ",
-    max(abs(numerical_hess - analytical_hess) / numerical_hess), "\n")
-
-
 
 ###############################################################################
 # Simulation for Hessian

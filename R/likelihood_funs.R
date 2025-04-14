@@ -27,7 +27,7 @@ loglikelihood <-function(psi, b = NULL, precomp, REML = TRUE, getval = TRUE,
                         H = H,
                         Psi_r = Psi_r,
                         psi_r = psi[r],
-                        lik = getval,
+                        loglik = getval,
                         score = getscore,
                         finf = getinf)
   } else{

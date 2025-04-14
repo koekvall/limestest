@@ -18,7 +18,7 @@ partial_min <- function(opt_idx, precomp, psi_start, b = NULL, REML = TRUE,
                                            precomp = precomp,
                                            REML = REML,
                                            expected = expected)
-    list("value" = -ll_things$value, "gradient" = -ll_things$score,
+    list("value" = -ll_things$ll, "gradient" = -ll_things$score,
          "hessian" = ll_things$infmat)
   }
 
