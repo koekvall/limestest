@@ -5,38 +5,36 @@
 #' supplied as an argument.
 #'
 #' @param lmerfit An lmerMod object from fitting a linear mixed model using lme4::lmer
-#' @param psi Optional vector with covariance parameters (see details)
+#' @param psimr Optional vector with covariance parameters, not including the error variance;
+#   psi minus its r:th element (see details).
 #'
 #' @return A usually sparse covariance matrix of random effects of type dsCMatrix
 #'
 #' @details
-#' If psi is not supplied, the estimated covariance matrix is returned. If psi is
+#' If psimr is not supplied, the estimated covariance matrix is returned. If psimr is
 #' supplied, the covariance matrix is calculated using those parameter values instead.
-#' psi should be NULL (default) or a numeric vector of length getME(lmerfit, "m").
+#' psimr should be NULL (default) or a numeric vector of length getME(lmerfit, "m").
 #' In the latter case the elements should be ordered as those in the vcov column of
-#' as.data.frame(VarCorr(lmerfit), order = "lower.tri"). In particular, the last
-#' element is the error variance.
+#' as.data.frame(VarCorr(lmerfit), order = "lower.tri"). The last
+#' element in that column is is the error variance, which should be omitted.
 #'
 #'
 #' @export
-get_Psi <- function(lmerfit, psi = NULL){
-  if(is.null(psi)){
+get_Psi <- function(lmerfit, psimr = NULL){
+  if(is.null(psimr)){
     # Extract variances and covariances of random effects ordered as in the covmat
     # lower.tri despite creating upper triangular Psi since it appears to
     # with the indexing in getME(, "Lind")
-    psi <- as.data.frame(lme4::VarCorr(lmerfit), order = "lower.tri")$vcov
+    rm1 <- lme4::getME(lmerfit, "m")
+    psimr <- as.data.frame(lme4::VarCorr(lmerfit), order = "lower.tri")$vcov[1:r]
   }
 
   # Lambdat has the right structure, but not the same entries as Psi
   Psi_half <- lme4::getME(lmerfit, "Lambdat")
 
-  # Separate error variance and covariance matrix for random effects
-  psi0 <- psi[length(psi)]
-  psi <- psi[-length(psi)]
-
   # Fill in the upper triangular part of Psi with the extracted elements
   param_idx <- lme4::getME(lmerfit, "Lind")
-  Psi_half@x <- psi[param_idx]
+  Psi_half@x <- psimr[param_idx]
 
   # Return symmetric matrix
   Matrix::forceSymmetric(Psi_half, uplo = "U")

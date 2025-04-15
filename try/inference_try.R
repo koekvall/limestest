@@ -1,3 +1,4 @@
+library(lme4)
 data("Pixel", package="nlme")
 mform <- pixel ~ day + I(day^2) + (day | Dog) + (1 | Side/Dog)
 fit <- lmer(mform, data = Pixel)
