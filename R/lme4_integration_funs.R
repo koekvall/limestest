@@ -26,7 +26,7 @@ get_Psi <- function(lmerfit, psimr = NULL){
     # lower.tri despite creating upper triangular Psi since it appears to
     # with the indexing in getME(, "Lind")
     rm1 <- lme4::getME(lmerfit, "m")
-    psimr <- as.data.frame(lme4::VarCorr(lmerfit), order = "lower.tri")$vcov[1:r]
+    psimr <- as.data.frame(lme4::VarCorr(lmerfit), order = "lower.tri")$vcov[1:rm1]
   }
 
   # Lambdat has the right structure, but not the same entries as Psi
@@ -58,7 +58,12 @@ get_Hlist <- function(lmerfit)
          })
 }
 
-make_psd_Psi <- function(lmerfit, psimr)
+make_psd_Psi <- function(lmerfit, psimr, fix_idx)
 {
-
+  Tlist <- lme4::getME(lmerfit, "Tlist")
+  nterms <- length(tList)
+  for(ii in 1:nterms){
+    ri <- ncol(TList)[[ii]]
+    if()
+  }
 }

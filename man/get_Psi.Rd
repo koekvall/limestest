@@ -4,12 +4,12 @@
 \alias{get_Psi}
 \title{Get the covariance matrix of random effects}
 \usage{
-get_Psi(lmerfit, psi = NULL)
+get_Psi(lmerfit, psimr = NULL)
 }
 \arguments{
 \item{lmerfit}{An lmerMod object from fitting a linear mixed model using lme4::lmer}
 
-\item{psi}{Optional vector with covariance parameters (see details)}
+\item{psimr}{Optional vector with covariance parameters, not including the error variance;}
 }
 \value{
 A usually sparse covariance matrix of random effects of type dsCMatrix
@@ -20,10 +20,10 @@ either as estimated by lme4::lmer or evaluated at a particular parameter value
 supplied as an argument.
 }
 \details{
-If psi is not supplied, the estimated covariance matrix is returned. If psi is
+If psimr is not supplied, the estimated covariance matrix is returned. If psimr is
 supplied, the covariance matrix is calculated using those parameter values instead.
-psi should be NULL (default) or a numeric vector of length getME(lmerfit, "m").
+psimr should be NULL (default) or a numeric vector of length getME(lmerfit, "m").
 In the latter case the elements should be ordered as those in the vcov column of
-as.data.frame(VarCorr(lmerfit), order = "lower.tri"). In particular, the last
-element is the error variance.
+as.data.frame(VarCorr(lmerfit), order = "lower.tri"). The last
+element in that column is is the error variance, which should be omitted.
 }

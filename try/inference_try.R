@@ -23,9 +23,9 @@ fix_vals <- c(200, 0)
 psi_start <- psi_hat
 psi_start[fix_idx] <- fix_vals
 
-fit_null <- limestest:::partial_min(opt_idx = seq_len(6)[-fix_idx], precomp = precomp_lmer,
+profvis::profvis(fit_null <- limestest:::partial_min(opt_idx = seq_len(6)[-fix_idx], precomp = precomp_lmer,
                         psi_start = psi_start, REML = TRUE,
-                        expected = TRUE)
+                        expected = TRUE))
 psi_tilde <- fit_null$psihat
 
 fit_our <- limestest:::partial_min(opt_idx = seq_len(6), precomp = precomp_lmer,

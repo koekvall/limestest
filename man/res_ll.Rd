@@ -14,9 +14,9 @@ res_ll(
   X,
   Z,
   H,
-  Psi0,
-  psi0,
-  lik = TRUE,
+  Psi_r,
+  psi_r,
+  loglik = TRUE,
   score = FALSE,
   finf = FALSE
 )
@@ -46,12 +46,12 @@ the design matrix of random effects (Z).}
 \item{H}{A q x rq matrix, where H = \link{H_1, ..., H_r}, with H_j being the
 derivative of Psi with respect to psi_j}
 
-\item{Psi0}{The covariance matrix of the random effects (Psi) divided by the
-error variance (psi0)}
+\item{Psi_r}{The covariance matrix of the random effects (Psi) divided by the
+error variance (psi_r)}
 
-\item{psi0}{A scalar value of the error variance.}
+\item{psi_r}{A scalar value of the error variance.}
 
-\item{lik}{If \code{TRUE} (default), the log-likelihood will be computed.}
+\item{loglik}{If \code{TRUE} (default), the log-likelihood will be computed.}
 
 \item{score}{If \code{TRUE} (default), the score vector will be computed.}
 
@@ -61,9 +61,9 @@ computed.}
 \value{
 A list with elements:
 \describe{
-\item{res_ll}{A scalar value of the restricted log-likelihood.}
-\item{s_psi}{A (r + 1) x 1 vector of the restricted score of the variance parameters.}
-\item{I_psi}{A (r + 1) x (r + 1) matrix of the restricted  information of the
+\item{ll}{A scalar value of the restricted log-likelihood.}
+\item{score}{A (r + 1) x 1 vector of the restricted score of the variance parameters.}
+\item{finf}{A (r + 1) x (r + 1) matrix of the restricted  information of the
 variance parameters.}
 }
 }

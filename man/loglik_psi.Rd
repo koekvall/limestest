@@ -9,8 +9,8 @@ loglik_psi(
   ZtZXe,
   e,
   H,
-  Psi0,
-  psi0,
+  Psi_r,
+  psi_r,
   loglik = TRUE,
   score = TRUE,
   finf = TRUE,
@@ -20,17 +20,17 @@ loglik_psi(
 \arguments{
 \item{Z}{A matrix of fixed effects.}
 
-\item{ZtZXe}{Pre-computed matrix with of Z'\link{Z, X, e}}
+\item{ZtZXe}{Pre-computed matrix with of \eqn{Z'[Z, X, e]}}
 
 \item{e}{The residual vector.}
 
 \item{H}{Matrix of derivatives of Psi with respect to elements of psi.
-Assumes H = \link{H_1, ... , H_r}, where H_j is q by q.}
+Assumes \eqn{H = [H_1, ... , H_{r - 1}]}, where \eqn{H_j} is q by q.}
 
-\item{Psi0}{Coavariance matrix of random effects (Psi) divided by error
-variance psi0, with dimensions q by q.}
+\item{Psi_r}{Covariance matrix of random effects (Psi) divided by error
+variance psi_r, with dimensions q by q.}
 
-\item{psi0}{The error variance.}
+\item{psi_r}{The error or variance.}
 
 \item{loglik}{If \code{TRUE} (default), the log-likelihood will be calculated.}
 

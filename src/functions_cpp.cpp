@@ -1,9 +1,65 @@
+#include <RcppArmadillo.h>
 #include <RcppEigen.h>
-#include <Rcpp.h>
+
+// [[Rcpp::depends(RcppArmadillo)]]
 // [[Rcpp::depends(RcppEigen)]]
 
-using namespace Rcpp;
+// Compute projection onto intersection of set with restricted elements
+// and set of symmetric matrices with eigenvalues bounded below.
+//
+// Arguments:
+//
+// X: symmetric matrix to project
+// restr_idx: vector of indexes of X to restrict (in column-major order)
+// restr: vector of values to restrict elements of X to (column major order)
+// eps: scalar (double) lower bound on the eigenvalues of matrices in the set
+//   projected on.
+// tol: scalar (double) tolerance for terminating the algorithm.
+// maxit: positive integer with maximum number of iterations for algorithm.
+// [[Rcpp::export]]
+arma::mat project_rcpp(arma::mat X, const arma::uvec restr_idx,
+                       const arma::vec restr, const double eps, const double tol, uint maxit)
+{
+  const uint d = X.n_cols;
+  const double Inf = std::numeric_limits<double>::infinity();
 
+  arma::mat Xk(d, d);
+  if(restr_idx.n_elem == 0){
+    arma::vec e(d);
+    X = arma::symmatu(X);
+    arma::eig_sym(e, X, X);
+    Xk = X * arma::diagmat(arma::clamp(e, eps, Inf)) * X.t();
+  } else{
+    arma::mat Xkm1 = X;
+    arma::mat Pkm1(d, d, arma::fill::zeros);
+    arma::mat Qkm1(d, d, arma::fill::zeros);
+    double obj_old = 0.0;
+    for (size_t kk = 0; kk < maxit; kk++) {
+      if(kk >= maxit - 1){
+        Rcpp::warning("Projection algorithm reached max. iter. \n");
+      }
+      arma::mat Ykm1 = Xkm1 + Pkm1;
+      Ykm1.elem(restr_idx - 1) = restr; // C++ index start at zero
+      arma::mat Pk = Xkm1 + Pkm1 - Ykm1;
+      arma::mat U = Ykm1 + Qkm1;
+      arma::vec e(d);
+      U = arma::symmatu(U);
+      arma::eig_sym(e, U, U);
+      Xk = U * arma::diagmat(arma::clamp(e, eps, Inf)) * U.t();
+      arma::mat Qk = Ykm1 + Qkm1 - Xk;
+      double obj_new = 0.5 * arma::accu(arma::square((Xk - X)));
+      if(std::abs(obj_new - obj_old) < tol){
+        break;
+      }
+      // prepare next iteration
+      Xkm1 = Xk;
+      Pkm1 = Pk;
+      Qkm1 = Qk;
+      obj_old = obj_new;
+    }
+  }
+  return Xk;
+}
 
 //' get_PsiRcpp
 //'
@@ -52,7 +108,8 @@ Eigen::SparseMatrix<double> get_PsiRcpp(Eigen::Map<Eigen::VectorXd> psi, Eigen::
 //' @import Matrix
 //' @useDynLib limestest, .registration=TRUE
 // [[Rcpp::export]]
-List loglik_psiRcpp(Eigen::MappedSparseMatrix<double> Z,
+
+Rcpp::List loglik_psiRcpp(Eigen::MappedSparseMatrix<double> Z,
                     Eigen::Map<Eigen::VectorXd> e,
                     Eigen::MappedSparseMatrix<double> H,
                     Eigen::MappedSparseMatrix<double> Psi0,
@@ -164,7 +221,9 @@ List loglik_psiRcpp(Eigen::MappedSparseMatrix<double> Z,
       }
     }
   }
-  return List::create(Named("ll") = ll, Named("score") = s_psi, Named("finf") = I_psi);
+  return Rcpp::List::create(Rcpp::Named("ll") = ll,
+                            Rcpp::Named("score") = s_psi,
+                            Rcpp::Named("finf") = I_psi);
 }
 
 
@@ -197,7 +256,7 @@ List loglik_psiRcpp(Eigen::MappedSparseMatrix<double> Z,
 //' }
 //' @import Matrix
 // [[Rcpp::export]]
-List res_llRcpp(Eigen::Map<Eigen::MatrixXd> X,
+Rcpp::List res_llRcpp(Eigen::Map<Eigen::MatrixXd> X,
                 Eigen::Map<Eigen::VectorXd> Y,
                 Eigen::MappedSparseMatrix<double> Z,
                 Eigen::MappedSparseMatrix<double> H,
@@ -244,12 +303,12 @@ List res_llRcpp(Eigen::Map<Eigen::MatrixXd> X,
   Eigen::LLT<Eigen::MatrixXd, Eigen::Upper> llt(U);
 
   if (llt.info() != Eigen::Success) {
-    return List::create(
-      Named("ll") = -R_PosInf,
-      Named("score") = s_psi,
-      Named("finf") = I_psi,
-      Named("beta") = Eigen::VectorXd::Constant(p, NA_REAL),
-      Named("I_b_inv_chol") = Eigen::MatrixXd::Constant(p, p, NA_REAL));
+    return Rcpp::List::create(
+      Rcpp::Named("ll") = -R_PosInf,
+      Rcpp::Named("score") = s_psi,
+      Rcpp::Named("finf") = I_psi,
+      Rcpp::Named("beta") = Eigen::VectorXd::Constant(p, NA_REAL),
+      Rcpp::Named("I_b_inv_chol") = Eigen::MatrixXd::Constant(p, p, NA_REAL));
   }
 
   // Create XtSiY
@@ -333,8 +392,9 @@ List res_llRcpp(Eigen::Map<Eigen::MatrixXd> X,
     }
   }
   Eigen::MatrixXd lltU = llt.matrixU();
-  return List::create(
-    Named("ll") = ll, Named("score") = s_psi, Named("finf") = I_psi,
-          Named("beta") = beta_tilde,
-          Named("I_b_inv_chol") = lltU);
+  return Rcpp::List::create(
+    Rcpp::Named("ll") = ll, Rcpp::Named("score") = s_psi, Rcpp::Named("finf") = I_psi,
+          Rcpp::Named("beta") = beta_tilde,
+          Rcpp::Named("I_b_inv_chol") = lltU);
 }
+
