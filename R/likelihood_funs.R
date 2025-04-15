@@ -14,7 +14,6 @@ loglikelihood <-function(psi, b = NULL, precomp, REML = TRUE, getval = TRUE,
 
   H <- do.call(cbind, precomp$Hlist)
   Psi_r <- (1 / psi[r]) * Psi_from_Hlist(psi = psi[-r], Hlist = precomp$Hlist)
-  browser()
   if(REML){
     ll_things <- res_ll(XtX = precomp$XtX,
                         XtY = precomp$XtY,

@@ -1,3 +1,19 @@
+Psi_from_Hlist <- function(psi, Hlist)
+{
+  rm1 <- length(Hlist)
+  if(rm1 >= 1){
+    q <- ncol(Hlist[[1]])
+    Psi <- Matrix::sparseMatrix(i = seq_len(0), j = seq_len(0), x = 0, dims = c(q, q))
+    for(ii in seq_len(rm1)){
+     Psi <- Psi + Hlist[[ii]] * psi[ii]
+    }
+  } else{
+    Psi <- 0
+  }
+  Psi
+}
+
+
 partial_min <- function(opt_idx, precomp, psi_start, b = NULL, REML = TRUE,
                            expected = TRUE, ...)
 {
@@ -18,8 +34,8 @@ partial_min <- function(opt_idx, precomp, psi_start, b = NULL, REML = TRUE,
                                            precomp = precomp,
                                            REML = REML,
                                            expected = expected)
-    list("value" = -ll_things$ll, "gradient" = -ll_things$score,
-         "hessian" = ll_things$infmat)
+    list("value" = -ll_things$value, "gradient" = -ll_things$score[opt_idx],
+         "hessian" = as.matrix(ll_things$infmat[opt_idx, opt_idx]))
   }
 
   #############################################################################
@@ -31,14 +47,6 @@ partial_min <- function(opt_idx, precomp, psi_start, b = NULL, REML = TRUE,
   psi_start[opt_idx] <- fit$argument
   list("psihat" = psi_start, "value" = -fit$value, "conv" = fit$converged,
        "iter" = fit$iterations)
-}
-
-Psi_from_Hlist <- function(psi, Hlist)
-{
-  for(ii in seq_len(length(Hlist))){
-    Hlist[[ii]] <- Hlist[[ii]] * psi[ii]
-  }
-  do.call(cbind, Hlist)
 }
 
 score_stat <- function(psi, test_idx, precomp, REML = TRUE, expected = TRUE,

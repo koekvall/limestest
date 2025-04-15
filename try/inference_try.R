@@ -15,7 +15,27 @@ precomp_lmer <- list(XtX = crossprod(X),
                 X = X,
                 Z = Z,
                 Hlist = limestest:::get_Hlist(fit))
-psi_null <- as.data.frame(VarCorr(fit), order = "lower.tri")$vcov
-psi_null[3] <- 0
-limestest:::partial_min(opt_idx = seq_len(6)[-3], precomp = precomp_lmer,
-                        psi_start = psi_null, REML = TRUE, expected = TRUE)
+psi_hat <- as.data.frame(VarCorr(fit), order = "lower.tri")$vcov
+psi_start <- psi_hat
+
+fix_idx <- c(1, 3)
+fix_vals <- c(200, 0)
+psi_start <- psi_hat
+psi_start[fix_idx] <- fix_vals
+
+fit_null <- limestest:::partial_min(opt_idx = seq_len(6)[-fix_idx], precomp = precomp_lmer,
+                        psi_start = psi_start, REML = TRUE,
+                        expected = TRUE)
+psi_tilde <- fit_null$psihat
+
+fit_our <- limestest:::partial_min(opt_idx = seq_len(6), precomp = precomp_lmer,
+                                    psi_start = psi_hat, REML = TRUE,
+                                   expected = TRUE)
+psi_hat_our <- fit_our$psihat
+
+# These should be in decreasing order
+limestest:::loglikelihood(psi = psi_hat_our, b = NULL, precomp = precomp_lmer, REML = TRUE)$value
+limestest:::loglikelihood(psi = psi_hat, b = NULL, precomp = precomp_lmer, REML = TRUE)$value
+limestest:::loglikelihood(psi = psi_tilde, b = NULL, precomp = precomp_lmer, REML = TRUE)$value
+limestest:::loglikelihood(psi = psi_start, b = NULL, precomp = precomp_lmer, REML = TRUE)$value
+
