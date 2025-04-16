@@ -58,12 +58,44 @@ get_Hlist <- function(lmerfit)
          })
 }
 
-make_psd_Psi <- function(lmerfit, psimr, fix_idx)
-{
-  Tlist <- lme4::getME(lmerfit, "Tlist")
-  nterms <- length(tList)
-  for(ii in 1:nterms){
-    ri <- ncol(TList)[[ii]]
-    if()
+get_precomp <- function(lmerfit){
+  # 0 indicates ML
+  REML <- lme4::getME(lmerfit, "REML") != 0
+
+  Y <- lme4::getME("y")
+  X <- lme4::getME("X")
+  Z <- lme4::getME("Z")
+
+  if(!REML){
+    b <- lme4::getME("beta")
+    Y <- Y - X %*% b
   }
+
+  list(XtX = crossprod(X),
+       XtY = crossprod(X, Y),
+       XtZ = crossprod(X, Z),
+       ZtZ = crossprod(Z),
+       YtZ = crossprod(Y, Z),
+       Y = Y,
+       X = X,
+       Z = Z,
+       Hlist = limestest:::get_Hlist(fit))
+}
+
+lmer_score_test <- function(lmerfit, psi, test_idx,
+                            efficient = TRUE,
+                            expeted = TRUE,
+                            profile = TRUE)
+{
+  # 0 indicates ML
+  REML <- lme4::getME(lmerfit, "REML") != 0
+ list(XtX = crossprod(X),
+                XtY = crossprod(X, Y),
+                XtZ = crossprod(X, Z),
+                ZtZ = crossprod(Z),
+                YtZ = crossprod(Y, Z),
+                Y = Y,
+                X = X,
+                Z = Z,
+                Hlist = limestest:::get_Hlist(fit))
 }
