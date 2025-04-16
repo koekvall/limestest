@@ -45,7 +45,7 @@ partial_min <- function(opt_idx, precomp, psi_start, b = NULL, REML = TRUE,
                       rmax = 100, ...)
   # Return results
   psi_start[opt_idx] <- fit$argument
-  list("psihat" = psi_start, "value" = -fit$value, "conv" = fit$converged,
+  list("psi_hat" = psi_start, "value" = -fit$value, "conv" = fit$converged,
        "iter" = fit$iterations)
 }
 
