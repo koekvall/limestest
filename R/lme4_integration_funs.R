@@ -131,6 +131,12 @@ lmer_score_test <- function(lmerfit,
           psi_null <- partial_min(opt_idx = seq_len(r)[-param_idx],
                                   precomp = precomp, psi_start = psi_null, REML = REML,
                                   expected = expected)$psi_hat
+          out[param_idx, 1] <- c(score_stat(psi = psi_null, test_idx = param_idx,
+                                            precomp = precomp,
+                                            REML = REML, expected = expected,
+                                            efficient = efficient, signed = FALSE))
+          out[param_idx, 2] <- pchisq(out[param_idx, 1], df = 1, lower = F)
+          out[param_idx, 3] <- 1
           # Increase parameter index
           param_idx <- param_idx + 1
         }
