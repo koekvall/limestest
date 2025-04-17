@@ -211,9 +211,9 @@ Rcpp::List loglik_psi_cpp(Eigen::MappedSparseMatrix<double> ZtZ,
 
       for (int ii = 0; ii <= rm1; ii++) {
         double a =  w(Eigen::seq(ii * q, q)).dot(Zu);
-        I_psi(r, ii) += a;
-        I_psi(ii, r) += a;
-        for (int jj = ii; jj <= rm1; jj++) {
+        I_psi(rm1, ii) += a;
+        I_psi(ii, rm1) += a;
+        for (int jj = ii; jj < rm1; jj++) {
           I_psi(ii, jj) -= (1 / psi_r) * (w(Eigen::seq(ii * q, q)).transpose() * B).dot(w(Eigen::seq(jj * q, q)));
           I_psi(jj, ii) = I_psi(ii, jj);
         }
