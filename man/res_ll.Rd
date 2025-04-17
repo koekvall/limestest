@@ -16,9 +16,9 @@ res_ll(
   H,
   Psi_r,
   psi_r,
-  loglik = TRUE,
-  score = FALSE,
-  finf = FALSE
+  get_val = TRUE,
+  get_score = FALSE,
+  get_inf = FALSE
 )
 }
 \arguments{
@@ -51,20 +51,19 @@ error variance (psi_r)}
 
 \item{psi_r}{A scalar value of the error variance.}
 
-\item{loglik}{If \code{TRUE} (default), the log-likelihood will be computed.}
+\item{get_val}{If \code{TRUE} (default), the log-likelihood will be computed.}
 
-\item{score}{If \code{TRUE} (default), the score vector will be computed.}
+\item{get_score}{If \code{TRUE} (default), the score vector will be computed.}
 
-\item{finf}{If \code{TRUE} (default), the Fisher information matrix will be
+\item{get_inf}{If \code{TRUE} (default), the Fisher information matrix will be
 computed.}
 }
 \value{
 A list with elements:
 \describe{
-\item{ll}{A scalar value of the restricted log-likelihood.}
-\item{score}{A (r + 1) x 1 vector of the restricted score of the variance parameters.}
-\item{finf}{A (r + 1) x (r + 1) matrix of the restricted  information of the
-variance parameters.}
+\item{value}{The restricted log-likelihood at supplied parameters.}
+\item{score}{The restricted score at the supplied parameters.}
+\item{inf_mat}{The expected restricted information matrix at supplied parameters}
 }
 }
 \description{

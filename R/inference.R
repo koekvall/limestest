@@ -1,11 +1,11 @@
-Psi_from_Hlist <- function(psi, Hlist)
+Psi_from_Hlist <- function(psi_mr, Hlist)
 {
   rm1 <- length(Hlist)
   if(rm1 >= 1){
     q <- ncol(Hlist[[1]])
     Psi <- Matrix::sparseMatrix(i = seq_len(0), j = seq_len(0), x = 0, dims = c(q, q))
     for(ii in seq_len(rm1)){
-     Psi <- Psi + Hlist[[ii]] * psi[ii]
+     Psi <- Psi + Hlist[[ii]] * psi_mr[ii]
     }
   } else{
     Psi <- 0
@@ -29,13 +29,13 @@ partial_min <- function(opt_idx, precomp, psi_start, b = NULL, REML = TRUE,
   obj_fun <- function(x){
     psi_arg <- psi_start
     psi_arg[opt_idx] <- x
-    ll_things <- limestest:::loglikelihood(psi = psi_arg,
+    ll_things <- loglikelihood(psi = psi_arg,
                                            b = b,
                                            precomp = precomp,
                                            REML = REML,
                                            expected = expected)
     list("value" = -ll_things$value, "gradient" = -ll_things$score[opt_idx],
-         "hessian" = as.matrix(ll_things$infmat[opt_idx, opt_idx]))
+         "hessian" = as.matrix(ll_things$inf_mat[opt_idx, opt_idx]))
   }
 
   #############################################################################
@@ -62,9 +62,9 @@ score_stat <- function(psi, test_idx, precomp, REML = TRUE, expected = TRUE,
   stopifnot(all(test_idx %in% seq_len(r)), k <= r)
 
   psi_r <- psi[r]
-  psi <- psi[-r]
+  psi_mr <- psi[-r]
 
-  Psi_r <- (1 / psi_r) * Psi_from_Hlist(psi = psi, Hlist = precomp$Hlist)
+  Psi_r <- (1 / psi_r) * Matrix::drop0(Psi_from_Hlist(psi_mr = psi_mr, Hlist = precomp$Hlist))
   H <- do.call(cbind, precomp$Hlist)
 
   if(REML){
@@ -79,9 +79,9 @@ score_stat <- function(psi, test_idx, precomp, REML = TRUE, expected = TRUE,
                         H = H,
                         Psi_r = Psi_r,
                         psi_r = psi_r,
-                        lik = FALSE,
-                        score = TRUE,
-                        finf = TRUE)
+                        get_val = FALSE,
+                        get_score = TRUE,
+                        get_inf = TRUE)
   } else{
     ll_things <- loglik_psi(Z = precomp$Z,
                             ZtZXe = cbind(precomp$ZtZ, precomp$ZtX, precomp$Y),
@@ -89,30 +89,30 @@ score_stat <- function(psi, test_idx, precomp, REML = TRUE, expected = TRUE,
                             H = H,
                             Psi_r = Psi_r,
                             psi_r = psi_r,
-                            loglik = FALSE,
-                            score = TRUE,
-                            finf = TRUE,
+                            get_val = FALSE,
+                            get_score = TRUE,
+                            get_inf = TRUE,
                             expected = expected)
   }
 
 
-  infmat <- ll_things$finf[test_idx, test_idx]
+  inf_mat <- ll_things$inf_mat[test_idx, test_idx, drop = F]
 
-  if(efficient & (k > 1)){
-    infmat <- infmat - crossprod(ll_things$finf[-test_idx, test_idx],
-                                 solve(ll_things$finf[-test_idx, -test_idx],
-                                       ll_things$finf[-test_idx, test_idx]))
+  if(efficient & (r > 1)){
+    inf_mat <- inf_mat - crossprod(ll_things$inf_mat[-test_idx, test_idx, drop = F],
+                                 solve(ll_things$inf_mat[-test_idx, -test_idx, drop = F],
+                                       ll_things$inf_mat[-test_idx, test_idx, drop = F]))
   }
 
   if(signed){
-    ed <- eigen(infmat, symmetric = TRUE)
-    infmat <- ed$vectors %*% (sqrt(ed$values) * t(ed$vectors))
+    ed <- eigen(inf_mat, symmetric = TRUE)
+    inf_mat <- ed$vectors %*% (sqrt(ed$values) * t(ed$vectors))
 
     # Inefficient since eigen decomposition available, but may be more stable
-    test_stat <- solve(infmat, ll_things$score[test_idx])
+    test_stat <- solve(inf_mat, ll_things$score[test_idx])
   } else{
-    test_stat <- crossprod(ll_things$score[test_idx], solve(infmat,
+    test_stat <- crossprod(ll_things$score[test_idx], solve(inf_mat,
                                                            ll_things$score[test_idx]))
   }
-  test_stat
+  as.vector(test_stat)
 }

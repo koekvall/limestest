@@ -16,7 +16,6 @@
 //   projected on.
 // tol: scalar (double) tolerance for terminating the algorithm.
 // maxit: positive integer with maximum number of iterations for algorithm.
-// [[Rcpp::export]]
 arma::mat project_rcpp(arma::mat X, const arma::uvec restr_idx,
                        const arma::vec restr, const double eps, const double tol, uint maxit)
 {
@@ -61,22 +60,21 @@ arma::mat project_rcpp(arma::mat X, const arma::uvec restr_idx,
   return Xk;
 }
 
-//' get_PsiRcpp
+//' Psi_from_H_cpp
 //'
-//' Constructs the covariance matrix from the covariance parameters
-//' This function is implemented in C++ and is faster than the equivalent function \code{get_Psi}
+//' Constructs the covariance matrix of the random effects
 //'
-//' @param psi1 Covariance parameter vector
+//' @param psi_mr A vector of
 //' @param H Matrix of derivatives of Psi with respect to elements of psi.
 //'        Assumes H = [H_1, ... , H_r], where H_j is q by q.
 //' @return The covariance matrix Psi
 // [[Rcpp::export]]
-Eigen::SparseMatrix<double> get_PsiRcpp(Eigen::Map<Eigen::VectorXd> psi, Eigen::MappedSparseMatrix<double> H) { //
+Eigen::SparseMatrix<double> Psi_from_H_cpp(Eigen::VectorXd& psi_mr, Eigen::SparseMatrix<double>& H) { //
   int q = H.rows();
   int r = H.cols() / q;
-  Eigen::SparseMatrix<double> Psi(10,10);
+  Eigen::SparseMatrix<double> Psi(q, q);
   for (int ii = 0; ii < r; ii++) {
-    Psi += psi(ii) * H.middleCols(ii * q, (ii+1) * q);
+    Psi += psi_mr(ii) * H.middleCols(ii * q, (ii + 1) * q);
   }
   return Psi;
 }

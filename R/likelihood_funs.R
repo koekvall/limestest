@@ -1,5 +1,5 @@
-loglikelihood <-function(psi, b = NULL, precomp, REML = TRUE, getval = TRUE,
-                         getscore = TRUE, getinf = TRUE, expected = TRUE)
+loglikelihood <-function(psi, b = NULL, precomp, REML = TRUE, get_val = TRUE,
+                         get_score = TRUE, get_inf = TRUE, expected = TRUE)
 {
   if(!expected & REML){
     warning("Observed information not implemented for restricted likelihood;
@@ -26,9 +26,9 @@ loglikelihood <-function(psi, b = NULL, precomp, REML = TRUE, getval = TRUE,
                         H = H,
                         Psi_r = Psi_r,
                         psi_r = psi[r],
-                        loglik = getval,
-                        score = getscore,
-                        finf = getinf)
+                        get_val = get_val,
+                        get_score = get_score,
+                        get_inf = get_inf)
   } else{
     precomp$Y <- precomp$Y - precomp$X %*% b
     ZtZXe <- cbind(precomp$ZtZ, precomp$ZtX, t(precomp$YtZ))
@@ -38,14 +38,14 @@ loglikelihood <-function(psi, b = NULL, precomp, REML = TRUE, getval = TRUE,
                             H = H,
                             Psi_r = Psi_r,
                             psi_r = psi[r],
-                            loglik = getval,
-                            score = getscore,
-                            finf = getinf,
+                            get_val = get_val,
+                            get_score = get_score,
+                            get_inf = get_inf,
                             expected = expected)
   }
-  list("value" = ll_things$ll,
+  list("value" = ll_things$value,
        "score" = ll_things$score,
-       "infmat" = ll_things$finf)
+       "inf_mat" = ll_things$inf_mat)
 }
 
 #' loglik_psi
@@ -61,7 +61,7 @@ loglikelihood <-function(psi, b = NULL, precomp, REML = TRUE, getval = TRUE,
 #' @param Psi_r Covariance matrix of random effects (Psi) divided by error
 #'             variance psi_r, with dimensions q by q.
 #' @param psi_r The error or variance.
-#' @param get_ll If \code{TRUE} (default), the log-likelihood will be calculated.
+#' @param get_val If \code{TRUE} (default), the log-likelihood will be calculated.
 #' @param get_score If \code{TRUE} (default), the score vector will be calculated.
 #' @param get_inf If \code{TRUE} (default), the information matrix will be calculated.
 #' @param expected If \code{TRUE} (detault), return expected information;
@@ -75,7 +75,7 @@ loglikelihood <-function(psi, b = NULL, precomp, REML = TRUE, getval = TRUE,
 #' @import Matrix
 #' @export
 #' @useDynLib limestest, .registration=TRUE
-loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, get_ll = TRUE,
+loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, get_val = TRUE,
                        get_score = TRUE, get_inf = TRUE, expected = TRUE)
 {
   # Define dimensions
@@ -99,7 +99,7 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, get_ll = TRUE,
   A <- Matrix::crossprod(Psi_r, ZtZXe)
 
   # Add loglik term before overwriting
-  if(get_ll){
+  if(get_val){
     ll <- -0.5 * Matrix::determinant(A[, 1:q] + Matrix::Diagonal(q))$modulus -
       0.5 * n * log(psi_r)
   }
@@ -109,11 +109,11 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, get_ll = TRUE,
 
   # Score for error variance psi_r
   # NB: REPLACE e by Sigma^{-1}e
-  if(get_ll | (get_inf & !expected)){
+  if(get_val | (get_inf & !expected)){
    e_save <- e
   }
   e <- (1 / psi_r) * (e - Z %*% A[, q + p + 1]) # = Sigma^{-1}e
-  if(get_ll){
+  if(get_val){
     ll <- ll  - 0.5 * sum(e * e_save)
   }
 
@@ -213,7 +213,7 @@ chol_solve <- function(U, b)
 #' @param Psi_r The covariance matrix of the random effects (Psi) divided by the
 #' error variance (psi_r)
 #' @param psi_r A scalar value of the error variance.
-#' @param get_ll If \code{TRUE} (default), the log-likelihood will be computed.
+#' @param get_val If \code{TRUE} (default), the log-likelihood will be computed.
 #' @param get_score If \code{TRUE} (default), the score vector will be computed.
 #' @param get_inf If \code{TRUE} (default), the Fisher information matrix will be
 #' computed.
@@ -227,7 +227,7 @@ chol_solve <- function(U, b)
 #' @import Matrix
 #' @export
 res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi_r, psi_r,
-                   loglik = TRUE, score = FALSE, finf = FALSE)
+                   get_val = TRUE, get_score = FALSE, get_inf = FALSE)
 {
   # Define dimensions
   n <- length(Y)
@@ -248,7 +248,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi_r, psi_r,
   A <- Matrix::crossprod(Psi_r, ZtZ) + Matrix::Diagonal(q) # q x q storage
 
   # Add likelihood term before overwriting
-  if(loglik) ll <- Matrix::determinant(A, logarithm = TRUE)$modulus
+  if(get_val) ll <- Matrix::determinant(A, logarithm = TRUE)$modulus
 
   A <- Matrix::solve(A, Psi_r)
   B <- XtZ %*% A # q x q
@@ -271,13 +271,13 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi_r, psi_r,
   # n x 1 vector for storing \Sigma^{-1}e
   a <- (1 / psi_r) * (Y - Z %*% (A %*% Matrix::crossprod(Z, Y))) # n x 1
 
-  if(loglik){
+  if(get_val){
     ll <- ll + 2 * sum(log(Matrix::diag(U)))
     ll <- ll + sum(Y * a) + n * log(2 * pi * psi_r)
     ll <- -0.5 * ll
   }
 
-  if(score){
+  if(get_score){
     # Stochastic part of restricted score for psi
     s_psi[r] <- 0.5 * sum(a^2)
     v <- as.vector(Matrix::crossprod(Z, a)) # q x 1 vector storage
@@ -288,7 +288,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi_r, psi_r,
   ## NOTHING BELOW SHOULD DEPEND ON Y.
   #############################################################################
 
-  if(finf){
+  if(get_inf){
     A <- Matrix::tcrossprod(A, ZtZ) # q x q, called M in manuscript
 
     s_psi[r] <- s_psi[r] - (0.5 / psi_r) * n + (0.5 / psi_r) * sum(Matrix::diag(A))
@@ -338,7 +338,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi_r, psi_r,
           sum(H2[, idx1] * Matrix::t(H2[, idx2]))
       }
     }
-  } else if (score){
+  } else if (get_score){
     A <- Matrix::tcrossprod(A, ZtZ) # q x q, called M in manuscript
     s_psi[r] <- s_psi[r] - (0.5 / psi_r) * n + (0.5 / psi_r) * sum(Matrix::diag(A))
 
@@ -357,6 +357,6 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi_r, psi_r,
     s_psi[-r] <- s_psi[-r] - 0.5 * colSums(matrix(Matrix::colSums(v * H), nrow = q))
   }
   I_psi <- Matrix::forceSymmetric(I_psi, uplo = "U")
-  return(list("ll" = ll[1], "score" = s_psi, "finf" = I_psi, "beta" = beta_tilde,
+  return(list("value" = ll[1], "score" = s_psi, "inf_mat" = I_psi, "beta" = beta_tilde,
               "I_b_inv_chol" = U))
 }

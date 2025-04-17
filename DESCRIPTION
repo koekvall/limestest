@@ -4,7 +4,7 @@ Version: 0.1
 Authors@R:  c(
     person("Karl Oskar", "Ekvall", email = "k.o.ekvall@gmail.com",
     role = c("aut", "cre")),
-    person("Yiqiao", "Zhang", email = "yiqiaozhang@ufl.edu", role = "ctb"),
+    person("Yiqiao", "Zhang", email = "yiqiaozhang@ufl.edu", role = "aut"),
     person("Matias", "Shedden", email = "sheddenmatias@ufl.edu", role = "ctb"))
 Description: Calculate the score test statistic standardized by expected Fisher
   information in linear mixed effects models
@@ -15,5 +15,5 @@ RoxygenNote: 7.3.2
 Depends: 
     R (>= 2.10)
 LazyData: true
-Imports: Rcpp, Matrix
+Imports: Matrix, lme4, trust
 LinkingTo: Rcpp, RcppArmadillo, RcppEigen

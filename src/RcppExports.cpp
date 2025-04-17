@@ -12,31 +12,15 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// project_rcpp
-arma::mat project_rcpp(arma::mat X, const arma::uvec restr_idx, const arma::vec restr, const double eps, const double tol, uint maxit);
-RcppExport SEXP _limestest_project_rcpp(SEXP XSEXP, SEXP restr_idxSEXP, SEXP restrSEXP, SEXP epsSEXP, SEXP tolSEXP, SEXP maxitSEXP) {
+// Psi_from_H_cpp
+Eigen::SparseMatrix<double> Psi_from_H_cpp(Eigen::VectorXd& psi_mr, Eigen::SparseMatrix<double>& H);
+RcppExport SEXP _limestest_Psi_from_H_cpp(SEXP psi_mrSEXP, SEXP HSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
-    Rcpp::traits::input_parameter< const arma::uvec >::type restr_idx(restr_idxSEXP);
-    Rcpp::traits::input_parameter< const arma::vec >::type restr(restrSEXP);
-    Rcpp::traits::input_parameter< const double >::type eps(epsSEXP);
-    Rcpp::traits::input_parameter< const double >::type tol(tolSEXP);
-    Rcpp::traits::input_parameter< uint >::type maxit(maxitSEXP);
-    rcpp_result_gen = Rcpp::wrap(project_rcpp(X, restr_idx, restr, eps, tol, maxit));
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_PsiRcpp
-Eigen::SparseMatrix<double> get_PsiRcpp(Eigen::Map<Eigen::VectorXd> psi, Eigen::MappedSparseMatrix<double> H);
-RcppExport SEXP _limestest_get_PsiRcpp(SEXP psiSEXP, SEXP HSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Eigen::Map<Eigen::VectorXd> >::type psi(psiSEXP);
-    Rcpp::traits::input_parameter< Eigen::MappedSparseMatrix<double> >::type H(HSEXP);
-    rcpp_result_gen = Rcpp::wrap(get_PsiRcpp(psi, H));
+    Rcpp::traits::input_parameter< Eigen::VectorXd& >::type psi_mr(psi_mrSEXP);
+    Rcpp::traits::input_parameter< Eigen::SparseMatrix<double>& >::type H(HSEXP);
+    rcpp_result_gen = Rcpp::wrap(Psi_from_H_cpp(psi_mr, H));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -80,8 +64,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_limestest_project_rcpp", (DL_FUNC) &_limestest_project_rcpp, 6},
-    {"_limestest_get_PsiRcpp", (DL_FUNC) &_limestest_get_PsiRcpp, 2},
+    {"_limestest_Psi_from_H_cpp", (DL_FUNC) &_limestest_Psi_from_H_cpp, 2},
     {"_limestest_loglik_psiRcpp", (DL_FUNC) &_limestest_loglik_psiRcpp, 9},
     {"_limestest_res_llRcpp", (DL_FUNC) &_limestest_res_llRcpp, 9},
     {NULL, NULL, 0}

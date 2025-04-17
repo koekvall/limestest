@@ -11,9 +11,9 @@ loglik_psi(
   H,
   Psi_r,
   psi_r,
-  loglik = TRUE,
-  score = TRUE,
-  finf = TRUE,
+  get_val = TRUE,
+  get_score = TRUE,
+  get_inf = TRUE,
   expected = TRUE
 )
 }
@@ -32,20 +32,20 @@ variance psi_r, with dimensions q by q.}
 
 \item{psi_r}{The error or variance.}
 
-\item{loglik}{If \code{TRUE} (default), the log-likelihood will be calculated.}
+\item{get_val}{If \code{TRUE} (default), the log-likelihood will be calculated.}
 
-\item{score}{If \code{TRUE} (default), the score vector will be calculated.}
+\item{get_score}{If \code{TRUE} (default), the score vector will be calculated.}
 
-\item{finf}{If \code{TRUE} (default), the Fisher information matrix will be calculated.}
+\item{get_inf}{If \code{TRUE} (default), the information matrix will be calculated.}
 
 \item{expected}{If \code{TRUE} (detault), return expected information;
 otherwise observed.}
 }
 \value{
 A list with components:
-\item{ll}{The log-likelihood.}
-\item{score}{The score vector.}
-\item{finf}{The Fisher information matrix.}
+\item{value}{The log-likelihood evaluated at supplied parameters}
+\item{score}{The score at supplied parameters}
+\item{inf_mat}{The information matrix at supplied parameters}
 }
 \description{
 Calculates the log-likelihood, score vector and Fisher information matrix
