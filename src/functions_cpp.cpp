@@ -69,23 +69,24 @@ arma::mat project_rcpp(arma::mat X, const arma::uvec restr_idx,
 //'        Assumes H = [H_1, ... , H_r], where H_j is q by q.
 //' @return The covariance matrix Psi
 // [[Rcpp::export]]
-Eigen::SparseMatrix<double> Psi_from_H_cpp(Eigen::VectorXd& psi_mr, Eigen::SparseMatrix<double>& H) { //
+Eigen::SparseMatrix<double> Psi_from_H_cpp(const Eigen::Map<Eigen::VectorXd> psi_mr,
+                                           const Eigen::MappedSparseMatrix<double> H) { //
   int q = H.rows();
-  int r = H.cols() / q;
+  int rm1 = H.cols() / q;
   Eigen::SparseMatrix<double> Psi(q, q);
-  for (int ii = 0; ii < r; ii++) {
-    Psi += psi_mr(ii) * H.middleCols(ii * q, (ii + 1) * q);
+  for (int ii = 0; ii < rm1; ii++) {
+     Psi += psi_mr(ii) * H.middleCols(ii * q, q);
   }
   return Psi;
 }
 
-//' loglik_psiRcpp
+//' loglik_psi_cpp
 //'
 //' Calculates the log-likelihood, score vector and Fisher information matrix
 //' for the variance parameter vector \code{psi} in a linear mixed effects model.
 //' This function is implemented in C++ and is faster than the equivalent function \code{loglik_psi}
 //'
-//' @param Z A matrix of fixed effects.
+//' @param ZtZ A matrix of fixed effects.
 //' @param e The residual vector.
 //' @param H Matrix of derivatives of Psi with respect to elements of psi.
 //'        Assumes H = [H_1, ... , H_r], where H_j is q by q.
@@ -103,68 +104,71 @@ Eigen::SparseMatrix<double> Psi_from_H_cpp(Eigen::VectorXd& psi_mr, Eigen::Spars
 //' \item{score}{The score vector.}
 //' \item{finf}{The Fisher information matrix.}
 //'
-//' @import Matrix
 //' @useDynLib limestest, .registration=TRUE
 // [[Rcpp::export]]
 
-Rcpp::List loglik_psiRcpp(Eigen::MappedSparseMatrix<double> Z,
-                    Eigen::Map<Eigen::VectorXd> e,
-                    Eigen::MappedSparseMatrix<double> H,
-                    Eigen::MappedSparseMatrix<double> Psi0,
-                    double psi0,
-                    bool loglik = true,
-                    bool score = true,
-                    bool finf = true,
-                    bool expected = true) {
+Rcpp::List loglik_psi_cpp(Eigen::MappedSparseMatrix<double> ZtZ,
+                          Eigen::Map<Eigen::MatrixXd> XtZ,
+                          Eigen::Map<Eigen::VectorXd> Zte,
+                          Eigen::MappedSparseMatrix<double> Z,
+                          Eigen::VectorXd e,
+                          Eigen::MappedSparseMatrix<double> H,
+                          Eigen::MappedSparseMatrix<double> Psi_r,
+                          double psi_r,
+                          bool get_val = true,
+                          bool get_score = true,
+                          bool get_inf = true,
+                          bool expected = true) {
 
   // Define dimensions
   int n = e.size();
-  int q = Psi0.cols();
-  int r = H.cols() / q;
+  int q = Psi_r.cols();
+  int rm1 = H.cols() / q;
+  int r = rm1 + 1;
   // loglikelihood to return
   double ll = NA_REAL;
   // Score vector to return
-  Eigen::VectorXd s_psi(r + 1);
+  Eigen::VectorXd s_psi(r);
   // Fisher information to return
-  Eigen::MatrixXd I_psi(r + 1, r + 1);
+  Eigen::MatrixXd I_psi(r, r);
 
-  // AZ = Psi0 * ZtZ, Ae = Psi0 * Zte
-  Eigen::SparseMatrix<double> ZtZ = Z.transpose() * Z;
-  Eigen::SparseMatrix<double> A = Psi0 * ZtZ;
-  Eigen::VectorXd Ae = Psi0 * Z.transpose() * e;
+  Eigen::SparseMatrix<double> A = Psi_r * ZtZ;
+  Eigen::VectorXd Ae = Psi_r * Zte;
 
   // solver for Psi0ZtZ + I_q
   Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
-  solver.compute(A + Eigen::MatrixXd::Identity(q,q).sparseView());
+
+  solver.compute(A + Eigen::MatrixXd::Identity(q, q).sparseView());
 
   // Add loglik term before overwriting
-  if (loglik) {
-    ll = -0.5 * solver.logAbsDeterminant() - 0.5 * n * log(psi0);
+  if (get_val) {
+    ll = -0.5 * solver.logAbsDeterminant() - 0.5 * n * log(psi_r);
   }
 
   // Matrix denoted M in manuscript is A[, 1:q]
   A = solver.solve(A).eval();
   Ae = solver.solve(Ae).eval();
 
-  // Eigen::VectorXd e_save(n);
-  // if(loglik | (finf & !expected)){
-  //   e_save = e;
-  // }
-  // update e would cause loglik_psiRcpp return different values each time, not sure why... declare a new variable enew instead
-  Eigen::VectorXd enew = (1.0 / psi0) * (e - Z * Ae).eval(); // = Sigma^{-1}e
-  if (loglik) {
-    ll = ll - 0.5 * enew.dot(e);
+  Eigen::VectorXd e_save(n);
+  if(get_val | (get_inf & !expected)){
+     e_save = e;
+  }
+  // update e
+  e = (1.0 / psi_r) * (e - Z * Ae).eval(); // = Sigma^{-1}e
+  if (get_val) {
+    ll = ll - 0.5 * e.dot(e);
   }
 
   // find trace of M
   double trace_M = A.diagonal().sum();
 
-  s_psi(0) = 0.5 * enew.dot(enew) - (0.5 / psi0) * (n - trace_M);
+  s_psi(0) = 0.5 * e.dot(e) - (0.5 / psi_r) * (n - trace_M);
 
   // v is Z'Sigma^{-1}e, w is e'Sigma^{-1}Z[H1...Hr]
-  Eigen::SparseMatrix<double> v = (Z.transpose() * enew).sparseView(); // v is not sparse in the example
-  Eigen::SparseMatrix<double> w = v.transpose() * H;
+  Eigen::VectorXd v = (Z.transpose() * e);
+  Eigen::VectorXd w = v.transpose() * H;
 
+  /// CONTINUE HERE
   for (int i = 1; i <= r; i++) {
     Eigen::SparseMatrix<double> temp = w.middleCols((i-1)*q,q) * v;
     s_psi(i) = 0.5 * temp.coeffRef(0,0);
@@ -210,7 +214,7 @@ Rcpp::List loglik_psiRcpp(Eigen::MappedSparseMatrix<double> Z,
         I_psi(0, i) += temp(0,0);
         I_psi(i, 0) += temp(0,0);
         for (int j = i; j <= r; j++) {
-          I_psi(i, j) -= (1 / psi0) * (w.middleCols((i-1)*q,q) * B).cwiseProduct(w.middleCols((j-1)*q,q)).sum();
+          I_psi(i, j) -= (1 / psi0) * (w.middleCols((i-1) * q, q) * B).cwiseProduct(w.middleCols((j-1)*q,q)).sum();
           I_psi(j, i) = I_psi(i, j);
           // if (i != j) {
           //   I_psi(j, i) -= (1 / psi0) * (w.middleCols((i-1)*q,q) * B).cwiseProduct(w.middleCols((j-1)*q,q)).sum();

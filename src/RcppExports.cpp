@@ -13,13 +13,13 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // Psi_from_H_cpp
-Eigen::SparseMatrix<double> Psi_from_H_cpp(Eigen::VectorXd& psi_mr, Eigen::SparseMatrix<double>& H);
+Eigen::SparseMatrix<double> Psi_from_H_cpp(const Eigen::Map<Eigen::VectorXd> psi_mr, const Eigen::MappedSparseMatrix<double> H);
 RcppExport SEXP _limestest_Psi_from_H_cpp(SEXP psi_mrSEXP, SEXP HSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Eigen::VectorXd& >::type psi_mr(psi_mrSEXP);
-    Rcpp::traits::input_parameter< Eigen::SparseMatrix<double>& >::type H(HSEXP);
+    Rcpp::traits::input_parameter< const Eigen::Map<Eigen::VectorXd> >::type psi_mr(psi_mrSEXP);
+    Rcpp::traits::input_parameter< const Eigen::MappedSparseMatrix<double> >::type H(HSEXP);
     rcpp_result_gen = Rcpp::wrap(Psi_from_H_cpp(psi_mr, H));
     return rcpp_result_gen;
 END_RCPP
