@@ -45,7 +45,7 @@ partial_min <- function(opt_idx, precomp, psi_start, b = NULL, REML = TRUE,
                       rmax = 100, ...)
   # Return results
   psi_start[opt_idx] <- fit$argument
-  list("psihat" = psi_start, "value" = -fit$value, "conv" = fit$converged,
+  list("psi_hat" = psi_start, "value" = -fit$value, "conv" = fit$converged,
        "iter" = fit$iterations)
 }
 
@@ -113,42 +113,6 @@ score_stat <- function(psi, test_idx, precomp, REML = TRUE, expected = TRUE,
   } else{
     test_stat <- crossprod(ll_things$score[test_idx], solve(infmat,
                                                            ll_things$score[test_idx]))
-  }
-  test_stat
-}
-
-#' @export
-uni_test_stat <- function(test_seq, test_idx, psi, psi_r, Z, ZtZXe, e, Hlist)
-{
-  # first element of test_seq has to agree with psi[test_idx]
-  m <- length(test_seq)
-  test_stat <- rep(0, m)
-  H <- do.call(cbind, Hlist)
-  for(ii in seq_len(m)){
-    if(ii > 1){
-      # Update tested parameter
-      psi[test_idx] <- test_seq[ii]
-      # Do one-step Fisher scoring update (with previous Information)
-      # for non-tested parameters
-      Psi <- Psi_from_Hlist(psi, Hlist)
-      s <- score_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
-                     Psi_r = Psi / psi_r,
-                     psi_r = psi_r, finf = FALSE)
-      psi[-test_idx] <- psi[-test_idx] +
-        solve(score_inf$finf[-test_idx. -test_idx], s)
-    }
-
-    Psi <- Psi_from_Hlist(psi, Hlist)
-    score_inf <- score_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
-                           Psi_r = Psi / psi_r,
-                           psi_r = psi_r, finf = TRUE)
-
-    eff_inf <- score_inf$finf[test_idx, test_idx] -
-      sum(solve(score_inf$finf[-test_idx, -test_idx],
-                score_inf$finf[-test_idx, test_idx]) *
-            score_inf$finf[-test_idx, test_idx])
-
-    test_stat[ii] <- score_inf$score[test_idx]^2 / eff_inf
   }
   test_stat
 }
