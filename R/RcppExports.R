@@ -13,13 +13,13 @@ Psi_from_H_cpp <- function(psi_mr, H) {
     .Call(`_limestest_Psi_from_H_cpp`, psi_mr, H)
 }
 
-#' loglik_psiRcpp
+#' loglik_psi_cpp
 #'
 #' Calculates the log-likelihood, score vector and Fisher information matrix
 #' for the variance parameter vector \code{psi} in a linear mixed effects model.
 #' This function is implemented in C++ and is faster than the equivalent function \code{loglik_psi}
 #'
-#' @param Z A matrix of fixed effects.
+#' @param ZtZ A matrix of fixed effects.
 #' @param e The residual vector.
 #' @param H Matrix of derivatives of Psi with respect to elements of psi.
 #'        Assumes H = [H_1, ... , H_r], where H_j is q by q.
@@ -37,10 +37,9 @@ Psi_from_H_cpp <- function(psi_mr, H) {
 #' \item{score}{The score vector.}
 #' \item{finf}{The Fisher information matrix.}
 #'
-#' @import Matrix
 #' @useDynLib limestest, .registration=TRUE
-loglik_psiRcpp <- function(Z, e, H, Psi0, psi0, loglik = TRUE, score = TRUE, finf = TRUE, expected = TRUE) {
-    .Call(`_limestest_loglik_psiRcpp`, Z, e, H, Psi0, psi0, loglik, score, finf, expected)
+loglik_psi_cpp <- function(ZtZ, XtZ, Zte, Z, e, H, Psi_r, psi_r, get_val = TRUE, get_score = TRUE, get_inf = TRUE, expected = TRUE) {
+    .Call(`_limestest_loglik_psi_cpp`, ZtZ, XtZ, Zte, Z, e, H, Psi_r, psi_r, get_val, get_score, get_inf, expected)
 }
 
 #' Compute Restricted Likelihood, Score and Information
