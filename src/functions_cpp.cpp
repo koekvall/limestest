@@ -166,12 +166,11 @@ Rcpp::List loglik_psi_cpp(Eigen::MappedSparseMatrix<double> ZtZ,
 
   // v is Z'Sigma^{-1}e, w is e'Sigma^{-1}Z[H1...Hr]
   Eigen::VectorXd v = (Z.transpose() * e);
-  Eigen::VectorXd w = v.transpose() * H;
+  Eigen::VectorXd w = H.transpose() * v;
 
   /// CONTINUE HERE
-  for (int i = 1; i <= r; i++) {
-    Eigen::SparseMatrix<double> temp = w.middleCols((i-1)*q,q) * v;
-    s_psi(i) = 0.5 * temp.coeffRef(0,0);
+  for (int ii = 1; ii < r; ii++) {
+    s_psi(ii) = 0.5 * w(Eigen::seq((ii - 1) * q, q)).transpose() * v;
   }
 
   // B = Z'Z (M - I_q) in paper notation, sparse
