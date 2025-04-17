@@ -162,62 +162,60 @@ Rcpp::List loglik_psi_cpp(Eigen::MappedSparseMatrix<double> ZtZ,
   // find trace of M
   double trace_M = A.diagonal().sum();
 
-  s_psi(0) = 0.5 * e.dot(e) - (0.5 / psi_r) * (n - trace_M);
+  s_psi(rm1) = 0.5 * e.dot(e) - (0.5 / psi_r) * (n - trace_M);
 
   // v is Z'Sigma^{-1}e, w is e'Sigma^{-1}Z[H1...Hr]
   Eigen::VectorXd v = (Z.transpose() * e);
   Eigen::VectorXd w = H.transpose() * v;
 
-  /// CONTINUE HERE
-  for (int ii = 1; ii < r; ii++) {
-    s_psi(ii) = 0.5 * w(Eigen::seq((ii - 1) * q, q)).transpose() * v;
+  for (int ii = 0; ii < rm1; ii++) {
+    s_psi(ii) = 0.5 * w(Eigen::seq(ii * q, q)).dot(v);
   }
 
   // B = Z'Z (M - I_q) in paper notation, sparse
   Eigen::SparseMatrix<double> B = A;
   B.diagonal().array() -= 1;// -= Eigen::VectorXd::Constant(q,1);
   B = ZtZ * B;
-
-  if (!finf) {
+  // CONTINUE HERE
+  if (!get_inf) {
     // Compute -[ZtZ (I_q - M) * H_1, ..., ZtZ (I_q - M) * H_r] using recycling
     // The "if" is because the calculation is a byproduct of a more expensive one
     // (B %*% H) done to get Fisher information
-    for (int i = 1; i <= r; i++) {
-      s_psi(i) += (0.5 / psi0) * H.middleCols((i-1)*q,q).cwiseProduct(B).sum();
+    for (int ii = 0; ii < rm1; ii++) {
+      s_psi(ii) += (0.5 / psi_r) * H.middleCols(ii * q, q).cwiseProduct(B).sum();
     }
   } else {
     Eigen::SparseMatrix<double> BH = B * H;
-    I_psi(0, 0) = (0.5 / (psi0 * psi0)) * (n - 2 * trace_M +
+    I_psi(r, r) = (0.5 / (psi_r * psi_r)) * (n - 2 * trace_M +
       Eigen::SparseMatrix<double>(A.transpose()).cwiseProduct(A).sum());
 
     // M = M-I
     A.diagonal().array() -= 1;
 
-    for (int i = 1; i <= r; i++) {
-      I_psi(0, i) = I_psi(i, 0) = (0.5 / (psi0*psi0)) * A.cwiseProduct(BH.middleCols((i-1)*q,q)).sum();
-      s_psi(i) += (0.5 / psi0) * H.middleCols((i-1)*q,q).cwiseProduct(B).sum();
-      for (int j = i; j <= r; j++) {
-        I_psi(i, j) = I_psi(j, i) = (0.5 / (psi0*psi0)) *
-          Eigen::SparseMatrix<double>(BH.middleCols((i-1)*q,q).transpose()).cwiseProduct(BH.middleCols((j-1)*q,q)).sum();
+    for (int ii = 0; ii < rm1; ii++) {
+      I_psi(r, ii) = I_psi(ii, r) = (0.5 / (psi_r * psi_r)) *
+        A.cwiseProduct(BH.middleCols(ii * q, q)).sum();
+        s_psi(ii) += (0.5 / psi_r) * H.middleCols(ii * q, q).cwiseProduct(B).sum();
+      for (int jj = ii; jj <= rm1; jj++) {
+        I_psi(ii, jj) = I_psi(jj, ii) = (0.5 / (psi_r * psi_r)) *
+          Eigen::SparseMatrix<double>(BH.middleCols(ii * q, q).transpose()).cwiseProduct(BH.middleCols(jj * q, q)).sum();
       }
     }
     if (!expected) {
       I_psi = -I_psi.eval();
       // u = Sigma^{-2}e. Some calculations could be saved from before
-      Eigen::VectorXd u = (1.0 / (psi0 * psi0)) * (e + Z * (-2 * Ae + (A + Eigen::MatrixXd::Identity(q,q).sparseView()) * Ae));
-      I_psi(0, 0) += enew.dot(u);
+      Eigen::VectorXd u = (1.0 / (psi_r * psi_r)) *
+        (e + Z * (-2 * Ae + (A + Eigen::MatrixXd::Identity(q,q).sparseView()) * Ae));
+      I_psi(r, r) += e.dot(u);
       Eigen::VectorXd Zu = (Z.transpose() * u);
 
-      for (int i = 1; i <= r; i++) {
-        Eigen::MatrixXd temp = w.middleCols((i-1)*q,q) * Zu;
-        I_psi(0, i) += temp(0,0);
-        I_psi(i, 0) += temp(0,0);
-        for (int j = i; j <= r; j++) {
-          I_psi(i, j) -= (1 / psi0) * (w.middleCols((i-1) * q, q) * B).cwiseProduct(w.middleCols((j-1)*q,q)).sum();
-          I_psi(j, i) = I_psi(i, j);
-          // if (i != j) {
-          //   I_psi(j, i) -= (1 / psi0) * (w.middleCols((i-1)*q,q) * B).cwiseProduct(w.middleCols((j-1)*q,q)).sum();
-          // }
+      for (int ii = 0; ii <= rm1; ii++) {
+        double a =  w(Eigen::seq(ii * q, q)).dot(Zu);
+        I_psi(r, ii) += a;
+        I_psi(ii, r) += a;
+        for (int jj = ii; jj <= rm1; jj++) {
+          I_psi(ii, jj) -= (1 / psi_r) * (w(Eigen::seq(ii * q, q)).transpose() * B).dot(w(Eigen::seq(jj * q, q)));
+          I_psi(jj, ii) = I_psi(ii, jj);
         }
       }
     }
