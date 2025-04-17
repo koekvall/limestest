@@ -61,22 +61,22 @@ loglikelihood <-function(psi, b = NULL, precomp, REML = TRUE, getval = TRUE,
 #' @param Psi_r Covariance matrix of random effects (Psi) divided by error
 #'             variance psi_r, with dimensions q by q.
 #' @param psi_r The error or variance.
-#' @param loglik If \code{TRUE} (default), the log-likelihood will be calculated.
-#' @param score If \code{TRUE} (default), the score vector will be calculated.
-#' @param finf If \code{TRUE} (default), the Fisher information matrix will be calculated.
+#' @param get_ll If \code{TRUE} (default), the log-likelihood will be calculated.
+#' @param get_score If \code{TRUE} (default), the score vector will be calculated.
+#' @param get_inf If \code{TRUE} (default), the information matrix will be calculated.
 #' @param expected If \code{TRUE} (detault), return expected information;
 #' otherwise observed.
 #'
 #' @return A list with components:
-#' \item{ll}{The log-likelihood.}
-#' \item{score}{The score vector.}
-#' \item{finf}{The Fisher information matrix.}
+#' \item{value}{The log-likelihood evaluated at supplied parameters}
+#' \item{score}{The score at supplied parameters}
+#' \item{inf_mat}{The information matrix at supplied parameters}
 #'
 #' @import Matrix
 #' @export
 #' @useDynLib limestest, .registration=TRUE
-loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, loglik = TRUE,
-                       score = TRUE, finf = TRUE, expected = TRUE)
+loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, get_ll = TRUE,
+                       get_score = TRUE, get_inf = TRUE, expected = TRUE)
 {
   # Define dimensions
   n <- length(e)
@@ -99,7 +99,7 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, loglik = TRUE,
   A <- Matrix::crossprod(Psi_r, ZtZXe)
 
   # Add loglik term before overwriting
-  if(loglik){
+  if(get_ll){
     ll <- -0.5 * Matrix::determinant(A[, 1:q] + Matrix::Diagonal(q))$modulus -
       0.5 * n * log(psi_r)
   }
@@ -109,11 +109,11 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, loglik = TRUE,
 
   # Score for error variance psi_r
   # NB: REPLACE e by Sigma^{-1}e
-  if(loglik | (finf & !expected)){
+  if(get_ll | (get_inf & !expected)){
    e_save <- e
   }
   e <- (1 / psi_r) * (e - Z %*% A[, q + p + 1]) # = Sigma^{-1}e
-  if(loglik){
+  if(get_ll){
     ll <- ll  - 0.5 * sum(e * e_save)
   }
 
@@ -132,7 +132,7 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, loglik = TRUE,
   Matrix::diag(B) <- Matrix::diag(B) - 1
   B <- Matrix::crossprod(ZtZXe[, 1:q], B)
 
-  if(!finf){
+  if(!get_inf){
     # Compute -[ZtZ (I_q - M) * H_1, ..., ZtZ (I_q - M) * H_r] using
     # recycling, where * denotes elementwise multiplication
     # The "if" is because the calculation is a byproduct of a more expensive one
@@ -181,7 +181,7 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, loglik = TRUE,
     }
   }
   I_psi <- Matrix::forceSymmetric(I_psi, uplo = "U")
-  return(list("ll" = ll,  "score" = s_psi, "finf" = I_psi))
+  return(list("value" = ll,  "score" = s_psi, "inf_mat" = I_psi))
 }
 
 chol_solve <- function(U, b)
@@ -213,17 +213,16 @@ chol_solve <- function(U, b)
 #' @param Psi_r The covariance matrix of the random effects (Psi) divided by the
 #' error variance (psi_r)
 #' @param psi_r A scalar value of the error variance.
-#' @param loglik If \code{TRUE} (default), the log-likelihood will be computed.
-#' @param score If \code{TRUE} (default), the score vector will be computed.
-#' @param finf If \code{TRUE} (default), the Fisher information matrix will be
+#' @param get_ll If \code{TRUE} (default), the log-likelihood will be computed.
+#' @param get_score If \code{TRUE} (default), the score vector will be computed.
+#' @param get_inf If \code{TRUE} (default), the Fisher information matrix will be
 #' computed.
 #'
 #' @return A list with elements:
 #' \describe{
-#' \item{ll}{A scalar value of the restricted log-likelihood.}
-#' \item{score}{A (r + 1) x 1 vector of the restricted score of the variance parameters.}
-#' \item{finf}{A (r + 1) x (r + 1) matrix of the restricted  information of the
-#' variance parameters.}
+#' \item{value}{The restricted log-likelihood at supplied parameters.}
+#' \item{score}{The restricted score at the supplied parameters.}
+#' \item{inf_mat}{The expected restricted information matrix at supplied parameters}
 #' }
 #' @import Matrix
 #' @export
