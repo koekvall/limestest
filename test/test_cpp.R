@@ -27,7 +27,7 @@ loglik_R <- limestest::loglik_psi(Z = Z,
                                    get_val = TRUE,
                                    get_score = TRUE,
                                    get_inf = TRUE,
-                                   expected = FALSE)
+                                   expected = TRUE)
 loglik_cpp <- limestest:::loglik_psi_cpp(ZtZ = as(crossprod(Z), "dgCMatrix"),
                                          XtZ = as.matrix(crossprod(X, Z)),
                                          Zte = as.vector(crossprod(Z, Y)),
@@ -39,10 +39,10 @@ loglik_cpp <- limestest:::loglik_psi_cpp(ZtZ = as(crossprod(Z), "dgCMatrix"),
                                          get_val = TRUE,
                                          get_score = TRUE,
                                          get_inf = TRUE,
-                                         expected = FALSE)
+                                         expected = TRUE)
 
 abs(loglik_R$value - loglik_cpp$value)
 
 max(abs(loglik_R$score - loglik_cpp$score))
 
-round(abs(loglik_R$inf_mat - loglik_cpp$inf_mat) / loglik_R$inf_mat, 1)
+round(abs((as.matrix(loglik_R$inf_mat) - loglik_cpp$inf_mat) / as.matrix(loglik_R$inf_mat)), 1)
