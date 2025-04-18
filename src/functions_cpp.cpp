@@ -176,8 +176,6 @@ Rcpp::List loglik_psi_cpp(const Eigen::MappedSparseMatrix<double> ZtZ,
   B.diagonal().array() -= 1;// -= Eigen::VectorXd::Constant(q,1);
   B = ZtZ * B;
 
-
-  // CONTINUE HERE
   if (!get_inf) {
     // Compute -[ZtZ (I_q - M) * H_1, ..., ZtZ (I_q - M) * H_r] using recycling
     // The "if" is because the calculation is a byproduct of a more expensive one
@@ -256,39 +254,44 @@ Rcpp::List loglik_psi_cpp(const Eigen::MappedSparseMatrix<double> ZtZ,
 //' }
 //' @import Matrix
 // [[Rcpp::export]]
-Rcpp::List res_llRcpp(Eigen::Map<Eigen::MatrixXd> X,
-                Eigen::Map<Eigen::VectorXd> Y,
-                Eigen::MappedSparseMatrix<double> Z,
-                Eigen::MappedSparseMatrix<double> H,
-                Eigen::MappedSparseMatrix<double> Psi0,
-                double psi0,
-                bool lik = true,
-                bool score = false,
-                bool finf = false) {
+Rcpp::List res_llRcpp(Eigen::VectorXd Y,
+                      const Eigen::Map<Eigen::MatrixXd> X,
+                      const Eigen::MappedSparseMatrix<double> Z,
+                      const Eigen::Map<Eigen::MatrixXd> XtY,
+                      const Eigen::Map<Eigen::MatrixXd> YtZ,
+                      const Eigen::Map<Eigen::MatrixXd> XtX,
+                      const Eigen::Map<Eigen::MatrixXd> XtZ,
+                      const Eigen::MappedSparseMatrix<double> ZtZ,
+                      Eigen::SparseMatrix<double> H,
+                      const Eigen::MappedSparseMatrix<double> Psi_r,
+                      const double psi_r,
+                      const bool get_val = true,
+                      const bool get_score = true,
+                      const bool get_inf = true,
+                      const bool expected = true
+) {
   // Define dimensions
   int n = Y.size();
-  int q = Psi0.cols();
-  int r = H.cols() / q;
+  int q = Psi0_r.cols();
+  int rm1 = H.cols() / q;
+  int r = rm1 + 1;
   int p = X.cols();
 
   // loglikelihood to return
   double ll = NA_REAL;
   // Score vector to return
-  Eigen::VectorXd s_psi(r + 1);
-  // Fisher information to return
-  Eigen::MatrixXd I_psi(r + 1, r + 1);
-
-  Eigen::SparseMatrix<double> ZtZ = Z.transpose() * Z;
-  Eigen::MatrixXd XtZ = X.transpose() * Z;
-  Eigen::MatrixXd XtX = X.transpose() * X;
-  Eigen::VectorXd ZtY = Z.transpose() * Y;
+  Eigen::VectorXd s_psi(r);
+  // Information matrix to return
+  Eigen::MatrixXd I_psi(r, r);
 
   // Pre-compute (I_q + Psi0 Z'Z)^{-1} Psi0
   // solver for Psi0ZtZ + I_q
+  Eigen::SparseMatrix<double> Id_q(q, q);
+  Id_q = Eigen::MatrixXd::Identity(q, q).sparseView();
   Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
-  solver.compute(Psi0 * ZtZ + Eigen::MatrixXd::Identity(q,q).sparseView());
+  solver.compute(Psi0 * ZtZ + Id_q);
 
-  if (lik) {
+  if (get_val) {
     ll = solver.logAbsDeterminant();
   }
 
@@ -313,40 +316,43 @@ Rcpp::List res_llRcpp(Eigen::Map<Eigen::MatrixXd> X,
 
   // Create XtSiY
   // (1/ psi0) * (XtY - XtZ %*% Matrix::tcrossprod(A, YtZ))
-  Eigen::VectorXd beta_tilde = llt.solve((1.0 / psi0) * (X.transpose()*Y - XtZ * (A * ZtY)));
+  Eigen::VectorXd beta_tilde.noalias() = (1.0 / psi0) * (X.transpose() * Y - XtZ * (A * ZtY));
+  beta_tilde = llt.solve(beta_tilde);
 
-  // e is residuals, again directly changing y would cause result to be different each time running the function
-  Eigen::VectorXd e = Y - X * beta_tilde;
+  // Replace response with residuals
+  Y = Y - X * beta_tilde;
 
   // n x 1 vector for storing \Sigma^{-1}e
-  Eigen::VectorXd a = (1.0 / psi0) * (e - Z * (A * (Z.transpose() * e)));
+  Eigen::VectorXd a = (1.0 / psi0) * (Y - Z * (A * (Z.transpose() * Y)));
 
-  if (lik) {
-    ll += 2 * log(llt.matrixL().determinant());
-    ll += e.dot(a) + n * log(2 * M_PI * psi0);
+  if (get_val) {
+    ll += 2.0 * llt.diagonal().log().sum();
+    ll += Y.dot(a) + n * log(2.0 * M_PI * psi_r);
     ll *= -0.5;
   }
 
-  if (score) {
+  if (get_score) {
     // Stochastic part of the restricted score for psi
-    s_psi(0) = 0.5 * a.dot(a);
+    s_psi(rm1) = 0.5 * a.dot(a);
     Eigen::VectorXd v = Z.transpose() * a;
-    for (int i = 1; i <= r; i++) {
-      s_psi(i) = 0.5 * v.dot(H.middleCols((i-1)*q,q) * v);
+    for (int ii = 0; ii < rm1; ii++) {
+      s_psi(ii) = 0.5 * v.dot(H.middleCols((ii - 1) * q, q) * v);
     }
   }
-
-  if (finf && score) {
+  /////////////////////////////////////////////////////////////////////////////
+  // NOTHING BELOW SHOULD DEPEND ON Y
+  /////////////////////////////////////////////////////////////////////////////
+  if (get_inf) {
     A = A * ZtZ; // q x q, called M in manuscript
+    s_psi(rm1) = s_psi(rm1) - (0.5 / psi_r) * n + (0.5 / psi_r) * A.diagonal().sum();
+    
+    Eigen::SparseMatrix<double> E = A.transpose(); // q x q sparse
+    I_psi(rm1, rm1) = (0.5 / (psi_r * psi_r)) * (n - 2.0 * A.diagonal().sum() + E.cwiseProduct(A).sum());
 
-    s_psi(0) = s_psi(0) - 0.5 / psi0 * n + 0.5 / psi0 * A.diagonal().sum();
-
-    I_psi(0, 0) = 0.5 / (psi0 * psi0) * (n - 2 * A.diagonal().sum() + Eigen::SparseMatrix<double>(A.transpose()).cwiseProduct(A).sum());
-
-    Eigen::SparseMatrix<double> E = ZtZ * A; // q x q storage
+    E = ZtZ * A; 
     Eigen::MatrixXd D = XtZ * A; // p x q storage
-    Eigen::MatrixXd XtSiZ = (1.0 / psi0) * (XtZ - D);
-    Eigen::MatrixXd XtSi2Z = (1.0 / (psi0 * psi0)) * (XtZ - 2 * D + D * A);
+    Eigen::MatrixXd XtSiZ = (1.0 / psi_r) * (XtZ - D);
+    Eigen::MatrixXd XtSi2Z = (1.0 / (psi_r * psi0_r)) * (XtZ - 2.0 * D + D * A);
 
     Eigen::MatrixXd C = B * XtZ.transpose(); // p x p storage, here XtZA ZtX
     Eigen::MatrixXd G = B * ZtZ * B.transpose(); // p x q, here XtZA ZtZ AtZtX
@@ -354,28 +360,36 @@ Rcpp::List res_llRcpp(Eigen::Map<Eigen::MatrixXd> X,
     Eigen::MatrixXd XtSi3X = (1.0 / (psi0 * psi0 * psi0)) * (XtX - 3 * C + 3 * G - D * (A * B.transpose()));
     C = llt.solve(XtSi2X);
 
-    I_psi(0, 0) += 0.5 * C.transpose().cwiseProduct(C).sum();
-    s_psi(0) += 0.5 * C.diagonal().sum();
+    I_psi(rm1, rm1) += 0.5 * C.transpose().cwiseProduct(C).sum();
+    s_psi(rm1) += 0.5 * C.diagonal().sum();
 
-    I_psi(0, 0) -= llt.solve(XtSi3X).diagonal().sum();
+    I_psi(rm1, rm1) -= llt.solve(XtSi3X).diagonal().sum();
 
-    A = (1.0 / (psi0 * psi0)) * (ZtZ - 2 * E + E * A); // ZtSi2Z right now
-    E = (1.0 / psi0) * (ZtZ - E); // Now holds ZtSiZ
+    A = (1.0 / (psi_r * psi0_r)) * (ZtZ - 2.0 * E + E * A); // ZtSi2Z right now
+    E = (1.0 / psi_r) * (ZtZ - E); // Now holds ZtSiZ
     D = llt.solve(XtSiZ);
-    A = A - 2 * D.transpose() * XtSi2Z + XtSiZ.transpose() * (C * D);
+    A = A - 2.0 * D.transpose() * XtSi2Z + XtSiZ.transpose() * (C * D);
     Eigen::MatrixXd H2 = XtSiZ.transpose() * (D * H);
-    Eigen::SparseMatrix<double> H3 = E.transpose() * H;
+    H = E.transpose() * H;
 
-    for (int i = 1; i <= r; i++) {
-      I_psi(i, 0) = I_psi(0, i) = 0.5 * A.cwiseProduct(H.middleCols((i-1)*q,q)).sum();
-      s_psi(i) -= 0.5 * (E - XtSiZ.transpose() * D).cwiseProduct(H.middleCols((i-1)*q,q)).sum();
-      for (int j = i; j <= r; j++) {
-        I_psi(i, j) = I_psi(j, i) = 0.5 * Eigen::SparseMatrix<double>(H3.middleCols((i-1)*q,q).transpose()).cwiseProduct(H3.middleCols((j-1)*q,q)).sum() -
+    Eigen::SparseMatrix<double> H_b1(q, q);
+    Eigen::SparseMatrix<double> H_b2(q, q);
+    Eigen::SparseMatrix<double> H2_b1(q, q);
+    Eigen::SparseMatrix<double> H2_b2(q, q);
+    for (int ii = 0; ii < rm1; i++) {
+      H_b1 = H.middleCols(ii * q, q);
+      H2_b1 = H2.middleCols(ii * q, q);
+      I_psi(ii, rm1) = I_psi(0, i) = 0.5 * A.cwiseProduct(H_b1).sum();
+      s_psi(ii) -= 0.5 * (E - XtSiZ.transpose() * D).cwiseProduct(H1_b).sum();
+      for (int jj = ii; jj < rm1; j++) {
+        H_b2 = H.middleCols(jj * q, q).transpose();
+        H2_b2 = H2.middleCols(jj * q, q).transpose(); //Continue here
+        I_psi(ii, jj) = I_psi(jj, ii) = 0.5 * H2_b2.cwiseProduct(H2_b1).sum() -
           H2.middleCols((j-1)*q,q).transpose().cwiseProduct(H3.middleCols((i-1)*q,q)).sum() +
           0.5 * H2.middleCols((i-1)*q,q).transpose().cwiseProduct(H2.middleCols((j-1)*q,q)).sum();
       }
     }
-  } else if (score) {
+  } else if (get_score) {
     A = A * ZtZ;
     s_psi(0) = s_psi(0) - (0.5 / psi0) * n + (0.5 / psi0) * A.diagonal().sum();
     Eigen::MatrixXd D = XtZ * A;
