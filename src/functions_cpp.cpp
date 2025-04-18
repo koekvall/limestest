@@ -107,18 +107,18 @@ Eigen::SparseMatrix<double> Psi_from_H_cpp(const Eigen::Map<Eigen::VectorXd> psi
 //' @useDynLib limestest, .registration=TRUE
 // [[Rcpp::export]]
 
-Rcpp::List loglik_psi_cpp(Eigen::MappedSparseMatrix<double> ZtZ,
-                          Eigen::Map<Eigen::MatrixXd> XtZ,
-                          Eigen::Map<Eigen::VectorXd> Zte,
-                          Eigen::MappedSparseMatrix<double> Z,
+Rcpp::List loglik_psi_cpp(const Eigen::MappedSparseMatrix<double> ZtZ,
+                          const Eigen::Map<Eigen::MatrixXd> XtZ,
+                          const Eigen::Map<Eigen::VectorXd> Zte,
+                          const Eigen::MappedSparseMatrix<double> Z,
                           Eigen::VectorXd e,
-                          Eigen::MappedSparseMatrix<double> H,
-                          Eigen::MappedSparseMatrix<double> Psi_r,
-                          double psi_r,
-                          bool get_val = true,
-                          bool get_score = true,
-                          bool get_inf = true,
-                          bool expected = true) {
+                          const Eigen::MappedSparseMatrix<double> H,
+                          const Eigen::MappedSparseMatrix<double> Psi_r,
+                          const double psi_r,
+                          const bool get_val = true,
+                          const bool get_score = true,
+                          const bool get_inf = true,
+                          const bool expected = true) {
 
   // Define dimensions
   int n = e.size();
@@ -138,13 +138,14 @@ Rcpp::List loglik_psi_cpp(Eigen::MappedSparseMatrix<double> ZtZ,
   // solver for Psi0ZtZ + I_q
   Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
 
-  solver.compute(A + Eigen::MatrixXd::Identity(q, q).sparseView());
+  Eigen::SparseMatrix<double> Id_q(q, q);
+  Id_q = Eigen::MatrixXd::Identity(q, q).sparseView();
+  solver.compute(A + Id_q);
 
   // Add loglik term before overwriting
   if (get_val) {
     ll = -0.5 * solver.logAbsDeterminant() - 0.5 * n * log(psi_r);
   }
-
   // Matrix denoted M in manuscript is A[, 1:q]
   A = solver.solve(A).eval();
   Ae = solver.solve(Ae).eval();
@@ -156,10 +157,8 @@ Rcpp::List loglik_psi_cpp(Eigen::MappedSparseMatrix<double> ZtZ,
   // update e
   e = (1.0 / psi_r) * (e - Z * Ae).eval(); // = Sigma^{-1}e
   if (get_val) {
-    ll = ll - 0.5 * e.dot(e);
+    ll = ll - 0.5 * e.dot(e_save);
   }
-
-  // find trace of M
   double trace_M = A.diagonal().sum();
 
   s_psi(rm1) = 0.5 * e.dot(e) - (0.5 / psi_r) * (n - trace_M);
@@ -176,6 +175,8 @@ Rcpp::List loglik_psi_cpp(Eigen::MappedSparseMatrix<double> ZtZ,
   Eigen::SparseMatrix<double> B = A;
   B.diagonal().array() -= 1;// -= Eigen::VectorXd::Constant(q,1);
   B = ZtZ * B;
+
+
   // CONTINUE HERE
   if (!get_inf) {
     // Compute -[ZtZ (I_q - M) * H_1, ..., ZtZ (I_q - M) * H_r] using recycling
@@ -186,17 +187,17 @@ Rcpp::List loglik_psi_cpp(Eigen::MappedSparseMatrix<double> ZtZ,
     }
   } else {
     Eigen::SparseMatrix<double> BH = B * H;
-    I_psi(r, r) = (0.5 / (psi_r * psi_r)) * (n - 2 * trace_M +
+    I_psi(rm1, rm1) = (0.5 / (psi_r * psi_r)) * (n - 2 * trace_M +
       Eigen::SparseMatrix<double>(A.transpose()).cwiseProduct(A).sum());
 
     // M = M-I
     A.diagonal().array() -= 1;
 
     for (int ii = 0; ii < rm1; ii++) {
-      I_psi(r, ii) = I_psi(ii, r) = (0.5 / (psi_r * psi_r)) *
+      I_psi(rm1, ii) = I_psi(ii, rm1) = (0.5 / (psi_r * psi_r)) *
         A.cwiseProduct(BH.middleCols(ii * q, q)).sum();
         s_psi(ii) += (0.5 / psi_r) * H.middleCols(ii * q, q).cwiseProduct(B).sum();
-      for (int jj = ii; jj <= rm1; jj++) {
+      for (int jj = ii; jj < rm1; jj++) {
         I_psi(ii, jj) = I_psi(jj, ii) = (0.5 / (psi_r * psi_r)) *
           Eigen::SparseMatrix<double>(BH.middleCols(ii * q, q).transpose()).cwiseProduct(BH.middleCols(jj * q, q)).sum();
       }
@@ -204,25 +205,25 @@ Rcpp::List loglik_psi_cpp(Eigen::MappedSparseMatrix<double> ZtZ,
     if (!expected) {
       I_psi = -I_psi.eval();
       // u = Sigma^{-2}e. Some calculations could be saved from before
-      Eigen::VectorXd u = (1.0 / (psi_r * psi_r)) *
-        (e + Z * (-2 * Ae + (A + Eigen::MatrixXd::Identity(q,q).sparseView()) * Ae));
-      I_psi(r, r) += e.dot(u);
+      Eigen::VectorXd u = (1.0 / (psi_r * psi_r)) * (e + Z * (-2.0 * Ae + (A + Id_q) * Ae));
+      I_psi(rm1, rm1) += e.dot(u);
       Eigen::VectorXd Zu = (Z.transpose() * u);
 
-      for (int ii = 0; ii <= rm1; ii++) {
+      for (int ii = 0; ii < rm1; ii++) {
         double a =  w(Eigen::seq(ii * q, q)).dot(Zu);
         I_psi(rm1, ii) += a;
         I_psi(ii, rm1) += a;
         for (int jj = ii; jj < rm1; jj++) {
-          I_psi(ii, jj) -= (1 / psi_r) * (w(Eigen::seq(ii * q, q)).transpose() * B).dot(w(Eigen::seq(jj * q, q)));
+          I_psi(ii, jj) -= (1 / psi_r) *
+            (B.transpose() * w(Eigen::seq(ii * q, q))).dot(w(Eigen::seq(jj * q, q)));
           I_psi(jj, ii) = I_psi(ii, jj);
         }
       }
     }
   }
-  return Rcpp::List::create(Rcpp::Named("ll") = ll,
+  return Rcpp::List::create(Rcpp::Named("value") = ll,
                             Rcpp::Named("score") = s_psi,
-                            Rcpp::Named("finf") = I_psi);
+                            Rcpp::Named("inf_mat") = I_psi);
 }
 
 

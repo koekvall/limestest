@@ -6,7 +6,43 @@ precomp <- limestest:::get_precomp_lmer(fit)
 H <- do.call(cbind, precomp$Hlist)
 psi_hat <- limestest:::get_psi_hat_lmer(fit)
 
+# Helper functions
 Psi_cpp <- limestest:::Psi_from_H_cpp(psi_mr = psi_hat[-length(psi_hat)], H = H)
 Psi_R <- limestest:::Psi_from_Hlist(psi_mr = psi_hat[-length(psi_hat)], Hlist = precomp$Hlist)
-
 cat(max(abs(Psi_cpp - Psi_R)), "\n")
+
+# Likelihoods
+Z <- getME(fit, "Z")
+X <- getME(fit, "X")
+Y <- getME(fit, "y")
+b <- getME(fit, "beta")
+Y <- Y - X %*% b
+r <- length(psi_hat)
+loglik_R <- limestest::loglik_psi(Z = Z,
+                                   ZtZXe = crossprod(Z, cbind(Z, X, Y)),
+                                   e = Y,
+                                   H = H,
+                                   Psi_r = Psi_cpp / psi_hat[r],
+                                   psi_r = psi_hat[r],
+                                   get_val = TRUE,
+                                   get_score = TRUE,
+                                   get_inf = TRUE,
+                                   expected = FALSE)
+loglik_cpp <- limestest:::loglik_psi_cpp(ZtZ = as(crossprod(Z), "dgCMatrix"),
+                                         XtZ = as.matrix(crossprod(X, Z)),
+                                         Zte = as.vector(crossprod(Z, Y)),
+                                         Z = Z,
+                                         e = Y,
+                                         H = H,
+                                         Psi_r = Psi_cpp / psi_hat[r],
+                                         psi_r = psi_hat[r],
+                                         get_val = TRUE,
+                                         get_score = TRUE,
+                                         get_inf = TRUE,
+                                         expected = FALSE)
+
+abs(loglik_R$value - loglik_cpp$value)
+
+max(abs(loglik_R$score - loglik_cpp$score))
+
+round(abs(loglik_R$inf_mat - loglik_cpp$inf_mat) / loglik_R$inf_mat, 1)

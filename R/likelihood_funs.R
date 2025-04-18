@@ -100,7 +100,7 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, get_val = TRUE,
 
   # Add loglik term before overwriting
   if(get_val){
-    ll <- -0.5 * Matrix::determinant(A[, 1:q] + Matrix::Diagonal(q))$modulus -
+    ll <- -0.5 * Matrix::determinant(A[, 1:q] + Matrix::Diagonal(q), logarithm = TRUE)$modulus -
       0.5 * n * log(psi_r)
   }
 
@@ -113,6 +113,7 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, get_val = TRUE,
    e_save <- e
   }
   e <- (1 / psi_r) * (e - Z %*% A[, q + p + 1]) # = Sigma^{-1}e
+  print(e[3])
   if(get_val){
     ll <- ll  - 0.5 * sum(e * e_save)
   }
@@ -181,7 +182,7 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, get_val = TRUE,
     }
   }
   I_psi <- Matrix::forceSymmetric(I_psi, uplo = "U")
-  return(list("value" = ll,  "score" = s_psi, "inf_mat" = I_psi))
+  return(list("value" = c(ll),  "score" = s_psi, "inf_mat" = I_psi))
 }
 
 chol_solve <- function(U, b)
