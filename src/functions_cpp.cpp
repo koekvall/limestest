@@ -287,7 +287,7 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
   // Pre-compute (I_q + Psi_r Z'Z)^{-1} Psi_r
   // solver for Psi_rZtZ + I_q
   Eigen::SparseMatrix<double> Id_q(q, q);
-  Id_q = Eigen::MatrixXd::Identity(q, q).sparseView();
+  Id_q.diagonal().setConstant(1.0);
   Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
   solver.compute(Psi_r * ZtZ + Id_q);
 
@@ -300,8 +300,9 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
 
   //Create XtSiX
   Eigen::MatrixXd U = (1.0 / psi_r) * (XtX - B * XtZ.transpose());  //p*p
-  // force to symmetric
-  U = U.selfadjointView<Eigen::Upper>();
+
+  // Force symmetric
+  // U = U.selfadjointView<Eigen::Upper>();
   // llt decomposition
   Eigen::LLT<Eigen::MatrixXd, Eigen::Upper> llt(U);
 
@@ -337,7 +338,7 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
     s_psi(rm1) = 0.5 * a.dot(a);
     Eigen::VectorXd v = Z.transpose() * a;
     for (int ii = 0; ii < rm1; ii++) {
-      s_psi(ii) = 0.5 * v.dot(H.middleCols((ii - 1) * q, q) * v);
+      s_psi(ii) = 0.5 * v.dot(H.middleCols(ii * q, q) * v);
     }
   }
   /////////////////////////////////////////////////////////////////////////////
@@ -345,7 +346,8 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
   /////////////////////////////////////////////////////////////////////////////
   if (get_inf) {
     A = A * ZtZ; // q x q, called M in manuscript
-    s_psi(rm1) = s_psi(rm1) - (0.5 / psi_r) * n + (0.5 / psi_r) * A.diagonal().sum();
+    s_psi(rm1) = s_psi(rm1) - (0.5 / psi_r) * n +
+      (0.5 / psi_r) * A.diagonal().sum();
 
     Eigen::SparseMatrix<double> E = A.transpose(); // q x q sparse
     I_psi(rm1, rm1) = (0.5 / (psi_r * psi_r)) * (n - 2.0 * A.diagonal().sum() + E.cwiseProduct(A).sum());
