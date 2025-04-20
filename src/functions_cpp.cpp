@@ -254,7 +254,7 @@ Rcpp::List loglik_psi_cpp(const Eigen::MappedSparseMatrix<double> ZtZ,
 //' }
 //' @import Matrix
 // [[Rcpp::export]]
-Rcpp::List res_llRcpp(Eigen::VectorXd Y,
+Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
                       const Eigen::Map<Eigen::MatrixXd> X,
                       const Eigen::MappedSparseMatrix<double> Z,
                       const Eigen::Map<Eigen::MatrixXd> XtY,

@@ -46,9 +46,9 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// res_llRcpp
-Rcpp::List res_llRcpp(Eigen::VectorXd Y, const Eigen::Map<Eigen::MatrixXd> X, const Eigen::MappedSparseMatrix<double> Z, const Eigen::Map<Eigen::MatrixXd> XtY, const Eigen::Map<Eigen::MatrixXd> ZtY, const Eigen::Map<Eigen::MatrixXd> XtX, const Eigen::Map<Eigen::MatrixXd> XtZ, const Eigen::MappedSparseMatrix<double> ZtZ, Eigen::SparseMatrix<double> H, const Eigen::MappedSparseMatrix<double> Psi_r, const double psi_r, const bool get_val, const bool get_score, const bool get_inf, const bool expected);
-RcppExport SEXP _limestest_res_llRcpp(SEXP YSEXP, SEXP XSEXP, SEXP ZSEXP, SEXP XtYSEXP, SEXP ZtYSEXP, SEXP XtXSEXP, SEXP XtZSEXP, SEXP ZtZSEXP, SEXP HSEXP, SEXP Psi_rSEXP, SEXP psi_rSEXP, SEXP get_valSEXP, SEXP get_scoreSEXP, SEXP get_infSEXP, SEXP expectedSEXP) {
+// res_ll_cpp
+Rcpp::List res_ll_cpp(Eigen::VectorXd Y, const Eigen::Map<Eigen::MatrixXd> X, const Eigen::MappedSparseMatrix<double> Z, const Eigen::Map<Eigen::MatrixXd> XtY, const Eigen::Map<Eigen::MatrixXd> ZtY, const Eigen::Map<Eigen::MatrixXd> XtX, const Eigen::Map<Eigen::MatrixXd> XtZ, const Eigen::MappedSparseMatrix<double> ZtZ, Eigen::SparseMatrix<double> H, const Eigen::MappedSparseMatrix<double> Psi_r, const double psi_r, const bool get_val, const bool get_score, const bool get_inf, const bool expected);
+RcppExport SEXP _limestest_res_ll_cpp(SEXP YSEXP, SEXP XSEXP, SEXP ZSEXP, SEXP XtYSEXP, SEXP ZtYSEXP, SEXP XtXSEXP, SEXP XtZSEXP, SEXP ZtZSEXP, SEXP HSEXP, SEXP Psi_rSEXP, SEXP psi_rSEXP, SEXP get_valSEXP, SEXP get_scoreSEXP, SEXP get_infSEXP, SEXP expectedSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -67,7 +67,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const bool >::type get_score(get_scoreSEXP);
     Rcpp::traits::input_parameter< const bool >::type get_inf(get_infSEXP);
     Rcpp::traits::input_parameter< const bool >::type expected(expectedSEXP);
-    rcpp_result_gen = Rcpp::wrap(res_llRcpp(Y, X, Z, XtY, ZtY, XtX, XtZ, ZtZ, H, Psi_r, psi_r, get_val, get_score, get_inf, expected));
+    rcpp_result_gen = Rcpp::wrap(res_ll_cpp(Y, X, Z, XtY, ZtY, XtX, XtZ, ZtZ, H, Psi_r, psi_r, get_val, get_score, get_inf, expected));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -75,7 +75,7 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_limestest_Psi_from_H_cpp", (DL_FUNC) &_limestest_Psi_from_H_cpp, 2},
     {"_limestest_loglik_psi_cpp", (DL_FUNC) &_limestest_loglik_psi_cpp, 12},
-    {"_limestest_res_llRcpp", (DL_FUNC) &_limestest_res_llRcpp, 15},
+    {"_limestest_res_ll_cpp", (DL_FUNC) &_limestest_res_ll_cpp, 15},
     {NULL, NULL, 0}
 };
 

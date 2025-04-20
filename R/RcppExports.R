@@ -70,7 +70,7 @@ loglik_psi_cpp <- function(ZtZ, XtZ, Zte, Z, e, H, Psi_r, psi_r, get_val = TRUE,
 #' \item{I_b_inv_chol}{Inverse of the Cholesky root of the information matrix for the fixed effects parameter beta}
 #' }
 #' @import Matrix
-res_llRcpp <- function(Y, X, Z, XtY, ZtY, XtX, XtZ, ZtZ, H, Psi_r, psi_r, get_val = TRUE, get_score = TRUE, get_inf = TRUE, expected = TRUE) {
-    .Call(`_limestest_res_llRcpp`, Y, X, Z, XtY, ZtY, XtX, XtZ, ZtZ, H, Psi_r, psi_r, get_val, get_score, get_inf, expected)
+res_ll_cpp <- function(Y, X, Z, XtY, ZtY, XtX, XtZ, ZtZ, H, Psi_r, psi_r, get_val = TRUE, get_score = TRUE, get_inf = TRUE, expected = TRUE) {
+    .Call(`_limestest_res_ll_cpp`, Y, X, Z, XtY, ZtY, XtX, XtZ, ZtZ, H, Psi_r, psi_r, get_val, get_score, get_inf, expected)
 }
 

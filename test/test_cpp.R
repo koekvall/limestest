@@ -11,13 +11,15 @@ Psi_cpp <- limestest:::Psi_from_H_cpp(psi_mr = psi_hat[-length(psi_hat)], H = H)
 Psi_R <- limestest:::Psi_from_Hlist(psi_mr = psi_hat[-length(psi_hat)], Hlist = precomp$Hlist)
 cat(max(abs(Psi_cpp - Psi_R)), "\n")
 
-# Likelihoods
+# Test likelihoods
 Z <- getME(fit, "Z")
 X <- getME(fit, "X")
 Y <- getME(fit, "y")
 b <- getME(fit, "beta")
 Y <- Y - X %*% b
 r <- length(psi_hat)
+
+# Regular likelihood
 loglik_R <- limestest::loglik_psi(Z = Z,
                                    ZtZXe = crossprod(Z, cbind(Z, X, Y)),
                                    e = Y,
@@ -48,4 +50,23 @@ max(abs(loglik_R$score - loglik_cpp$score))
 round(abs((as.matrix(loglik_R$inf_mat) - loglik_cpp$inf_mat) / as.matrix(loglik_R$inf_mat)), 1)
 
 # Restricted likelihood
+loglik_R <- limestest:::res_ll()
+loglik_cpp <- limestest:::res_ll_cpp(Y = Y,
+                                     X = X,
+                                     Z = Z,
+                                     XtY = crossprod(X, Y),
+                                     ZtY = as.vector(crossprod(Z, Y)),
+                                     XtX = as.matrix(crossprod(X)),
+                                     XtZ = as.matrix(crossprod(X, Z)),
+                                     ZtZ = as(crossprod(Z), "dgCMatrix"),
+                                     H = H,
+                                     Psi_r = Psi_cpp/ psi_hat[r],
+                                     psi_r = psi_hat[r],
+                                     get_val = TRUE,
+                                     get_score = TRUE,
+                                     get_inf = TRUE)
+abs(loglik_R$value - loglik_cpp$value)
 
+max(abs(loglik_R$score - loglik_cpp$score))
+
+round(abs((as.matrix(loglik_R$inf_mat) - loglik_cpp$inf_mat) / as.matrix(loglik_R$inf_mat)), 1)
