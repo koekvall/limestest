@@ -47,21 +47,27 @@ BEGIN_RCPP
 END_RCPP
 }
 // res_llRcpp
-Rcpp::List res_llRcpp(Eigen::Map<Eigen::MatrixXd> X, Eigen::Map<Eigen::VectorXd> Y, Eigen::MappedSparseMatrix<double> Z, Eigen::MappedSparseMatrix<double> H, Eigen::MappedSparseMatrix<double> Psi0, double psi0, bool lik, bool score, bool finf);
-RcppExport SEXP _limestest_res_llRcpp(SEXP XSEXP, SEXP YSEXP, SEXP ZSEXP, SEXP HSEXP, SEXP Psi0SEXP, SEXP psi0SEXP, SEXP likSEXP, SEXP scoreSEXP, SEXP finfSEXP) {
+Rcpp::List res_llRcpp(Eigen::VectorXd Y, const Eigen::Map<Eigen::MatrixXd> X, const Eigen::MappedSparseMatrix<double> Z, const Eigen::Map<Eigen::MatrixXd> XtY, const Eigen::Map<Eigen::MatrixXd> ZtY, const Eigen::Map<Eigen::MatrixXd> XtX, const Eigen::Map<Eigen::MatrixXd> XtZ, const Eigen::MappedSparseMatrix<double> ZtZ, Eigen::SparseMatrix<double> H, const Eigen::MappedSparseMatrix<double> Psi_r, const double psi_r, const bool get_val, const bool get_score, const bool get_inf, const bool expected);
+RcppExport SEXP _limestest_res_llRcpp(SEXP YSEXP, SEXP XSEXP, SEXP ZSEXP, SEXP XtYSEXP, SEXP ZtYSEXP, SEXP XtXSEXP, SEXP XtZSEXP, SEXP ZtZSEXP, SEXP HSEXP, SEXP Psi_rSEXP, SEXP psi_rSEXP, SEXP get_valSEXP, SEXP get_scoreSEXP, SEXP get_infSEXP, SEXP expectedSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Eigen::Map<Eigen::MatrixXd> >::type X(XSEXP);
-    Rcpp::traits::input_parameter< Eigen::Map<Eigen::VectorXd> >::type Y(YSEXP);
-    Rcpp::traits::input_parameter< Eigen::MappedSparseMatrix<double> >::type Z(ZSEXP);
-    Rcpp::traits::input_parameter< Eigen::MappedSparseMatrix<double> >::type H(HSEXP);
-    Rcpp::traits::input_parameter< Eigen::MappedSparseMatrix<double> >::type Psi0(Psi0SEXP);
-    Rcpp::traits::input_parameter< double >::type psi0(psi0SEXP);
-    Rcpp::traits::input_parameter< bool >::type lik(likSEXP);
-    Rcpp::traits::input_parameter< bool >::type score(scoreSEXP);
-    Rcpp::traits::input_parameter< bool >::type finf(finfSEXP);
-    rcpp_result_gen = Rcpp::wrap(res_llRcpp(X, Y, Z, H, Psi0, psi0, lik, score, finf));
+    Rcpp::traits::input_parameter< Eigen::VectorXd >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< const Eigen::Map<Eigen::MatrixXd> >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const Eigen::MappedSparseMatrix<double> >::type Z(ZSEXP);
+    Rcpp::traits::input_parameter< const Eigen::Map<Eigen::MatrixXd> >::type XtY(XtYSEXP);
+    Rcpp::traits::input_parameter< const Eigen::Map<Eigen::MatrixXd> >::type ZtY(ZtYSEXP);
+    Rcpp::traits::input_parameter< const Eigen::Map<Eigen::MatrixXd> >::type XtX(XtXSEXP);
+    Rcpp::traits::input_parameter< const Eigen::Map<Eigen::MatrixXd> >::type XtZ(XtZSEXP);
+    Rcpp::traits::input_parameter< const Eigen::MappedSparseMatrix<double> >::type ZtZ(ZtZSEXP);
+    Rcpp::traits::input_parameter< Eigen::SparseMatrix<double> >::type H(HSEXP);
+    Rcpp::traits::input_parameter< const Eigen::MappedSparseMatrix<double> >::type Psi_r(Psi_rSEXP);
+    Rcpp::traits::input_parameter< const double >::type psi_r(psi_rSEXP);
+    Rcpp::traits::input_parameter< const bool >::type get_val(get_valSEXP);
+    Rcpp::traits::input_parameter< const bool >::type get_score(get_scoreSEXP);
+    Rcpp::traits::input_parameter< const bool >::type get_inf(get_infSEXP);
+    Rcpp::traits::input_parameter< const bool >::type expected(expectedSEXP);
+    rcpp_result_gen = Rcpp::wrap(res_llRcpp(Y, X, Z, XtY, ZtY, XtX, XtZ, ZtZ, H, Psi_r, psi_r, get_val, get_score, get_inf, expected));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -69,7 +75,7 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_limestest_Psi_from_H_cpp", (DL_FUNC) &_limestest_Psi_from_H_cpp, 2},
     {"_limestest_loglik_psi_cpp", (DL_FUNC) &_limestest_loglik_psi_cpp, 12},
-    {"_limestest_res_llRcpp", (DL_FUNC) &_limestest_res_llRcpp, 9},
+    {"_limestest_res_llRcpp", (DL_FUNC) &_limestest_res_llRcpp, 15},
     {NULL, NULL, 0}
 };
 

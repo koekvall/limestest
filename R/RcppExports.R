@@ -23,9 +23,9 @@ Psi_from_H_cpp <- function(psi_mr, H) {
 #' @param e The residual vector.
 #' @param H Matrix of derivatives of Psi with respect to elements of psi.
 #'        Assumes H = [H_1, ... , H_r], where H_j is q by q.
-#' @param Psi0 Coavariance matrix of random effects (Psi) divided by error
-#'        variance psi0, with dimensions q by q.
-#' @param psi0 The error variance
+#' @param Psi_r Coavariance matrix of random effects (Psi) divided by error
+#'        variance psi_r, with dimensions q by q.
+#' @param psi_r The error variance
 #' @param loglik If \code{TRUE} (default), the log-likelihood will be calculated.
 #' @param score If \code{TRUE} (default), the score vector will be calculated.
 #' @param finf If \code{TRUE} (default), the Fisher information matrix will be calculated.
@@ -52,9 +52,9 @@ loglik_psi_cpp <- function(ZtZ, XtZ, Zte, Z, e, H, Psi_r, psi_r, get_val = TRUE,
 #' @param Z An n x q matrix of the design matrix of random effects.
 #' @param H A q x rq matrix, where H = [H_1, ..., H_r], with H_j being the
 #' derivative of Psi with respect to psi_j
-#' @param Psi0 The covariance matrix of the random effects (Psi) divided by the
-#' error variance (psi0)
-#' @param psi0 A scalar value of the error variance.
+#' @param Psi_r The covariance matrix of the random effects (Psi) divided by the
+#' error variance (psi_r)
+#' @param psi_r A scalar value of the error variance.
 #' @param lik If \code{TRUE} (default), the log-likelihood will be computed.
 #' @param score If \code{TRUE} (default), the score vector will be computed.
 #' @param finf If \code{TRUE} (default), the Fisher information matrix will be
@@ -70,7 +70,7 @@ loglik_psi_cpp <- function(ZtZ, XtZ, Zte, Z, e, H, Psi_r, psi_r, get_val = TRUE,
 #' \item{I_b_inv_chol}{Inverse of the Cholesky root of the information matrix for the fixed effects parameter beta}
 #' }
 #' @import Matrix
-res_llRcpp <- function(X, Y, Z, H, Psi0, psi0, lik = TRUE, score = FALSE, finf = FALSE) {
-    .Call(`_limestest_res_llRcpp`, X, Y, Z, H, Psi0, psi0, lik, score, finf)
+res_llRcpp <- function(Y, X, Z, XtY, ZtY, XtX, XtZ, ZtZ, H, Psi_r, psi_r, get_val = TRUE, get_score = TRUE, get_inf = TRUE, expected = TRUE) {
+    .Call(`_limestest_res_llRcpp`, Y, X, Z, XtY, ZtY, XtX, XtZ, ZtZ, H, Psi_r, psi_r, get_val, get_score, get_inf, expected)
 }
 

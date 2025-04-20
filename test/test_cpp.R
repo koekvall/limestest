@@ -46,3 +46,6 @@ abs(loglik_R$value - loglik_cpp$value)
 max(abs(loglik_R$score - loglik_cpp$score))
 
 round(abs((as.matrix(loglik_R$inf_mat) - loglik_cpp$inf_mat) / as.matrix(loglik_R$inf_mat)), 1)
+
+# Restricted likelihood
+
