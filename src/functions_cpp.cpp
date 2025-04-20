@@ -267,16 +267,15 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
                       const double psi_r,
                       const bool get_val = true,
                       const bool get_score = true,
-                      const bool get_inf = true,
-                      const bool expected = true
-) {
+                      const bool get_inf = true)
+{
+;
   // Define dimensions
   int n = Y.size();
   int q = Psi_r.cols();
   int rm1 = H.cols() / q;
   int r = rm1 + 1;
   int p = X.cols();
-
   // loglikelihood to return
   double ll = NA_REAL;
   // Score vector to return
@@ -284,17 +283,17 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
   // Information matrix to return
   Eigen::MatrixXd I_psi(r, r);
 
+
   // Pre-compute (I_q + Psi_r Z'Z)^{-1} Psi_r
   // solver for Psi_rZtZ + I_q
   Eigen::SparseMatrix<double> Id_q(q, q);
-  Id_q.diagonal().setConstant(1.0);
+  Id_q = Eigen::MatrixXd::Identity(q, q).sparseView();
   Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
   solver.compute(Psi_r * ZtZ + Id_q);
 
   if (get_val) {
     ll = solver.logAbsDeterminant();
   }
-
   Eigen::SparseMatrix<double> A = solver.solve(Psi_r);
   Eigen::MatrixXd B = XtZ * A;
 
@@ -302,7 +301,7 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
   Eigen::MatrixXd U = (1.0 / psi_r) * (XtX - B * XtZ.transpose());  //p*p
 
   // Force symmetric
-  // U = U.selfadjointView<Eigen::Upper>();
+   U = U.selfadjointView<Eigen::Upper>();
   // llt decomposition
   Eigen::LLT<Eigen::MatrixXd, Eigen::Upper> llt(U);
 
@@ -327,8 +326,9 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
   // n x 1 vector for storing \Sigma^{-1}e
   Eigen::VectorXd a = (1.0 / psi_r) * (Y - Z * (A * ZtY));
 
+
   if (get_val) {
-    ll += 2.0 * llt.matrixLLT().diagonal().log().sum();
+    ll += 2.0 * llt.matrixLLT().diagonal().array().log().sum();
     ll += Y.dot(a) + n * log(2.0 * M_PI * psi_r);
     ll *= -0.5;
   }
@@ -346,8 +346,7 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
   /////////////////////////////////////////////////////////////////////////////
   if (get_inf) {
     A = A * ZtZ; // q x q, called M in manuscript
-    s_psi(rm1) = s_psi(rm1) - (0.5 / psi_r) * n +
-      (0.5 / psi_r) * A.diagonal().sum();
+    s_psi(rm1) -= ((0.5 / psi_r) * n - (0.5 / psi_r) * A.diagonal().sum());
 
     Eigen::SparseMatrix<double> E = A.transpose(); // q x q sparse
     I_psi(rm1, rm1) = (0.5 / (psi_r * psi_r)) * (n - 2.0 * A.diagonal().sum() + E.cwiseProduct(A).sum());
@@ -366,18 +365,25 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
 
     I_psi(rm1, rm1) += 0.5 * C.transpose().cwiseProduct(C).sum();
     s_psi(rm1) += 0.5 * C.diagonal().sum();
-
     I_psi(rm1, rm1) -= llt.solve(XtSi3X).diagonal().sum();
 
     A = (1.0 / (psi_r * psi_r)) * (ZtZ - 2.0 * E + E * A); // ZtSi2Z right now
     E = (1.0 / psi_r) * (ZtZ - E); // Now holds ZtSiZ
     D = llt.solve(XtSiZ);
-    A = A - 2.0 * D.transpose() * XtSi2Z + XtSiZ.transpose() * (C * D);
 
+    // It is possible this loop can be moved into the loop below,
+    // but may need additional storage of H
+    Eigen::SparseMatrix<double> H_b1(q, q);
+    for(int ii = 0; ii < rm1; ii++) {
+      H_b1 = H.middleCols(ii * q, q);
+      s_psi(ii) -= 0.5 * (E - XtSiZ.transpose() * D).cwiseProduct(H_b1).sum();
+    }
+
+    A = A - 2.0 * D.transpose() * XtSi2Z + XtSiZ.transpose() * (C * D);
+    // Here H is overwritten in preparation for information calculation
     Eigen::MatrixXd H2 = XtSiZ.transpose() * (D * H);
     H = E.transpose() * H;
 
-    Eigen::SparseMatrix<double> H_b1(q, q);
     Eigen::SparseMatrix<double> H_b2(q, q);
     Eigen::MatrixXd H2_b1(q, q);
     Eigen::MatrixXd H2_b2(q, q);
@@ -387,8 +393,6 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
       H2_b1 = H2.middleCols(ii * q, q);
 
       I_psi(ii, rm1) = I_psi(rm1, ii) = 0.5 * A.cwiseProduct(H_b1).sum();
-      s_psi(ii) -= 0.5 * (E - XtSiZ.transpose() * D).cwiseProduct(H_b1).sum();
-
       for (int jj = ii; jj < rm1; jj++) {
         H_b2 = H.middleCols(jj * q, q).transpose();
         H2_b2 = H2.middleCols(jj * q, q).transpose();
@@ -410,7 +414,7 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
     Eigen::MatrixXd XtSiZ = (1.0 / psi_r) * (XtZ - D);    // p*q
     D = llt.solve(XtSiZ);
     Eigen::MatrixXd V = A - XtSiZ.transpose() * D;
-    for (int ii = 0; ii  < rm1; ii++) {
+    for (int ii = 0; ii < rm1; ii++) {
       s_psi(ii) -= 0.5 * V.cwiseProduct(H.middleCols(ii * q, q)).sum();
     }
   }

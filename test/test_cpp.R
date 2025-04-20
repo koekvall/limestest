@@ -30,7 +30,7 @@ loglik_R <- limestest::loglik_psi(Z = Z,
                                    get_score = TRUE,
                                    get_inf = TRUE,
                                    expected = TRUE)
-loglik_cpp <- limestest:::loglik_psi_cpp(ZtZ = as(crossprod(Z), "dgCMatrix"),
+loglik_cpp <- limestest:::loglik_psi_cpp(ZtZ = as(crossprod(Z), "generalMatrix"),
                                          XtZ = as.matrix(crossprod(X, Z)),
                                          Zte = as.vector(crossprod(Z, Y)),
                                          Z = Z,
@@ -50,15 +50,26 @@ max(abs(loglik_R$score - loglik_cpp$score))
 round(abs((as.matrix(loglik_R$inf_mat) - loglik_cpp$inf_mat) / as.matrix(loglik_R$inf_mat)), 1)
 
 # Restricted likelihood
-loglik_R <- limestest:::res_ll()
+loglik_R <- limestest:::res_ll(XtX = crossprod(X),
+                               XtY = crossprod(X, Y),
+                               XtZ = crossprod(X, Z),
+                               ZtZ = crossprod(Z),
+                               crossprod(Y, Z),
+                               Y = Y,
+                               X = X,
+                               Z = Z,
+                               H = H,
+                               Psi_r = Psi_cpp/psi_hat[r],
+                               psi_r = psi_hat[r], get_val = TRUE, get_score = TRUE,
+                               get_inf = TRUE)
 loglik_cpp <- limestest:::res_ll_cpp(Y = Y,
                                      X = X,
                                      Z = Z,
-                                     XtY = crossprod(X, Y),
+                                     XtY = as.vector(crossprod(X, Y)),
                                      ZtY = as.vector(crossprod(Z, Y)),
                                      XtX = as.matrix(crossprod(X)),
                                      XtZ = as.matrix(crossprod(X, Z)),
-                                     ZtZ = as(crossprod(Z), "dgCMatrix"),
+                                     ZtZ = as(crossprod(Z), "generalMatrix"),
                                      H = H,
                                      Psi_r = Psi_cpp/ psi_hat[r],
                                      psi_r = psi_hat[r],
@@ -67,6 +78,6 @@ loglik_cpp <- limestest:::res_ll_cpp(Y = Y,
                                      get_inf = TRUE)
 abs(loglik_R$value - loglik_cpp$value)
 
-max(abs(loglik_R$score - loglik_cpp$score))
+loglik_R$score - loglik_cpp$score
 
 round(abs((as.matrix(loglik_R$inf_mat) - loglik_cpp$inf_mat) / as.matrix(loglik_R$inf_mat)), 1)

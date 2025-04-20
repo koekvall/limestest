@@ -311,11 +311,9 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi_r, psi_r,
     C <- chol_solve(U, XtSi2X)
 
     I_psi[r, r] <- I_psi[r, r] + 0.5 * sum(C * Matrix::t(C))
-
     s_psi[r] <- s_psi[r] + 0.5 * sum(Matrix::diag(C))
-
-
     I_psi[r, r] <- I_psi[r, r] - sum(Matrix::diag(chol_solve(U, XtSi3X)))
+    
     # A (q x q), G (p x q) ARE FREE
     A <- (1 / psi_r)^2 * (ZtZ - 2 * E + E %*% A) # ZtSi2Z right now
     E <-  (1/ psi_r) * (ZtZ - E) # Now holds ZtSiZ
