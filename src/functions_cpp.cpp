@@ -380,8 +380,8 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
     }
 
     A = A - 2.0 * D.transpose() * XtSi2Z + XtSiZ.transpose() * (C * D);
-    // Here H is overwritten in preparation for information calculation
-    Eigen::MatrixXd H2 = XtSiZ.transpose() * (D * H);
+    // H is overwritten in preparation for information calculation
+    Eigen::MatrixXd H2 = XtSiZ.transpose() * (D * H);// Dense
     H = E.transpose() * H;
 
     Eigen::SparseMatrix<double> H_b2(q, q);

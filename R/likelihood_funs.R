@@ -113,7 +113,7 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, get_val = TRUE,
    e_save <- e
   }
   e <- (1 / psi_r) * (e - Z %*% A[, q + p + 1]) # = Sigma^{-1}e
-  print(e[3])
+
   if(get_val){
     ll <- ll  - 0.5 * sum(e * e_save)
   }
