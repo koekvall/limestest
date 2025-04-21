@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{loglik_psi_cpp}
 \alias{loglik_psi_cpp}
-\title{loglik_psi_cpp}
+\title{Log-likelihood}
 \usage{
 loglik_psi_cpp(
   e,
@@ -35,7 +35,7 @@ variance, \eqn{\Psi_r = \Psi / \psi_r}.}
 
 \item{psi_r}{The error variance \eqn{\psi_r > 0}.}
 
-\item{H}{A \eqn{q \times (qr - q)} sparse matrix of horizontally concatenated
+\item{H}{Sparse \eqn{q \times (qr - q)} matrix of horizontally concatenated
 derivatives of \eqn{\Psi} (see details) of class \code{dgCMatrix}.}
 
 \item{get_val}{If \code{TRUE}, the value of the loglikelihood is computed}

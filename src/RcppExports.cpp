@@ -47,8 +47,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // res_ll_cpp
-Rcpp::List res_ll_cpp(Eigen::VectorXd Y, const Eigen::Map<Eigen::MatrixXd> X, const Eigen::MappedSparseMatrix<double> Z, const Eigen::Map<Eigen::MatrixXd> XtY, const Eigen::Map<Eigen::MatrixXd> ZtY, const Eigen::Map<Eigen::MatrixXd> XtX, const Eigen::Map<Eigen::MatrixXd> XtZ, const Eigen::MappedSparseMatrix<double> ZtZ, Eigen::SparseMatrix<double> H, const Eigen::MappedSparseMatrix<double> Psi_r, const double psi_r, const bool get_val, const bool get_score, const bool get_inf);
-RcppExport SEXP _limestest_res_ll_cpp(SEXP YSEXP, SEXP XSEXP, SEXP ZSEXP, SEXP XtYSEXP, SEXP ZtYSEXP, SEXP XtXSEXP, SEXP XtZSEXP, SEXP ZtZSEXP, SEXP HSEXP, SEXP Psi_rSEXP, SEXP psi_rSEXP, SEXP get_valSEXP, SEXP get_scoreSEXP, SEXP get_infSEXP) {
+Rcpp::List res_ll_cpp(Eigen::VectorXd Y, const Eigen::Map<Eigen::MatrixXd> X, const Eigen::MappedSparseMatrix<double> Z, const Eigen::Map<Eigen::MatrixXd> XtY, const Eigen::Map<Eigen::MatrixXd> ZtY, const Eigen::Map<Eigen::MatrixXd> XtX, const Eigen::Map<Eigen::MatrixXd> XtZ, const Eigen::MappedSparseMatrix<double> ZtZ, const Eigen::MappedSparseMatrix<double> Psi_r, const double psi_r, Eigen::SparseMatrix<double> H, const bool get_val, const bool get_score, const bool get_inf);
+RcppExport SEXP _limestest_res_ll_cpp(SEXP YSEXP, SEXP XSEXP, SEXP ZSEXP, SEXP XtYSEXP, SEXP ZtYSEXP, SEXP XtXSEXP, SEXP XtZSEXP, SEXP ZtZSEXP, SEXP Psi_rSEXP, SEXP psi_rSEXP, SEXP HSEXP, SEXP get_valSEXP, SEXP get_scoreSEXP, SEXP get_infSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -60,13 +60,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const Eigen::Map<Eigen::MatrixXd> >::type XtX(XtXSEXP);
     Rcpp::traits::input_parameter< const Eigen::Map<Eigen::MatrixXd> >::type XtZ(XtZSEXP);
     Rcpp::traits::input_parameter< const Eigen::MappedSparseMatrix<double> >::type ZtZ(ZtZSEXP);
-    Rcpp::traits::input_parameter< Eigen::SparseMatrix<double> >::type H(HSEXP);
     Rcpp::traits::input_parameter< const Eigen::MappedSparseMatrix<double> >::type Psi_r(Psi_rSEXP);
     Rcpp::traits::input_parameter< const double >::type psi_r(psi_rSEXP);
+    Rcpp::traits::input_parameter< Eigen::SparseMatrix<double> >::type H(HSEXP);
     Rcpp::traits::input_parameter< const bool >::type get_val(get_valSEXP);
     Rcpp::traits::input_parameter< const bool >::type get_score(get_scoreSEXP);
     Rcpp::traits::input_parameter< const bool >::type get_inf(get_infSEXP);
-    rcpp_result_gen = Rcpp::wrap(res_ll_cpp(Y, X, Z, XtY, ZtY, XtX, XtZ, ZtZ, H, Psi_r, psi_r, get_val, get_score, get_inf));
+    rcpp_result_gen = Rcpp::wrap(res_ll_cpp(Y, X, Z, XtY, ZtY, XtX, XtZ, ZtZ, Psi_r, psi_r, H, get_val, get_score, get_inf));
     return rcpp_result_gen;
 END_RCPP
 }

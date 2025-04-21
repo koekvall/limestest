@@ -80,7 +80,7 @@ Eigen::SparseMatrix<double> Psi_from_H_cpp(const Eigen::Map<Eigen::VectorXd> psi
   return Psi;
 }
 
-//' loglik_psi_cpp
+//' Log-likelihood
 //'
 //' Computes the log-likelihood, score vector, and information matrix
 //' for the covariance parameter vector in a linear mixed effects model.
@@ -93,7 +93,7 @@ Eigen::SparseMatrix<double> Psi_from_H_cpp(const Eigen::Map<Eigen::VectorXd> psi
 //' @param Psi_r The \eqn{q\times q} covariance matrix of random effects (\eqn{\Psi}) divided by error
 //'        variance, \eqn{\Psi_r = \Psi / \psi_r}.
 //' @param psi_r The error variance \eqn{\psi_r > 0}.
-//' @param H A \eqn{q \times (qr - q)} sparse matrix of horizontally concatenated
+//' @param H Sparse \eqn{q \times (qr - q)} matrix of horizontally concatenated
 //'        derivatives of \eqn{\Psi} (see details) of class \code{dgCMatrix}.
 //' @param get_val If \code{TRUE}, the value of the loglikelihood is computed
 //' @param get_score If \code{TRUE} the score vector is calculated.
@@ -121,6 +121,7 @@ Eigen::SparseMatrix<double> Psi_from_H_cpp(const Eigen::Map<Eigen::VectorXd> psi
 //' The score and information for \eqn{\beta} are not computed.
 //'
 //' @useDynLib limestest, .registration=TRUE
+//' @import Matrix
 // [[Rcpp::export]]
 
 Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
@@ -238,35 +239,50 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
                             Rcpp::Named("inf_mat") = I_psi);
 }
 
-
-//' Compute Restricted Likelihood, Score and Information
+//' Restricted log-likelihood
 //'
-//' Computes the restricted (residual) likelihood, score, and information matrix
-//' for the variance parameter \code{psi} a linear mixed effects model
+//' Computes the restricted log-likelihood, score vector, and information matrix
+//' for the covariance parameter vector in a linear mixed effects model.
 //'
-//' @param X An n x p matrix of the design matrix of fixed effects.
-//' @param Y An n x 1 vector of the response variable.
-//' @param Z An n x q matrix of the design matrix of random effects.
-//' @param H A q x rq matrix, where H = [H_1, ..., H_r], with H_j being the
-//' derivative of Psi with respect to psi_j
-//' @param Psi_r The covariance matrix of the random effects (Psi) divided by the
-//' error variance (psi_r)
-//' @param psi_r A scalar value of the error variance.
-//' @param lik If \code{TRUE} (default), the log-likelihood will be computed.
-//' @param score If \code{TRUE} (default), the score vector will be computed.
-//' @param finf If \code{TRUE} (default), the Fisher information matrix will be
-//' computed.
+//' @param Y Vector of length \eqn{n} of responses, of class \code{numeric}.
+//' @param X Matrix of size \eqn{n \times p} of predictors, of class \code{matrix}
+//' @param Z Sparse \eqn{n \times q} random effect design matrix of class \code{dgCMatrix}
+//' @param XtY Precomputed vector \code{crossprod(X, Y)} of class \code{numeric}
+//' @param ZtY Precomputed vector \code{crossprod(Z, Y)} of class \code{numeric}
+//' @param XtX Precomputed matrix \code{crossprod(X)} of class \code{matrix}
+//' @param XtZ Precomputed matrix \code{crossprod(X, Z)} of class \code{matrix}
+//' @param ZtZ Precomputed matrix \code{crossprod(Z)} of class \code{dgCMatrix}
+//' @param Psi_r The \eqn{q\times q} covariance matrix of random effects (\eqn{\Psi}) divided by error
+//'        variance, \eqn{\Psi_r = \Psi / \psi_r}.
+//' @param psi_r The error variance \eqn{\psi_r > 0}.
+//' @param H Sparse \eqn{q \times (qr - q)} matrix of horizontally concatenated
+//'        derivatives of \eqn{\Psi} (see details) of class \code{dgCMatrix}.
+//' @param get_val If \code{TRUE}, the value of the loglikelihood is computed
+//' @param get_score If \code{TRUE} the score vector is calculated.
+//' @param get_inf If \code{TRUE}, an information matrix is calculated.
+//' @param expected If \code{TRUE}, the expected information is calculated; otherwise
+//' the observed, or negative Hessian of the loglikelihood.
 //'
-//' @return A list with elements:
-//' \describe{
-//' \item{ll}{A scalar value of the restricted log-likelihood.}
-//' \item{score}{A (r + 1) x 1 vector of the restricted score of the variance parameters.}
-//' \item{finf}{A (r + 1) x (r + 1) matrix of the restricted  information of the
-//' variance parameters.}
-//' \item{beta}{Maximum likelihood estimate for the fixed effects parameter}
-//' \item{I_b_inv_chol}{Inverse of the Cholesky root of the information matrix for the fixed effects parameter beta}
-//' }
-//' @import Matrix
+//' @return A list with components:
+//' \item{value}{The value of the restricted log-likelihood}
+//' \item{score}{The restricted score, or gradient of the restriced log-likelihood, for \eqn{\psi}}
+//' \item{inf_mat}{The restricted information matrix for \eqn{\psi}}
+//' \item{beta}{Partial maximizer of the regular likelihood in \eqn{\beta},
+//'   \eqn{\tilde{\beta} = (X' \Sigma^{-1} X)' X' \Sigma^{-1}Y},
+//'   where \eqn{\Sigma = Z\Psi Z' + \psi_r I_n}}
+//' \item{I_b_inv_chol}{Cholesky root of the expected inverse information matrix
+//'   for \eqn{\beta}, \eqn{I(\beta; \psi) = X' \Sigma^{-1} X}}
+//'
+//' @details The model is \deqn{Y = X\beta + Z U + E,} where \eqn{U \sim N_q(0, \Psi)}
+//' and \eqn{E \sim N_n(0, \psi_r I_n)}. The first \eqn{r - 1} elements of \eqn{\psi}
+//' parameterize \eqn{\Psi}, while the \eqn{r}th and last element is the error
+//' variance. It is assumed that \eqn{H_j = \partial \Psi / \partial \psi_j} is
+//' a (usually sparse) matrix of zeros and ones, \eqn{j \in \{1, \dots, r - 1\}},
+//' and that \eqn{\Psi = \sum_{j = 1}^{r - 1}\psi_j H_j}. Thus, \eqn{\psi_1, \dots, \psi_{r - 1}}
+//' are variances and covariances of random effects.
+//' The argument matrix \code{H} is \eqn{H = [H_1, \dots, H_{r - 1}]}.
+//'
+//'
 // [[Rcpp::export]]
 Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
                       const Eigen::Map<Eigen::MatrixXd> X,
@@ -276,9 +292,9 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
                       const Eigen::Map<Eigen::MatrixXd> XtX,
                       const Eigen::Map<Eigen::MatrixXd> XtZ,
                       const Eigen::MappedSparseMatrix<double> ZtZ,
-                      Eigen::SparseMatrix<double> H,
                       const Eigen::MappedSparseMatrix<double> Psi_r,
                       const double psi_r,
+                      Eigen::SparseMatrix<double> H,
                       const bool get_val = true,
                       const bool get_score = true,
                       const bool get_inf = true)
