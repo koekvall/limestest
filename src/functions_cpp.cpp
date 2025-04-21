@@ -82,39 +82,55 @@ Eigen::SparseMatrix<double> Psi_from_H_cpp(const Eigen::Map<Eigen::VectorXd> psi
 
 //' loglik_psi_cpp
 //'
-//' Calculates the log-likelihood, score vector and Fisher information matrix
-//' for the variance parameter vector \code{psi} in a linear mixed effects model.
-//' This function is implemented in C++ and is faster than the equivalent function \code{loglik_psi}
+//' Computes the log-likelihood, score vector, and information matrix
+//' for the covariance parameter vector in a linear mixed effects model.
 //'
-//' @param ZtZ A matrix of fixed effects.
-//' @param e The residual vector.
-//' @param H Matrix of derivatives of Psi with respect to elements of psi.
-//'        Assumes H = [H_1, ... , H_r], where H_j is q by q.
-//' @param Psi_r Coavariance matrix of random effects (Psi) divided by error
-//'        variance psi_r, with dimensions q by q.
-//' @param psi_r The error variance
-//' @param loglik If \code{TRUE} (default), the log-likelihood will be calculated.
-//' @param score If \code{TRUE} (default), the score vector will be calculated.
-//' @param finf If \code{TRUE} (default), the Fisher information matrix will be calculated.
-//' @param expected If \code{TRUE} (detault), return expected information;
-//'        otherwise observed.
+//' @param e Vector of length \eqn{n} of errors, or residuals, \eqn{e = Y - X \beta}.
+//' @param Z Sparse \eqn{n \times q} random effect design matrix of class \code{dgCMatrix}
+//' @param Zte Precomputed vector \code{crossprod(Z, e)} of class \code{numeric}
+//' @param XtZ Precomputed matrix \code{crossprod(X, Z)} of class \code{matrix}
+//' @param ZtZ Precomputed matrix \code{crossprod(Z)} of class \code{dgCMatrix}
+//' @param Psi_r The \eqn{q\times q} covariance matrix of random effects (\eqn{\Psi}) divided by error
+//'        variance, \eqn{\Psi_r = \Psi / \psi_r}.
+//' @param psi_r The error variance \eqn{\psi_r > 0}.
+//' @param H A \eqn{q \times (qr - q)} sparse matrix of horizontally concatenated
+//'        derivatives of \eqn{\Psi} (see details) of class \code{dgCMatrix}.
+//' @param get_val If \code{TRUE}, the value of the loglikelihood is computed
+//' @param get_score If \code{TRUE} the score vector is calculated.
+//' @param get_inf If \code{TRUE}, an information matrix is calculated.
+//' @param expected If \code{TRUE}, the expected information is calculated; otherwise
+//' the observed, or negative Hessian of the loglikelihood.
 //'
 //' @return A list with components:
-//' \item{ll}{The log-likelihood.}
-//' \item{score}{The score vector.}
-//' \item{finf}{The Fisher information matrix.}
+//' \item{value}{The value of the log-likelihood}
+//' \item{score}{The score, or gradient of the log-likelihood, for \eqn{\psi}}
+//' \item{inf_mat}{The information matrix for \eqn{\psi}}
+//'
+//' @details The model is \deqn{Y = X\beta + Z U + E,} where \eqn{U \sim N_q(0, \Psi)}
+//' and \eqn{E \sim N_n(0, \psi_r I_n)}. The first \eqn{r - 1} elements of \eqn{\psi}
+//' parameterize \eqn{\Psi}, while the \eqn{r}th and last element is the error
+//' variance. It is assumed that \eqn{H_j = \partial \Psi / \partial \psi_j} is
+//' a (usually sparse) matrix of zeros and ones, \eqn{j \in \{1, \dots, r - 1\}},
+//' and that \eqn{\Psi = \sum_{j = 1}^{r - 1}\psi_j H_j}. Thus, \eqn{\psi_1, \dots, \psi_{r - 1}}
+//' are variances and covariances of random effects.
+//' The argument matrix \code{H} is \eqn{H = [H_1, \dots, H_{r - 1}]}.
+//'
+//' The fixed effects  \eqn{\beta} affect the likelihood only through the
+//' precomputed \eqn{e = Y - X\beta}.
+//'
+//' The score and information for \eqn{\beta} are not computed.
 //'
 //' @useDynLib limestest, .registration=TRUE
 // [[Rcpp::export]]
 
-Rcpp::List loglik_psi_cpp(const Eigen::MappedSparseMatrix<double> ZtZ,
-                          const Eigen::Map<Eigen::MatrixXd> XtZ,
-                          const Eigen::Map<Eigen::VectorXd> Zte,
+Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
                           const Eigen::MappedSparseMatrix<double> Z,
-                          Eigen::VectorXd e,
-                          Eigen::SparseMatrix<double> H,
+                          const Eigen::Map<Eigen::VectorXd> Zte,
+                          const Eigen::Map<Eigen::MatrixXd> XtZ,
+                          const Eigen::MappedSparseMatrix<double> ZtZ,
                           const Eigen::MappedSparseMatrix<double> Psi_r,
                           const double psi_r,
+                          Eigen::SparseMatrix<double> H,
                           const bool get_val = true,
                           const bool get_score = true,
                           const bool get_inf = true,
@@ -192,33 +208,31 @@ Rcpp::List loglik_psi_cpp(const Eigen::MappedSparseMatrix<double> ZtZ,
     A.diagonal().array() -= 1;
     Eigen::SparseMatrix<double> H1(q, q);
     Eigen::SparseMatrix<double> H2(q, q);
-    for (int ii = 0; ii < rm1; ii++) {
-      H1 = H.middleCols(ii * q, q);
-      I_psi(rm1, ii) = I_psi(ii, rm1) = (0.5 / (psi_r * psi_r)) *
-        A.cwiseProduct(H1).sum();
-        s_psi(ii) += (0.5 / psi_r) * H1.diagonal().sum();
-      for (int jj = ii; jj < rm1; jj++) {
-        H2 = H.middleCols(jj * q, q).transpose();
-        I_psi(ii, jj) = I_psi(jj, ii) = (0.5 / (psi_r * psi_r)) * H1.cwiseProduct(H2).sum();
+    for (int jj = 0; jj < rm1; jj++) {
+      H1 = H.middleCols(jj * q, q);
+      I_psi(jj, rm1) = (0.5 / (psi_r * psi_r)) * A.cwiseProduct(H1).sum();
+      s_psi(jj) += (0.5 / psi_r) * H1.diagonal().sum();
+      for (int ii = 0; ii <= jj; ii++) {
+        H2 = H.middleCols(ii * q, q).transpose();
+        I_psi(ii, jj) = (0.5 / (psi_r * psi_r)) * H1.cwiseProduct(H2).sum();
       }
     }
     if (!expected) {
-      I_psi *= -1.0;
+      I_psi = -I_psi;
       // u = Sigma^{-2}e. Some calculations could be saved from before
       Eigen::VectorXd u = (1.0 / (psi_r * psi_r)) * (e_save + Z * (-2.0 * Ae + (A + Id_q) * Ae));
       I_psi(rm1, rm1) += e.dot(u);
       v = Z.transpose() * u;
 
-      for (int ii = 0; ii < rm1; ii++) {
-        I_psi(ii, rm1) +=  w.middleRows(ii * q, q).dot(v);
-        I_psi(rm1, ii) = I_psi(ii, rm1);
-        for (int jj = ii; jj < rm1; jj++) {
+      for (int jj = 0; jj < rm1; jj++) {
+        I_psi(jj, rm1) +=  w.middleRows(jj * q, q).dot(v);
+        for (int ii = 0; ii <= jj; ii++) {
           I_psi(ii, jj) -= (1 / psi_r) * (B * w.middleRows(ii * q, q)).dot(w.middleRows(jj * q, q));
-          I_psi(jj, ii) = I_psi(ii, jj);
         }
       }
     }
   }
+  I_psi = I_psi.selfadjointView<Eigen::Upper>();
   return Rcpp::List::create(Rcpp::Named("value") = ll,
                             Rcpp::Named("score") = s_psi,
                             Rcpp::Named("inf_mat") = I_psi);
@@ -370,6 +384,7 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
     A = (1.0 / (psi_r * psi_r)) * (ZtZ - 2.0 * E + E * A); // ZtSi2Z right now
     E = (1.0 / psi_r) * (ZtZ - E); // Now holds ZtSiZ
     D = llt.solve(XtSiZ);
+    A = A - 2.0 * D.transpose() * XtSi2Z + XtSiZ.transpose() * (C * D);
 
     // It is possible this loop can be moved into the loop below,
     // but may need additional storage of H
@@ -377,9 +392,9 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
     for(int ii = 0; ii < rm1; ii++) {
       H_b1 = H.middleCols(ii * q, q);
       s_psi(ii) -= 0.5 * (E - XtSiZ.transpose() * D).cwiseProduct(H_b1).sum();
+      I_psi(ii, rm1) = 0.5 * A.cwiseProduct(H_b1).sum();
     }
 
-    A = A - 2.0 * D.transpose() * XtSi2Z + XtSiZ.transpose() * (C * D);
     // H is overwritten in preparation for information calculation
     Eigen::MatrixXd H2 = XtSiZ.transpose() * (D * H);// Dense
     H = E.transpose() * H;
@@ -388,18 +403,15 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
     Eigen::MatrixXd H2_b1(q, q);
     Eigen::MatrixXd H2_b2(q, q);
 
-    for (int ii = 0; ii < rm1; ii++) {
-      H_b1 = H.middleCols(ii * q, q);
-      H2_b1 = H2.middleCols(ii * q, q);
-
-      I_psi(ii, rm1) = I_psi(rm1, ii) = 0.5 * A.cwiseProduct(H_b1).sum();
-      for (int jj = ii; jj < rm1; jj++) {
-        H_b2 = H.middleCols(jj * q, q).transpose();
-        H2_b2 = H2.middleCols(jj * q, q).transpose();
+    for (int jj = 0; jj < rm1; jj++) {
+      H_b1 = H.middleCols(jj * q, q);
+      H2_b1 = H2.middleCols(jj * q, q);
+      for (int ii = 0; ii <= jj; ii++) {
+        H_b2 = H.middleCols(ii * q, q).transpose();
+        H2_b2 = H2.middleCols(ii * q, q).transpose();
          //Continue here
         I_psi(ii, jj) = 0.5 * H_b1.cwiseProduct(H_b2).sum() -
           H_b1.cwiseProduct(H2_b2).sum() + 0.5 * H2_b1.cwiseProduct(H2_b2).sum();
-        I_psi(jj, ii) = I_psi(ii, jj);
       }
     }
   } else if (get_score) {
@@ -418,12 +430,14 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
       s_psi(ii) -= 0.5 * V.cwiseProduct(H.middleCols(ii * q, q)).sum();
     }
   }
-  Eigen::MatrixXd lltU = llt.matrixU();
+
+  U = llt.matrixU();
+  I_psi = I_psi.selfadjointView<Eigen::Upper>();
   return Rcpp::List::create(
     Rcpp::Named("value") = ll,
     Rcpp::Named("score") = s_psi,
     Rcpp::Named("inf_mat") = I_psi,
     Rcpp::Named("beta") = beta_tilde,
-    Rcpp::Named("I_b_inv_chol") = lltU);
+    Rcpp::Named("I_b_inv_chol") = U);
 }
 

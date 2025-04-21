@@ -15,31 +15,47 @@ Psi_from_H_cpp <- function(psi_mr, H) {
 
 #' loglik_psi_cpp
 #'
-#' Calculates the log-likelihood, score vector and Fisher information matrix
-#' for the variance parameter vector \code{psi} in a linear mixed effects model.
-#' This function is implemented in C++ and is faster than the equivalent function \code{loglik_psi}
+#' Computes the log-likelihood, score vector, and information matrix
+#' for the covariance parameter vector in a linear mixed effects model.
 #'
-#' @param ZtZ A matrix of fixed effects.
-#' @param e The residual vector.
-#' @param H Matrix of derivatives of Psi with respect to elements of psi.
-#'        Assumes H = [H_1, ... , H_r], where H_j is q by q.
-#' @param Psi_r Coavariance matrix of random effects (Psi) divided by error
-#'        variance psi_r, with dimensions q by q.
-#' @param psi_r The error variance
-#' @param loglik If \code{TRUE} (default), the log-likelihood will be calculated.
-#' @param score If \code{TRUE} (default), the score vector will be calculated.
-#' @param finf If \code{TRUE} (default), the Fisher information matrix will be calculated.
-#' @param expected If \code{TRUE} (detault), return expected information;
-#'        otherwise observed.
+#' @param e Vector of length \eqn{n} of errors, or residuals, \eqn{e = Y - X \beta}.
+#' @param Z Sparse \eqn{n \times q} random effect design matrix of class \code{dgCMatrix}
+#' @param Zte Precomputed vector \code{crossprod(Z, e)} of class \code{numeric}
+#' @param XtZ Precomputed matrix \code{crossprod(X, Z)} of class \code{matrix}
+#' @param ZtZ Precomputed matrix \code{crossprod(Z)} of class \code{dgCMatrix}
+#' @param Psi_r The \eqn{q\times q} covariance matrix of random effects (\eqn{\Psi}) divided by error
+#'        variance, \eqn{\Psi_r = \Psi / \psi_r}.
+#' @param psi_r The error variance \eqn{\psi_r > 0}.
+#' @param H A \eqn{q \times (qr - q)} sparse matrix of horizontally concatenated
+#'        derivatives of \eqn{\Psi} (see details) of class \code{dgCMatrix}.
+#' @param get_val If \code{TRUE}, the value of the loglikelihood is computed
+#' @param get_score If \code{TRUE} the score vector is calculated.
+#' @param get_inf If \code{TRUE}, an information matrix is calculated.
+#' @param expected If \code{TRUE}, the expected information is calculated; otherwise
+#' the observed, or negative Hessian of the loglikelihood.
 #'
 #' @return A list with components:
-#' \item{ll}{The log-likelihood.}
-#' \item{score}{The score vector.}
-#' \item{finf}{The Fisher information matrix.}
+#' \item{value}{The value of the log-likelihood}
+#' \item{score}{The score, or gradient of the log-likelihood, for \eqn{\psi}}
+#' \item{inf_mat}{The information matrix for \eqn{\psi}}
+#'
+#' @details The model is \deqn{Y = X\beta + Z U + E,} where \eqn{U \sim N_q(0, \Psi)}
+#' and \eqn{E \sim N_n(0, \psi_r I_n)}. The first \eqn{r - 1} elements of \eqn{\psi}
+#' parameterize \eqn{\Psi}, while the \eqn{r}th and last element is the error
+#' variance. It is assumed that \eqn{H_j = \partial \Psi / \partial \psi_j} is
+#' a (usually sparse) matrix of zeros and ones, \eqn{j \in \{1, \dots, r - 1\}},
+#' and that \eqn{\Psi = \sum_{j = 1}^{r - 1}\psi_j H_j}. Thus, \eqn{\psi_1, \dots, \psi_{r - 1}}
+#' are variances and covariances of random effects.
+#' The argument matrix \code{H} is \eqn{H = [H_1, \dots, H_{r - 1}]}.
+#'
+#' The fixed effects  \eqn{\beta} affect the likelihood only through the
+#' precomputed \eqn{e = Y - X\beta}.
+#'
+#' The score and information for \eqn{\beta} are not computed.
 #'
 #' @useDynLib limestest, .registration=TRUE
-loglik_psi_cpp <- function(ZtZ, XtZ, Zte, Z, e, H, Psi_r, psi_r, get_val = TRUE, get_score = TRUE, get_inf = TRUE, expected = TRUE) {
-    .Call(`_limestest_loglik_psi_cpp`, ZtZ, XtZ, Zte, Z, e, H, Psi_r, psi_r, get_val, get_score, get_inf, expected)
+loglik_psi_cpp <- function(e, Z, Zte, XtZ, ZtZ, Psi_r, psi_r, H, get_val = TRUE, get_score = TRUE, get_inf = TRUE, expected = TRUE) {
+    .Call(`_limestest_loglik_psi_cpp`, e, Z, Zte, XtZ, ZtZ, Psi_r, psi_r, H, get_val, get_score, get_inf, expected)
 }
 
 #' Compute Restricted Likelihood, Score and Information

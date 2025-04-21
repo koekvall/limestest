@@ -328,10 +328,10 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi_r, psi_r,
     # muliply in loop
     # Has to come after H2 since H is overwritten
     H <- Matrix::crossprod(E, H) # = ZtSiZ %*% H
-    for(ii in 1:rm1){
-      idx1 <- ((ii - 1) * q + 1):(ii * q)
-      for(jj in ii:rm1){
-        idx2 <-  ((jj - 1) * q + 1):(jj * q)
+    for(jj in 1:rm1){
+      idx1 <- ((jj - 1) * q + 1):(jj * q)
+      for(ii in 1:jj){
+        idx2 <-  ((ii - 1) * q + 1):(ii * q)
         I_psi[ii, jj] <- 0.5 * sum(H[, idx1] * Matrix::t(H[, idx2])) -
           sum(H[, idx1] * Matrix::t(H2[, idx2])) + 0.5 *
           sum(H2[, idx1] * Matrix::t(H2[, idx2]))
