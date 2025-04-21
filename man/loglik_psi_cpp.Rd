@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{loglik_psi_cpp}
 \alias{loglik_psi_cpp}
-\title{Log-likelihood}
+\title{Log-likelihood using RcppEigen}
 \usage{
 loglik_psi_cpp(
   e,

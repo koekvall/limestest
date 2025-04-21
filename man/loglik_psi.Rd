@@ -2,7 +2,7 @@
 % Please edit documentation in R/likelihood_funs.R
 \name{loglik_psi}
 \alias{loglik_psi}
-\title{loglik_psi}
+\title{Log-likelihood in pure R}
 \usage{
 loglik_psi(
   Z,

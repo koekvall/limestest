@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{res_ll_cpp}
 \alias{res_ll_cpp}
-\title{Restricted log-likelihood}
+\title{Restricted log-likelihood using RcppEigen}
 \usage{
 res_ll_cpp(
   Y,
@@ -50,9 +50,7 @@ derivatives of \eqn{\Psi} (see details) of class \code{dgCMatrix}.}
 
 \item{get_score}{If \code{TRUE} the score vector is calculated.}
 
-\item{get_inf}{If \code{TRUE}, an information matrix is calculated.}
-
-\item{expected}{If \code{TRUE}, the expected information is calculated; otherwise
+\item{get_inf}{If \code{TRUE}, an information matrix is calculated.
 the observed, or negative Hessian of the loglikelihood.}
 }
 \value{

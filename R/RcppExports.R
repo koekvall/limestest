@@ -13,7 +13,7 @@ Psi_from_H_cpp <- function(psi_mr, H) {
     .Call(`_limestest_Psi_from_H_cpp`, psi_mr, H)
 }
 
-#' Log-likelihood
+#' Log-likelihood using RcppEigen
 #'
 #' Computes the log-likelihood, score vector, and information matrix
 #' for the covariance parameter vector in a linear mixed effects model.
@@ -59,7 +59,7 @@ loglik_psi_cpp <- function(e, Z, Zte, XtZ, ZtZ, Psi_r, psi_r, H, get_val = TRUE,
     .Call(`_limestest_loglik_psi_cpp`, e, Z, Zte, XtZ, ZtZ, Psi_r, psi_r, H, get_val, get_score, get_inf, expected)
 }
 
-#' Restricted log-likelihood
+#' Restricted log-likelihood using RcppEigen
 #'
 #' Computes the restricted log-likelihood, score vector, and information matrix
 #' for the covariance parameter vector in a linear mixed effects model.
@@ -80,7 +80,6 @@ loglik_psi_cpp <- function(e, Z, Zte, XtZ, ZtZ, Psi_r, psi_r, H, get_val = TRUE,
 #' @param get_val If \code{TRUE}, the value of the loglikelihood is computed
 #' @param get_score If \code{TRUE} the score vector is calculated.
 #' @param get_inf If \code{TRUE}, an information matrix is calculated.
-#' @param expected If \code{TRUE}, the expected information is calculated; otherwise
 #' the observed, or negative Hessian of the loglikelihood.
 #'
 #' @return A list with components:

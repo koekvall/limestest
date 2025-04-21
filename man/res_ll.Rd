@@ -2,7 +2,7 @@
 % Please edit documentation in R/likelihood_funs.R
 \name{res_ll}
 \alias{res_ll}
-\title{Compute Restricted Likelihood, Score and Information}
+\title{Restricted likelihood in pure R}
 \usage{
 res_ll(
   XtX,
@@ -60,11 +60,9 @@ computed.}
 }
 \value{
 A list with elements:
-\describe{
 \item{value}{The restricted log-likelihood at supplied parameters.}
 \item{score}{The restricted score at the supplied parameters.}
 \item{inf_mat}{The expected restricted information matrix at supplied parameters}
-}
 }
 \description{
 Computes the restricted (residual) likelihood, score, and information matrix

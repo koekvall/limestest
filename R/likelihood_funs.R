@@ -1,4 +1,43 @@
-loglikelihood <-function(psi, b = NULL, precomp, REML = TRUE, get_val = TRUE,
+#' Log-likelihood
+#'
+#' Computes log-likelihood, score vector, and information matrix
+#' for the covariance parameter vector in a linear mixed effects model.
+#'
+#' @param psi Vector of length \eqn{r} of covariance parameters (see details)
+#' @param b Vector of length\eqn{p} of fixed effects parameters, or regression coefficients
+#' @param Y Vector of length \eqn{n} of responses
+#' @param X Dense matrix of size \eqn{n\times p} of regressors
+#' @param Z Sparse design matrix for the random effects of size \eqn{n\times q}
+#' @param Hlist A list of derivatives of the random effects' covariance matrix \eqn{\Psi} (see details)
+#' @param REML If \code{TRUE}, use the restricted likelihood; otherwise the regular likelihood is used
+#' @param get_val If \code{TRUE}, the value of the log-likelihood is computed
+#' @param get_score If \code{TRUE} the score vector, or gradient of log-likelihood, is calculated.
+#' @param get_inf If \code{TRUE}, an information matrix is calculated.
+#' @param expected If \code{TRUE}, the expected information is calculated; otherwise
+#' the observed, or negative Hessian of the log-likelihood.
+#'
+#' @return A list with components:
+#'  \item{value}{The value of the log-likelihood}
+#'  \item{score}{The score, or gradient of the log-likelihood}
+#'  \item{inf_mat}{The information matrix}
+#'
+#' @details The model is \deqn{Y = X\beta + Z U + E,} where \eqn{U \sim N_q(0, \Psi)}
+#' and \eqn{E \sim N_n(0, \psi_r I_n)}. The first \eqn{r - 1} elements of \eqn{\psi}
+#' parameterize \eqn{\Psi}, while the \eqn{r}th and last element is the error
+#' variance. It is assumed that \eqn{H_j = \partial \Psi / \partial \psi_j} is
+#' a (usually sparse) matrix of zeros and ones, \eqn{j \in \{1, \dots, r - 1\}},
+#' and that \eqn{\Psi = \sum_{j = 1}^{r - 1}\psi_j H_j}. Thus, \eqn{\psi_1, \dots, \psi_{r - 1}}
+#' are variances and covariances of random effects.
+#'
+#' The argument \code{Hlist} is a list whose \eqn{j}th element is \eqn{H_j}.
+#'
+#' The score and information for \eqn{\beta} are only computed if REML is FALSE,
+#' otherwise the score and information for \eqn{\psi} only is returned.
+#'
+#' @useDynLib limestest, .registration=TRUE
+#' @import Matrix methods
+#' @export
+loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = TRUE,
                          get_score = TRUE, get_inf = TRUE, expected = TRUE)
 {
   if(!expected & REML){
@@ -9,46 +48,62 @@ loglikelihood <-function(psi, b = NULL, precomp, REML = TRUE, get_val = TRUE,
   if(!is.null(b) & REML){
     warning("Coefficient vector supplied but not used by REML")
   }
-  r <- length(psi)
-  stopifnot((r - 1) == length(precomp$Hlist))
 
-  H <- do.call(cbind, precomp$Hlist)
-  Psi_r <- (1 / psi[r]) * Psi_from_Hlist(psi = psi[-r], Hlist = precomp$Hlist)
+  r <- length(psi)
+  stopifnot((r - 1) == length(Hlist))
+  H <- methods::as(do.call(cbind, Hlist), "generalMatrix")
+  q <- nrow(H)
+  stopifnot(r - 1 == ncol(H) / q, ncol(Z) == q)
+  n <- nrow(Z)
+  stopifnot(length(Y) == n)
+
+
+  if(!is.null(b)){
+    p <- length(b)
+    stopifnot(p == ncol(X), n == nrow(X))
+  }
+
+  Psi_r <- (1 / psi[r]) * Psi_from_H_cpp(psi_mr = psi[-r], H = H)
+
   if(REML){
-    ll_things <- res_ll(XtX = precomp$XtX,
-                        XtY = precomp$XtY,
-                        XtZ = precomp$XtZ,
-                        ZtZ = precomp$ZtZ,
-                        YtZ = precomp$YtZ,
-                        Y = precomp$Y,
-                        X = precomp$X,
-                        Z = precomp$Z,
-                        H = H,
-                        Psi_r = Psi_r,
-                        psi_r = psi[r],
-                        get_val = get_val,
-                        get_score = get_score,
-                        get_inf = get_inf)
-  } else{
-    precomp$Y <- precomp$Y - precomp$X %*% b
-    ZtZXe <- cbind(precomp$ZtZ, precomp$ZtX, t(precomp$YtZ))
-    ll_things <- loglik_psi(Z = precomp$Z,
-                            ZtZXe = ZtZXe,
-                            e = precomp$Y,
-                            H = H,
+    ll_things <- res_ll_cpp(Y = as.vector(Y),
+                            X = as.matrix(X),
+                            Z = methods::as(Z, "generalMatrix"),
+                            XtY = as.vector(crossprod(X, Y)),
+                            ZtY = as.vector(crossprod(Z, Y)),
+                            XtX = as.matrix(crossprod(X)),
+                            XtZ = as.matrix(crossprod(X, Z)),
+                            ZtZ = methods::as(crossprod(Z), "generalMatrix"),
                             Psi_r = Psi_r,
-                            psi_r = psi[r],
+                            psi_r = psi[-r],
+                            H = H,
                             get_val = get_val,
                             get_score = get_score,
-                            get_inf = get_inf,
-                            expected = expected)
+                            get_inf = get_inf)
+  } else{
+    if(is.null(b)){
+      e <- as.vector(Y)
+    } else{
+      e <- as.vector(Y - X %*% b)
+    }
+    ll_things <- loglik_psi_cpp(e = e,
+                                Z = methods::as(Z, "generalMatrix"),
+                                Zte = as.vector(crossprod(Z, e)),
+                                XtZ = as.matrix(crossprod(X, Z)),
+                                Psi_r = Psi_r,
+                                psi_r = psi[r],
+                                H = H,
+                                get_val = get_val,
+                                get_score = get_score,
+                                get_inf = get_inf,
+                                expected = expected)
   }
   list("value" = ll_things$value,
        "score" = ll_things$score,
        "inf_mat" = ll_things$inf_mat)
 }
 
-#' loglik_psi
+#' Log-likelihood in pure R
 #'
 #' Calculates the log-likelihood, score vector and Fisher information matrix
 #' for the covariance parameter vector \code{psi} in a linear mixed effects model.
@@ -71,10 +126,6 @@ loglikelihood <-function(psi, b = NULL, precomp, REML = TRUE, get_val = TRUE,
 #' \item{value}{The log-likelihood evaluated at supplied parameters}
 #' \item{score}{The score at supplied parameters}
 #' \item{inf_mat}{The information matrix at supplied parameters}
-#'
-#' @import Matrix
-#' @export
-#' @useDynLib limestest, .registration=TRUE
 loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, get_val = TRUE,
                        get_score = TRUE, get_inf = TRUE, expected = TRUE)
 {
@@ -191,7 +242,7 @@ chol_solve <- function(U, b)
 }
 
 
-#' Compute Restricted Likelihood, Score and Information
+#' Restricted likelihood in pure R
 #'
 #' Computes the restricted (residual) likelihood, score, and information matrix
 #' for the variance parameter \code{psi} a linear mixed effects model
@@ -220,13 +271,9 @@ chol_solve <- function(U, b)
 #' computed.
 #'
 #' @return A list with elements:
-#' \describe{
 #' \item{value}{The restricted log-likelihood at supplied parameters.}
 #' \item{score}{The restricted score at the supplied parameters.}
 #' \item{inf_mat}{The expected restricted information matrix at supplied parameters}
-#' }
-#' @import Matrix
-#' @export
 res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi_r, psi_r,
                    get_val = TRUE, get_score = FALSE, get_inf = FALSE)
 {
@@ -313,7 +360,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi_r, psi_r,
     I_psi[r, r] <- I_psi[r, r] + 0.5 * sum(C * Matrix::t(C))
     s_psi[r] <- s_psi[r] + 0.5 * sum(Matrix::diag(C))
     I_psi[r, r] <- I_psi[r, r] - sum(Matrix::diag(chol_solve(U, XtSi3X)))
-    
+
     # A (q x q), G (p x q) ARE FREE
     A <- (1 / psi_r)^2 * (ZtZ - 2 * E + E %*% A) # ZtSi2Z right now
     E <-  (1/ psi_r) * (ZtZ - E) # Now holds ZtSiZ

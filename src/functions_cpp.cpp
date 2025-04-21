@@ -80,7 +80,7 @@ Eigen::SparseMatrix<double> Psi_from_H_cpp(const Eigen::Map<Eigen::VectorXd> psi
   return Psi;
 }
 
-//' Log-likelihood
+//' Log-likelihood using RcppEigen
 //'
 //' Computes the log-likelihood, score vector, and information matrix
 //' for the covariance parameter vector in a linear mixed effects model.
@@ -239,7 +239,7 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
                             Rcpp::Named("inf_mat") = I_psi);
 }
 
-//' Restricted log-likelihood
+//' Restricted log-likelihood using RcppEigen
 //'
 //' Computes the restricted log-likelihood, score vector, and information matrix
 //' for the covariance parameter vector in a linear mixed effects model.
@@ -260,7 +260,6 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
 //' @param get_val If \code{TRUE}, the value of the loglikelihood is computed
 //' @param get_score If \code{TRUE} the score vector is calculated.
 //' @param get_inf If \code{TRUE}, an information matrix is calculated.
-//' @param expected If \code{TRUE}, the expected information is calculated; otherwise
 //' the observed, or negative Hessian of the loglikelihood.
 //'
 //' @return A list with components:
