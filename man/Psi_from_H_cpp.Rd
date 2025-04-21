@@ -7,13 +7,13 @@
 Psi_from_H_cpp(psi_mr, H)
 }
 \arguments{
-\item{psi_mr}{A vector of}
+\item{psi_mr}{A vector of covariance parameter (see ?loglikelihood)}
 
-\item{H}{Matrix of derivatives of Psi with respect to elements of psi.
-Assumes H = \link{H_1, ... , H_r}, where H_j is q by q.}
+\item{H}{Sparse matrix of derivatives of Psi with respect to elements of psi,
+\eqn{H = [H_1, \dots , H_{r - 1}]}, where \eqn{H_j = \partial \Psi / \partial \psi_j}.}
 }
 \value{
-The covariance matrix Psi
+The covariance matrix \eqn{\Psi}
 }
 \description{
 Constructs the covariance matrix of the random effects

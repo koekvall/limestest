@@ -1,7 +1,7 @@
 #' Log-likelihood
 #'
 #' Computes log-likelihood, score vector, and information matrix
-#' for the covariance parameter vector in a linear mixed effects model.
+#' for a linear mixed effects model.
 #'
 #' @param psi Vector of length \eqn{r} of covariance parameters (see details)
 #' @param b Vector of length\eqn{p} of fixed effects parameters, or regression coefficients

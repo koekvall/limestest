@@ -6,8 +6,7 @@ Authors@R:  c(
     role = c("aut", "cre")),
     person("Yiqiao", "Zhang", email = "yiqiaozhang@ufl.edu", role = "aut"),
     person("Matias", "Shedden", email = "sheddenmatias@ufl.edu", role = "ctb"))
-Description: Calculate likelihoods and score-based tests and confidence intervals
-in linear mixed models
+Description: Calculate likelihoods and score-based tests and confidence intervals in linear mixed models
 License: MIT
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

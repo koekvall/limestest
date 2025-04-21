@@ -20,7 +20,7 @@ cat("Max difference in R and Cpp Psi: ", max(abs(Psi_cpp - Psi_R)), "\n")
 
 # Test likelihoods
 # Regular likelihood
-loglik_R <- limestest::loglik_psi(Z = Z,
+loglik_R <- limestest:::loglik_psi(Z = Z,
                                    ZtZXe = crossprod(Z, cbind(Z, X, Y)),
                                    e = Y,
                                    H = H,
@@ -47,7 +47,7 @@ cat("Difference in R and Cpp loglik: ", abs(loglik_R$value - loglik_cpp$value) ,
 cat("Max difference in R and Cpp score: ", max(abs(loglik_R$score - loglik_cpp$score)) , "\n")
 cat("Max difference in R and Cpp information: ", max(abs(loglik_R$inf_mat - loglik_cpp$inf_mat)) , "\n")
 
-loglik_R <- limestest::loglik_psi(Z = Z,
+loglik_R <- limestest:::loglik_psi(Z = Z,
                                   ZtZXe = crossprod(Z, cbind(Z, X, Y)),
                                   e = Y,
                                   H = H,

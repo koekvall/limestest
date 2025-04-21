@@ -50,7 +50,7 @@ A list with components:
 }
 \description{
 Computes log-likelihood, score vector, and information matrix
-for the covariance parameter vector in a linear mixed effects model.
+for a linear mixed effects model.
 }
 \details{
 The model is \deqn{Y = X\beta + Z U + E,} where \eqn{U \sim N_q(0, \Psi)}

@@ -64,10 +64,10 @@ arma::mat project_rcpp(arma::mat X, const arma::uvec restr_idx,
 //'
 //' Constructs the covariance matrix of the random effects
 //'
-//' @param psi_mr A vector of
-//' @param H Matrix of derivatives of Psi with respect to elements of psi.
-//'        Assumes H = [H_1, ... , H_r], where H_j is q by q.
-//' @return The covariance matrix Psi
+//' @param psi_mr A vector of covariance parameter (see ?loglikelihood)
+//' @param H Sparse matrix of derivatives of Psi with respect to elements of psi,
+//'        \eqn{H = [H_1, \dots , H_{r - 1}]}, where \eqn{H_j = \partial \Psi / \partial \psi_j}.
+//' @return The covariance matrix \eqn{\Psi}
 // [[Rcpp::export]]
 Eigen::SparseMatrix<double> Psi_from_H_cpp(const Eigen::Map<Eigen::VectorXd> psi_mr,
                                            const Eigen::MappedSparseMatrix<double> H) { //
