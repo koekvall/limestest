@@ -69,10 +69,7 @@ score_stat <- function(psi, test_idx, Y, X, Z, Hlist, REML = TRUE,
   k <- length(test_idx)
   stopifnot(all(test_idx %in% seq_len(r)), k <= r)
 
-  psi_r <- psi[r]
-  psi_mr <- psi[-r]
-
-  ll_things <- loglikelihood(psi = psi_arg,
+  ll_things <- loglikelihood(psi = psi,
                              b = b,
                              Y = Y,
                              X = X,
