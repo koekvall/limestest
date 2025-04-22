@@ -14,7 +14,7 @@ Psi_from_Hlist <- function(psi_mr, Hlist)
 }
 
 
-partial_min <- function(psi_start, opt_idx, b = NULL, Y, X, Z, Hlist, precomp,
+partial_min_psi <- function(psi_start, opt_idx, b = NULL, Y, X, Z, Hlist, precomp,
                         REML = TRUE,  expected = TRUE, ...)
 {
   if(!is.null(b) & REML){
@@ -55,13 +55,15 @@ partial_min <- function(psi_start, opt_idx, b = NULL, Y, X, Z, Hlist, precomp,
        "iter" = fit$iterations)
 }
 
-score_stat <- function(psi, test_idx, precomp, REML = TRUE, expected = TRUE,
-                       efficient = TRUE, signed = FALSE)
+score_stat <- function(psi, test_idx, Y, X, Z, Hlist, REML = TRUE,
+                       expected = TRUE, efficient = TRUE, signed = FALSE,
+                       precomp = NULL)
 {
   if(!expected & REML){
     warning("Observed information not available for restricted likelihood; using
             expected.")
   }
+
   test_idx <- unique(test_idx)
   r <- length(psi)
   k <- length(test_idx)
@@ -70,37 +72,19 @@ score_stat <- function(psi, test_idx, precomp, REML = TRUE, expected = TRUE,
   psi_r <- psi[r]
   psi_mr <- psi[-r]
 
-  Psi_r <- (1 / psi_r) * Matrix::drop0(Psi_from_Hlist(psi_mr = psi_mr, Hlist = precomp$Hlist))
-  H <- do.call(cbind, precomp$Hlist)
-
-  if(REML){
-    ll_things <- res_ll(XtX = precomp$XtX,
-                        XtY = precomp$XtY,
-                        XtZ = precomp$XtZ,
-                        ZtZ = precomp$ZtZ,
-                        YtZ = precomp$YtZ,
-                        Y = precomp$Y,
-                        X = precomp$X,
-                        Z = precomp$Z,
-                        H = H,
-                        Psi_r = Psi_r,
-                        psi_r = psi_r,
-                        get_val = FALSE,
-                        get_score = TRUE,
-                        get_inf = TRUE)
-  } else{
-    ll_things <- loglik_psi(Z = precomp$Z,
-                            ZtZXe = cbind(precomp$ZtZ, precomp$ZtX, precomp$Y),
-                            e = precomp$Y,
-                            H = H,
-                            Psi_r = Psi_r,
-                            psi_r = psi_r,
-                            get_val = FALSE,
-                            get_score = TRUE,
-                            get_inf = TRUE,
-                            expected = expected)
-  }
-
+  ll_things <- loglikelihood(psi = psi_arg,
+                             b = b,
+                             Y = Y,
+                             X = X,
+                             Z = Z,
+                             Hlist = Hlist,
+                             REML = REML,
+                             get_val = FALSE,
+                             get_score = TRUE,
+                             get_inf = TRUE,
+                             get_beta = FALSE,
+                             expected = expected,
+                             precomp = precomp)
 
   inf_mat <- ll_things$inf_mat[test_idx, test_idx, drop = F]
 
