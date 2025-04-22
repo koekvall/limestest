@@ -55,7 +55,7 @@ partial_min_psi <- function(psi_start, opt_idx, b = NULL, Y, X, Z, Hlist, precom
        "iter" = fit$iterations)
 }
 
-score_stat <- function(psi, test_idx, Y, X, Z, Hlist, REML = TRUE,
+score_stat <- function(psi, test_idx, b = NULL, Y, X, Z, Hlist, REML = TRUE,
                        expected = TRUE, efficient = TRUE, signed = FALSE,
                        precomp = NULL)
 {

@@ -51,6 +51,7 @@
 #' \itemize{
 #'  \item \code{Zte = as.vector(crossprod(Z, e))}
 #'  \item \code{XtZ = as.matrix(crossprod(X, Z))}
+#'  \item \code{ZtZ = methods::as(crossprod(Z), "generalMatrix")}
 #' }
 #'}
 #' @useDynLib limestest, .registration=TRUE
@@ -126,14 +127,17 @@ loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = T
     if(is.null(precomp)){
         Zte <- as.vector(crossprod(Z, e))
         XtZ <- as.matrix(crossprod(X, Z))
+        ZtZ <- methods::as(crossprod(Z), "generalMatrix")
     } else{
         Zte <- precomp$Zte
         XtZ <- precomp$XtZ
+        ZtZ <- precomp$ZtZ
     }
     ll_things <- loglik_psi_cpp(e = e,
                                 Z = methods::as(Z, "generalMatrix"),
                                 Zte = Zte,
                                 XtZ = XtZ,
+                                ZtZ = ZtZ,
                                 Psi_r = Psi_r,
                                 psi_r = psi[r],
                                 H = H,

@@ -20,7 +20,7 @@
 #'
 #'
 #' @export
-get_Psi <- function(lmerfit, psimr = NULL){
+get_Psi_lmer <- function(lmerfit, psimr = NULL){
   if(is.null(psimr)){
     # Extract variances and covariances of random effects ordered as in the covmat
     # lower.tri despite creating upper triangular Psi since it appears to
@@ -41,7 +41,7 @@ get_Psi <- function(lmerfit, psimr = NULL){
 }
 
 # Make list of H matrices
-get_Hlist <- function(lmerfit)
+get_Hlist_lmer <- function(lmerfit)
 {
   # Psi, and hence H, has the same structure as Lambda
   H <- lme4::getME(lmerfit, "Lambdat")
@@ -58,28 +58,27 @@ get_Hlist <- function(lmerfit)
          })
 }
 
-get_precomp_lmer <- function(lmerfit){
+get_precomp_lmer <- function(lmerfit, REML = NULL){
   # 0 indicates ML
-  REML <- lme4::getME(lmerfit, "REML") != 0
+  if(is.null(REML)){
+    REML <- lme4::getME(lmerfit, "REML") != 0
+  }
 
   Y <- lme4::getME(lmerfit, "y")
   X <- lme4::getME(lmerfit, "X")
   Z <- lme4::getME(lmerfit, "Z")
 
-  if(!REML){
-    b <- lme4::getME(lmerfit, "beta")
-    Y <- Y - X %*% b
+  if(REML){
+    out <- list(XtY = as.vector(crossprod(X, Y)), ZtY = as.vector(crossprod(Z, Y)),
+                XtX = as.matrix(crossprod(X)), XtZ = as.matrix(crossprod(X, Z)),
+                ZtZ = methods::as(crossprod(Z), "generalMatrix"))
+  } else{
+    Y <- as.vector(Y - X %*% lme4::fixef(lmerfit))
+    out <- list(Zte = as.vector(crossprod(Z, Y)), XtZ = as.matrix(crossprod(X, Z)),
+                ZtZ = methods::as(crossprod(Z), "generalMatrix"))
   }
-
-  list(XtX = crossprod(X),
-       XtY = crossprod(X, Y),
-       XtZ = crossprod(X, Z),
-       ZtZ = crossprod(Z),
-       YtZ = crossprod(Y, Z),
-       Y = Y,
-       X = X,
-       Z = Z,
-       Hlist = get_Hlist(lmerfit))
+  # Return
+  out
 }
 
 get_psi_hat_lmer <- function(lmerfit)

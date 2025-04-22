@@ -85,6 +85,7 @@ If \code{REML} is \code{FALSE}, the required elements are:
 \itemize{
 \item \code{Zte = as.vector(crossprod(Z, e))}
 \item \code{XtZ = as.matrix(crossprod(X, Z))}
+\item \code{ZtZ = methods::as(crossprod(Z), "generalMatrix")}
 }
 }
 }
