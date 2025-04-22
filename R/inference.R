@@ -14,15 +14,13 @@ Psi_from_Hlist <- function(psi_mr, Hlist)
 }
 
 
-partial_min <- function(opt_idx, precomp, psi_start, b = NULL, REML = TRUE,
-                           expected = TRUE, ...)
+partial_min <- function(psi_start, opt_idx, b = NULL, Y, X, Z, Hlist, precomp,
+                        REML = TRUE,  expected = TRUE, ...)
 {
   if(!is.null(b) & REML){
     warning("Coefficient vector supplied but not used by restricted likelihood")
     b <- NULL
   }
-  H <- do.call(cbind, precomp$Hlist)
-  r <- length(psi_start)
   #############################################################################
   # Define the objective function to be minimized
   #############################################################################
@@ -30,10 +28,18 @@ partial_min <- function(opt_idx, precomp, psi_start, b = NULL, REML = TRUE,
     psi_arg <- psi_start
     psi_arg[opt_idx] <- x
     ll_things <- loglikelihood(psi = psi_arg,
-                                           b = b,
-                                           precomp = precomp,
-                                           REML = REML,
-                                           expected = expected)
+                               b = b,
+                               Y = Y,
+                               X = X,
+                               Z = Z,
+                               Hlist = Hlist,
+                               REML = REML,
+                               get_val = TRUE,
+                               get_score = TRUE,
+                               get_inf = TRUE,
+                               get_beta = FALSE,
+                               expected = expected,
+                               precomp = precomp)
     list("value" = -ll_things$value, "gradient" = -ll_things$score[opt_idx],
          "hessian" = as.matrix(ll_things$inf_mat[opt_idx, opt_idx]))
   }

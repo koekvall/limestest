@@ -3,25 +3,31 @@
 #' Computes log-likelihood, score vector, and information matrix
 #' for a linear mixed effects model.
 #'
-#' @param psi Vector of length \eqn{r} of covariance parameters (see details)
+#' @param psi Vector of length \eqn{r} of covariance parameters (see details).
 #' @param b Vector of length\eqn{p} of fixed effects parameters, or regression coefficients
-#' @param Y Vector of length \eqn{n} of responses
-#' @param X Dense matrix of size \eqn{n\times p} of regressors
-#' @param Z Sparse design matrix for the random effects of size \eqn{n\times q}
+#' @param Y Vector of length \eqn{n} of responses.
+#' @param X Dense matrix of size \eqn{n\times p} of regressors.
+#' @param Z Sparse design matrix for the random effects of size \eqn{n\times q}.
 #' @param Hlist A list of derivatives of the random effects' covariance matrix \eqn{\Psi} (see details)
 #' @param REML If \code{TRUE}, use the restricted likelihood; otherwise the regular likelihood is used
-#' @param get_val If \code{TRUE}, the value of the log-likelihood is computed
+#' @param get_val If \code{TRUE}, the value of the log-likelihood is computed.
 #' @param get_score If \code{TRUE} the score vector, or gradient of log-likelihood, is calculated.
 #' @param get_inf If \code{TRUE}, an information matrix is calculated.
-#' @param expected If \code{TRUE}, the expected information is calculated; otherwise
-#' the observed, or negative Hessian of the log-likelihood.
+#' @param get_beta If \code{TRUE} and \code{REML} is \code{FALSE}, return score and
+#'  information for \eqn{\theta = [\beta', \psi']'}, otherwise for \eqn{\psi} only.
+#' @param expected If \code{TRUE}, the expected information is calculated; otherwise the observed, or negative Hessian of the log-likelihood.
+#' @param precomp Optional list of pre-computed quantities. Entries must have the
+#' right names and class (see details).
+#'
 #'
 #' @return A list with components:
 #'  \item{value}{The value of the log-likelihood}
-#'  \item{score}{The score, or gradient of the log-likelihood}
-#'  \item{inf_mat}{The information matrix}
+#'  \item{score}{By default the score, or gradient of the log-likelihood, for \eqn{\psi}. If \code{get_beta = TRUE}
+#'  and \code{REML = FALSE}, the score is for \eqn{\theta = [\beta', \psi']'}}
+#'  \item{inf_mat}{By default, an information matrix for \eqn{\psi}. If \code{get_beta = TRUE}
+#'  and \code{REML = FALSE}, an information matrix for \eqn{\theta = [\beta', \psi']'}}
 #'
-#' @details The model is \deqn{Y = X\beta + Z U + E,} where \eqn{U \sim N_q(0, \Psi)}
+#' @details{ The model is \deqn{Y = X\beta + Z U + E,} where \eqn{U \sim N_q(0, \Psi)}
 #' and \eqn{E \sim N_n(0, \psi_r I_n)}. The first \eqn{r - 1} elements of \eqn{\psi}
 #' parameterize \eqn{\Psi}, while the \eqn{r}th and last element is the error
 #' variance. It is assumed that \eqn{H_j = \partial \Psi / \partial \psi_j} is
@@ -31,14 +37,28 @@
 #'
 #' The argument \code{Hlist} is a list whose \eqn{j}th element is \eqn{H_j}.
 #'
-#' The score and information for \eqn{\beta} are only computed if REML is FALSE,
-#' otherwise the score and information for \eqn{\psi} only is returned.
 #'
+#' If \code{REML} is \code{TRUE} and \code{precomp} is supplied, it must be a
+#' list with following elements:
+#' \itemize{
+#'  \item \code{XtY = as.vector(crossprod(X, Y))}
+#'  \item \code{ZtY = as.vector(crossprod(Z, Y))}
+#'  \item \code{XtX = as.matrix(crossprod(X))}
+#'  \item \code{XtZ = as.matrix(crossprod(X, Z))}
+#'  \item \code{ZtZ = methods::as(crossprod(Z), "generalMatrix")}
+#' }
+#' If \code{REML} is \code{FALSE}, the required elements are:
+#' \itemize{
+#'  \item \code{Zte = as.vector(crossprod(Z, e))}
+#'  \item \code{XtZ = as.matrix(crossprod(X, Z))}
+#' }
+#'}
 #' @useDynLib limestest, .registration=TRUE
 #' @import Matrix methods
 #' @export
 loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = TRUE,
-                         get_score = TRUE, get_inf = TRUE, expected = TRUE)
+                         get_score = TRUE, get_inf = TRUE, get_beta = FALSE,
+                         expected = TRUE, precomp = NULL)
 {
   if(!expected & REML){
     warning("Observed information not implemented for restricted likelihood;
@@ -47,6 +67,10 @@ loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = T
 
   if(!is.null(b) & REML){
     warning("Coefficient vector supplied but not used by REML")
+  }
+
+  if(get_beta & REML){
+    warning("Score or information for beta not available for restricted likelihood")
   }
 
   r <- length(psi)
@@ -66,16 +90,29 @@ loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = T
   Psi_r <- (1 / psi[r]) * Psi_from_H_cpp(psi_mr = psi[-r], H = H)
 
   if(REML){
+    if(is.null(precomp)){
+      XtY <- as.vector(crossprod(X, Y))
+      ZtY <- as.vector(crossprod(Z, Y))
+      XtX <- as.matrix(crossprod(X))
+      XtZ <- as.matrix(crossprod(X, Z))
+      ZtZ <- methods::as(crossprod(Z), "generalMatrix")
+    } else{
+      XtY <- precomp$XtY
+      ZtY <- precomp$ZtY
+      XtX <- precomp$XtX
+      XtZ <- precomp$XtZ
+      ZtZ <- precomp$ZtZ
+    }
     ll_things <- res_ll_cpp(Y = as.vector(Y),
                             X = as.matrix(X),
                             Z = methods::as(Z, "generalMatrix"),
-                            XtY = as.vector(crossprod(X, Y)),
-                            ZtY = as.vector(crossprod(Z, Y)),
-                            XtX = as.matrix(crossprod(X)),
-                            XtZ = as.matrix(crossprod(X, Z)),
-                            ZtZ = methods::as(crossprod(Z), "generalMatrix"),
+                            XtY = XtY,
+                            ZtY = ZtY,
+                            XtX = XtX,
+                            XtZ = XtZ,
+                            ZtZ = ZtZ,
                             Psi_r = Psi_r,
-                            psi_r = psi[-r],
+                            psi_r = psi[r],
                             H = H,
                             get_val = get_val,
                             get_score = get_score,
@@ -86,10 +123,17 @@ loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = T
     } else{
       e <- as.vector(Y - X %*% b)
     }
+    if(is.null(precomp)){
+        Zte <- as.vector(crossprod(Z, e))
+        XtZ <- as.matrix(crossprod(X, Z))
+    } else{
+        Zte <- precomp$Zte
+        XtZ <- precomp$XtZ
+    }
     ll_things <- loglik_psi_cpp(e = e,
                                 Z = methods::as(Z, "generalMatrix"),
-                                Zte = as.vector(crossprod(Z, e)),
-                                XtZ = as.matrix(crossprod(X, Z)),
+                                Zte = Zte,
+                                XtZ = XtZ,
                                 Psi_r = Psi_r,
                                 psi_r = psi[r],
                                 H = H,
@@ -97,6 +141,19 @@ loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = T
                                 get_score = get_score,
                                 get_inf = get_inf,
                                 expected = expected)
+    if(get_beta){
+      # The below is inefficient and will be replaced
+      Sigma <- psi[r] * (Psi_r + Matrix::Diagonal(n))
+      if(get_score){
+        ll_things$score <- c(c(crossprod(X, solve(Sigma, e))), ll_things$score)
+      }
+
+      if(get_inf){
+        ll_things$inf_mat <- Matrix::bdiag(crossprod(X, solve(Sigma, X)),
+                                           ll_things$inf_mat)
+      }
+    }
+
   }
   list("value" = ll_things$value,
        "score" = ll_things$score,
@@ -110,12 +167,12 @@ loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = T
 #'
 #' @param Z A matrix of fixed effects.
 #' @param ZtZXe Pre-computed matrix with of \eqn{Z'[Z, X, e]}
-#' @param e The residual vector.
+#' @param e An error or residual vector (see \code{?loglikelihood}).
 #' @param H Matrix of derivatives of Psi with respect to elements of psi.
-#'          Assumes \eqn{H = [H_1, ... , H_{r - 1}]}, where \eqn{H_j} is q by q.
-#' @param Psi_r Covariance matrix of random effects (Psi) divided by error
-#'             variance psi_r, with dimensions q by q.
-#' @param psi_r The error or variance.
+#'          Assumes \eqn{H = [H_1, \dots , H_{r - 1}]}, where \eqn{H_j} is \eqn{q\times q}.
+#' @param Psi_r Covariance matrix of random effects (\eqn{\Psi}) divided by error
+#'             variance \eqn{\psi_r}.
+#' @param psi_r The error variance, \eqn{\psi_r}.
 #' @param get_val If \code{TRUE} (default), the log-likelihood will be calculated.
 #' @param get_score If \code{TRUE} (default), the score vector will be calculated.
 #' @param get_inf If \code{TRUE} (default), the information matrix will be calculated.
@@ -248,22 +305,21 @@ chol_solve <- function(U, b)
 #' for the variance parameter \code{psi} a linear mixed effects model
 #'
 #' @param XtX An n x p matrix of the crossproduct of the design matrix of fixed
-#' effects (X) with itself.
-#' @param XtY An n x 1 vector of the crossproduct of the design matrix of fixed
-#' effects (X) with the response vector (Y).
-#' @param XtZ An n x q matrix of the crossproduct of the design matrix of fixed
-#' effects (X) with the design matrix of random effects (Z).
+#' effects (\eqn{X}) with itself.
+#' @param XtY An \eqn{p \times 1} vector of the crossproduct of the design matrix of fixed
+#' effects (\eqn{X}) with the response vector (\eqn{Y}).
+#' @param XtZ An \eqn{p \teims q} matrix of the crossproduct of the design matrix of fixed
+#' effects (\eqn{X}) with the design matrix of random effects (\eqn{Z}).
 #' @param ZtZ A q x q matrix of the crossproduct of the design matrix of random
-#' effects (Z) with itself.
-#' @param YtZ A 1 x q matrix of the crossproduct of the response vector (Y) with
-#' the design matrix of random effects (Z).
+#' effects (\eqn{Z}) with itself.
+#' @param YtZ A 1 x q matrix of the crossproduct of the response vector (\eqn{Y}) with
+#' the design matrix of random effects (\eqn{Z}).
 #' @param Y An n x 1 vector of the response variable.
 #' @param X An n x p matrix of the design matrix of fixed effects.
 #' @param Z An n x q matrix of the design matrix of random effects.
-#' @param H A q x rq matrix, where H = [H_1, ..., H_r], with H_j being the
-#' derivative of Psi with respect to psi_j
-#' @param Psi_r The covariance matrix of the random effects (Psi) divided by the
-#' error variance (psi_r)
+#' @param H A q x rq matrix, where \eqn{H = [H_1, \dots , H_r]}, with \eqn{H_j = \partial \Psi / \partial \psi_j}
+#' @param Psi_r The covariance matrix of the random effects (\eqn{Psi}) divided by the
+#' error variance (\eqn{\psi_r})
 #' @param psi_r A scalar value of the error variance.
 #' @param get_val If \code{TRUE} (default), the log-likelihood will be computed.
 #' @param get_score If \code{TRUE} (default), the score vector will be computed.

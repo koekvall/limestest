@@ -22,15 +22,15 @@ loglik_psi(
 
 \item{ZtZXe}{Pre-computed matrix with of \eqn{Z'[Z, X, e]}}
 
-\item{e}{The residual vector.}
+\item{e}{An error or residual vector (see \code{?loglikelihood}).}
 
 \item{H}{Matrix of derivatives of Psi with respect to elements of psi.
-Assumes \eqn{H = [H_1, ... , H_{r - 1}]}, where \eqn{H_j} is q by q.}
+Assumes \eqn{H = [H_1, \dots , H_{r - 1}]}, where \eqn{H_j} is \eqn{q\times q}.}
 
-\item{Psi_r}{Covariance matrix of random effects (Psi) divided by error
-variance psi_r, with dimensions q by q.}
+\item{Psi_r}{Covariance matrix of random effects (\eqn{\Psi}) divided by error
+variance \eqn{\psi_r}.}
 
-\item{psi_r}{The error or variance.}
+\item{psi_r}{The error variance, \eqn{\psi_r}.}
 
 \item{get_val}{If \code{TRUE} (default), the log-likelihood will be calculated.}
 

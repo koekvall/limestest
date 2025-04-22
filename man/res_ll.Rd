@@ -23,19 +23,19 @@ res_ll(
 }
 \arguments{
 \item{XtX}{An n x p matrix of the crossproduct of the design matrix of fixed
-effects (X) with itself.}
+effects (\eqn{X}) with itself.}
 
-\item{XtY}{An n x 1 vector of the crossproduct of the design matrix of fixed
-effects (X) with the response vector (Y).}
+\item{XtY}{An \eqn{p \times 1} vector of the crossproduct of the design matrix of fixed
+effects (\eqn{X}) with the response vector (\eqn{Y}).}
 
-\item{XtZ}{An n x q matrix of the crossproduct of the design matrix of fixed
-effects (X) with the design matrix of random effects (Z).}
+\item{XtZ}{An \eqn{p \teims q} matrix of the crossproduct of the design matrix of fixed
+effects (\eqn{X}) with the design matrix of random effects (\eqn{Z}).}
 
 \item{ZtZ}{A q x q matrix of the crossproduct of the design matrix of random
-effects (Z) with itself.}
+effects (\eqn{Z}) with itself.}
 
-\item{YtZ}{A 1 x q matrix of the crossproduct of the response vector (Y) with
-the design matrix of random effects (Z).}
+\item{YtZ}{A 1 x q matrix of the crossproduct of the response vector (\eqn{Y}) with
+the design matrix of random effects (\eqn{Z}).}
 
 \item{Y}{An n x 1 vector of the response variable.}
 
@@ -43,11 +43,10 @@ the design matrix of random effects (Z).}
 
 \item{Z}{An n x q matrix of the design matrix of random effects.}
 
-\item{H}{A q x rq matrix, where H = \link{H_1, ..., H_r}, with H_j being the
-derivative of Psi with respect to psi_j}
+\item{H}{A q x rq matrix, where \eqn{H = [H_1, \dots , H_r]}, with \eqn{H_j = \partial \Psi / \partial \psi_j}}
 
-\item{Psi_r}{The covariance matrix of the random effects (Psi) divided by the
-error variance (psi_r)}
+\item{Psi_r}{The covariance matrix of the random effects (\eqn{Psi}) divided by the
+error variance (\eqn{\psi_r})}
 
 \item{psi_r}{A scalar value of the error variance.}
 

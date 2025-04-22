@@ -15,45 +15,54 @@ loglikelihood(
   get_val = TRUE,
   get_score = TRUE,
   get_inf = TRUE,
-  expected = TRUE
+  get_beta = FALSE,
+  expected = TRUE,
+  precomp = NULL
 )
 }
 \arguments{
-\item{psi}{Vector of length \eqn{r} of covariance parameters (see details)}
+\item{psi}{Vector of length \eqn{r} of covariance parameters (see details).}
 
 \item{b}{Vector of length\eqn{p} of fixed effects parameters, or regression coefficients}
 
-\item{Y}{Vector of length \eqn{n} of responses}
+\item{Y}{Vector of length \eqn{n} of responses.}
 
-\item{X}{Dense matrix of size \eqn{n\times p} of regressors}
+\item{X}{Dense matrix of size \eqn{n\times p} of regressors.}
 
-\item{Z}{Sparse design matrix for the random effects of size \eqn{n\times q}}
+\item{Z}{Sparse design matrix for the random effects of size \eqn{n\times q}.}
 
 \item{Hlist}{A list of derivatives of the random effects' covariance matrix \eqn{\Psi} (see details)}
 
 \item{REML}{If \code{TRUE}, use the restricted likelihood; otherwise the regular likelihood is used}
 
-\item{get_val}{If \code{TRUE}, the value of the log-likelihood is computed}
+\item{get_val}{If \code{TRUE}, the value of the log-likelihood is computed.}
 
 \item{get_score}{If \code{TRUE} the score vector, or gradient of log-likelihood, is calculated.}
 
 \item{get_inf}{If \code{TRUE}, an information matrix is calculated.}
 
-\item{expected}{If \code{TRUE}, the expected information is calculated; otherwise
-the observed, or negative Hessian of the log-likelihood.}
+\item{get_beta}{If \code{TRUE} and \code{REML} is \code{FALSE}, return score and
+information for \eqn{\theta = [\beta', \psi']'}, otherwise for \eqn{\psi} only.}
+
+\item{expected}{If \code{TRUE}, the expected information is calculated; otherwise the observed, or negative Hessian of the log-likelihood.}
+
+\item{precomp}{Optional list of pre-computed quantities. Entries must have the
+right names and class (see details).}
 }
 \value{
 A list with components:
 \item{value}{The value of the log-likelihood}
-\item{score}{The score, or gradient of the log-likelihood}
-\item{inf_mat}{The information matrix}
+\item{score}{By default the score, or gradient of the log-likelihood, for \eqn{\psi}. If \code{get_beta = TRUE}
+and \code{REML = FALSE}, the score is for \eqn{\theta = [\beta', \psi']'}}
+\item{inf_mat}{By default, an information matrix for \eqn{\psi}. If \code{get_beta = TRUE}
+and \code{REML = FALSE}, an information matrix for \eqn{\theta = [\beta', \psi']'}}
 }
 \description{
 Computes log-likelihood, score vector, and information matrix
 for a linear mixed effects model.
 }
 \details{
-The model is \deqn{Y = X\beta + Z U + E,} where \eqn{U \sim N_q(0, \Psi)}
+{ The model is \deqn{Y = X\beta + Z U + E,} where \eqn{U \sim N_q(0, \Psi)}
 and \eqn{E \sim N_n(0, \psi_r I_n)}. The first \eqn{r - 1} elements of \eqn{\psi}
 parameterize \eqn{\Psi}, while the \eqn{r}th and last element is the error
 variance. It is assumed that \eqn{H_j = \partial \Psi / \partial \psi_j} is
@@ -63,6 +72,19 @@ are variances and covariances of random effects.
 
 The argument \code{Hlist} is a list whose \eqn{j}th element is \eqn{H_j}.
 
-The score and information for \eqn{\beta} are only computed if REML is FALSE,
-otherwise the score and information for \eqn{\psi} only is returned.
+If \code{REML} is \code{TRUE} and \code{precomp} is supplied, it must be a
+list with following elements:
+\itemize{
+\item \code{XtY = as.vector(crossprod(X, Y))}
+\item \code{ZtY = as.vector(crossprod(Z, Y))}
+\item \code{XtX = as.matrix(crossprod(X))}
+\item \code{XtZ = as.matrix(crossprod(X, Z))}
+\item \code{ZtZ = methods::as(crossprod(Z), "generalMatrix")}
+}
+If \code{REML} is \code{FALSE}, the required elements are:
+\itemize{
+\item \code{Zte = as.vector(crossprod(Z, e))}
+\item \code{XtZ = as.matrix(crossprod(X, Z))}
+}
+}
 }
