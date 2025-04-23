@@ -14,8 +14,8 @@ Psi_from_Hlist <- function(psi_mr, Hlist)
 }
 
 
-partial_min_psi <- function(psi_start, opt_idx, b = NULL, Y, X, Z, Hlist, precomp,
-                        REML = TRUE,  expected = TRUE, ...)
+partial_min_psi <- function(psi_start, opt_idx, b = NULL, Y, X, Z, Hlist,
+                        REML = TRUE, expected = TRUE, precomp = NULL, ...)
 {
   if(!is.null(b) & REML){
     warning("Coefficient vector supplied but not used by restricted likelihood")
@@ -47,6 +47,7 @@ partial_min_psi <- function(psi_start, opt_idx, b = NULL, Y, X, Z, Hlist, precom
   #############################################################################
   # Do minimization
   #############################################################################
+  browser()
   fit <- trust::trust(objfun = obj_fun, parinit = psi_start[opt_idx], rinit  = 1,
                       rmax = 100, ...)
   # Return results

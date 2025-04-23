@@ -104,7 +104,7 @@ score_test_lmer <- function(lmerfit,
   r <- sum(r_i) + 1
   precomp <- get_precomp_lmer(lmerfit)
 
-  Y <- lme4::getME(lmerfit, " y")
+  Y <- lme4::getME(lmerfit, "y")
   X <- lme4::getME(lmerfit, "X")
   Z <- lme4::getME(lmerfit, "Z")
   Hlist <- get_Hlist_lmer(lmerfit)

@@ -84,7 +84,7 @@ loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = T
   stopifnot(length(Y) == n)
 
 
-  if(!is.null(b)){
+  if(!is.null(b) & is.null(precomp)){
     p <- length(b)
     stopifnot(p == ncol(X), n == nrow(X))
   }

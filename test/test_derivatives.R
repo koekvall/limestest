@@ -28,9 +28,9 @@ ZtZXe <- Matrix::crossprod(Z, cbind(Z, X, e))
 loglik_test <- function(x){
   Psi1_x <- matrix(c(x[1], x[2], x[2], x[3]), 2, 2)
   Psi_x <-  Matrix::kronecker(Matrix::Diagonal(300), Psi1_x)
-  loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
-         Psi_r = Psi_x / x[4], psi_r = x[4], loglik = TRUE,
-         score = TRUE, finf = TRUE, expected = FALSE)$ll
+  limestest:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+         Psi_r = Psi_x / x[4], psi_r = x[4], get_val = TRUE,
+         get_score = TRUE, get_inf = TRUE, expected = FALSE)$value
 }
 
 # Test derivatives at MLE
@@ -39,15 +39,15 @@ Psi1_test <- Psi_hat[1:2, 1:2]
 Psi_test <-  Matrix::kronecker(Matrix::Diagonal(300), Psi1_test)
 test_point <- c(Psi_test[1, 1], Psi_test[2, 1], Psi_test[2, 2], psir_test)
 numerical_score <- numDeriv::grad(loglik_test, test_point)
-analytical_score <- loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
-                              Psi_r = Psi_test / psir_test, psi_r = psir_test, loglik = F,
-                              score = T, finf = F)$score
+analytical_score <- limestest:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+                              Psi_r = Psi_test / psir_test, psi_r = psir_test, get_val = F,
+                              get_score = T, get_inf = F)$score
 mer_score <- colSums(merDeriv::estfun.lmerMod(fit))[6:9]
 
 numerical_hess <- numDeriv::hessian(loglik_test, test_point)
-analytical_hess <- -loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
-                               Psi_r = Psi_test / psir_test, psi_r = psir_test, loglik = F,
-                               score = T, finf = TRUE, expected = F)$finf
+analytical_hess <- -limestest:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+                               Psi_r = Psi_test / psir_test, psi_r = psir_test, get_val = F,
+                               get_score = T, get_inf = TRUE, expected = F)$inf_mat
 mer_hess <- -solve(merDeriv::vcov.lmerMod(object = fit, full = TRUE, expected = FALSE))[6:9, 6:9]
 
 cat("The max absolute difference between numerical and analytical score at MLE is: ",
@@ -68,6 +68,41 @@ cat("The max absolute difference between merDeriv and analytical Hessian at MLE 
     max(abs(mer_hess - analytical_hess)), "\n")
 cat("The max relative difference between merDeriv and analytical Hessian at MLE is: ",
     max(abs(mer_hess - analytical_hess) / mer_hess), "\n")
+
+# Test wrapper function
+value_raw <- limestest:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+                               Psi_r = Psi_test / psir_test, psi_r = psir_test, get_val = TRUE,
+                               get_score = T, get_inf = F)$value
+Hlist <- limestest:::get_Hlist_lmer(fit)
+psi_hat <- limestest:::get_psi_hat_lmer(fit)
+ll_things <- limestest::loglikelihood(psi = psi_hat,
+                                      b = lme4::getME(fit, "beta"),
+                                      Y = Y,
+                                      X = X,
+                                      Z = Z,
+                                      Hlist = Hlist,
+                                      REML = FALSE,
+                                      expected = FALSE,
+                                      get_inf = TRUE)
+
+cat("The difference in raw and wrapper value is: ", abs(ll_things$value - value_raw), "\n")
+cat("The max difference in raw and wrapper score is: ", max(abs(ll_things$score - analytical_score)), "\n")
+cat("The max difference in raw and wrapper Hessian is: ", max(abs(-ll_things$inf_mat - analytical_hess)), "\n")
+
+analytical_inf <- limestest:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+                                           Psi_r = Psi_test / psir_test, psi_r = psir_test, get_val = F,
+                                           get_score = T, get_inf = TRUE, expected = T)$inf_mat
+ll_things <- limestest::loglikelihood(psi = psi_hat,
+                                      b = lme4::getME(fit, "beta"),
+                                      Y = Y,
+                                      X = X,
+                                      Z = Z,
+                                      Hlist = Hlist,
+                                      REML = FALSE,
+                                      expected = TRUE,
+                                      get_inf = TRUE)
+
+cat("The max difference in raw and wrapper Information is: ", max(abs(ll_things$inf_mat - analytical_inf)), "\n")
 
 # Test derivatives at random point
 psir_test <- runif(1, min = psir_hat / 10, psir_hat * 10)
@@ -119,10 +154,10 @@ psir_hat <- attr(VarCorr(fit), "sc")^2
 loglik_test <- function(x){
   Psi1_x <- matrix(c(x[1], x[2], x[2], x[3]), 2, 2)
   Psi_x <-  Matrix::kronecker(Matrix::Diagonal(300), Psi1_x)
-  res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
+  limestest:::res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
          ZtZ = crossprod(Z), YtZ = crossprod(Y, Z), Y = Y, X = X, Z = Z, H = H,
-             Psi_r = Psi_x / x[4], psi_r = x[4], loglik = TRUE,
-             score = FALSE, finf = FALSE)$ll
+             Psi_r = Psi_x / x[4], psi_r = x[4], get_val = TRUE,
+             get_score = FALSE, get_inf = FALSE)$value
 }
 
 # Test derivatives at MLE
@@ -132,22 +167,22 @@ Psi_test <-  Matrix::kronecker(Matrix::Diagonal(300), Psi1_test)
 test_point <- c(Psi_test[1, 1], Psi_test[2, 1], Psi_test[2, 2], psir_test)
 numerical_score <- numDeriv::grad(loglik_test, test_point)
 
-analytical_score <- res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
+analytical_score <- limestest:::res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
                            ZtZ = crossprod(Z), YtZ = crossprod(Y, Z), Y = Y,
                            X = X, Z = Z, H = H, Psi_r = Psi_test / psir_test,
-                           psi_r = psir_test, loglik = FALSE,
-                           score = TRUE, finf = FALSE)$score
+                           psi_r = psir_test, get_val = FALSE,
+                           get_score = TRUE, get_inf = FALSE)$score
 mer_score <- colSums(merDeriv::estfun.lmerMod(fit))[6:9]
 
 numerical_hess <- numDeriv::hessian(loglik_test, test_point)
 
 
 mer_inf <- solve(merDeriv::vcov.lmerMod(object = fit, full = TRUE, expected = TRUE)[6:9, 6:9])
-analytical_inf <- res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
+analytical_inf <- limestest:::res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
                                              ZtZ = crossprod(Z), YtZ = crossprod(Y, Z), Y = Y,
                                              X = X, Z = Z, H = H, Psi_r = Psi_test / psir_test,
-                                             psi_r = psir_test, loglik = FALSE,
-                                             score = TRUE, finf = TRUE)$finf
+                                             psi_r = psir_test, get_val = FALSE,
+                                             get_score = TRUE, get_inf = TRUE)$inf_mat
 
 cat("The max absolute difference between numerical and analytical score at MLE is: ",
     max(abs(numerical_score - analytical_score)), "\n")
@@ -162,6 +197,50 @@ cat("The max absolute difference between merDeriv and analytical information at 
     max(abs(mer_inf - analytical_inf)), "\n")
 cat("The max relative difference between merDeriv and analytical information at MLE is: ",
     max(abs(mer_inf - analytical_inf) / mer_inf), "\n")
+
+# Test wrapper function
+psi_hat <- limestest:::get_psi_hat_lmer(fit)
+value_raw <- limestest:::res_ll(XtX = crossprod(X),
+                                XtY = crossprod(X, Y),
+                                XtZ = crossprod(X, Z),
+                                ZtZ = crossprod(Z),
+                                YtZ = crossprod(Y, Z),
+                                Y = Y,
+                                X = X,
+                                Z = Z,
+                                H = H,
+                                Psi_r = Psi_test / psir_test,
+                                psi_r = psir_test,
+                                get_val = TRUE,
+                                get_score = FALSE,
+                                get_inf = FALSE)$value
+Hlist <- limestest:::get_Hlist_lmer(fit)
+ll_things <- limestest::loglikelihood(psi = psi_hat,
+                                      Y = Y,
+                                      X = X,
+                                      Z = Z,
+                                      Hlist = Hlist,
+                                      REML = TRUE)
+
+cat("The difference in raw and wrapper value is: ", abs(ll_things$value - value_raw), "\n")
+
+cat("The max difference in raw and wrapper score is: ", max(abs(ll_things$score - analytical_score)), "\n")
+cat("The max difference in raw and wrapper Hessian is: ", max(abs(-ll_things$inf_mat - analytical_hess)), "\n")
+
+analytical_inf <- limestest:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+                                         Psi_r = Psi_test / psir_test, psi_r = psir_test, get_val = F,
+                                         get_score = T, get_inf = TRUE, expected = T)$inf_mat
+ll_things <- limestest::loglikelihood(psi = psi_hat,
+                                      b = lme4::getME(fit, "beta"),
+                                      Y = Y,
+                                      X = X,
+                                      Z = Z,
+                                      Hlist = Hlist,
+                                      REML = FALSE,
+                                      expected = TRUE,
+                                      get_inf = TRUE)
+
+cat("The max difference in raw and wrapper Information is: ", max(abs(ll_things$inf_mat - analytical_inf)), "\n")
 
 
 # Test derivatives at random point
@@ -191,6 +270,11 @@ cat("The max absolute difference between numerical and analytical score at rando
     max(abs(numerical_score - analytical_score)), "\n")
 cat("The max relative difference between numerical and analytical score at random point is: ",
     max(abs(numerical_score - analytical_score) / numerical_score), "\n")
+
+
+# Test wrapper function
+
+
 
 ###############################################################################
 # Simulation for Hessian
