@@ -73,6 +73,7 @@ loglik_cpp <- limestest:::loglik_psi_cpp(ZtZ = as(crossprod(Z), "generalMatrix")
 cat("Max difference in R and Cpp Hessian: ", max(abs(loglik_R$inf_mat - loglik_cpp$inf_mat)) , "\n")
 
 # Restricted likelihood
+Y <- Y + X %*% b
 resloglik_R <- limestest:::res_ll(XtX = crossprod(X),
                                XtY = crossprod(X, Y),
                                XtZ = crossprod(X, Z),
@@ -83,7 +84,9 @@ resloglik_R <- limestest:::res_ll(XtX = crossprod(X),
                                Z = Z,
                                H = H,
                                Psi_r = Psi_cpp/psi_hat[r],
-                               psi_r = psi_hat[r], get_val = TRUE, get_score = TRUE,
+                               psi_r = psi_hat[r],
+                               get_val = TRUE,
+                               get_score = TRUE,
                                get_inf = TRUE)
 resloglik_cpp <- limestest:::res_ll_cpp(Y = Y,
                                      X = X,

@@ -330,7 +330,7 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
   Eigen::MatrixXd U = (1.0 / psi_r) * (XtX - B * XtZ.transpose());  //p*p
 
   // Force symmetric
-   U = U.selfadjointView<Eigen::Upper>();
+  U = U.selfadjointView<Eigen::Upper>();
   // llt decomposition
   Eigen::LLT<Eigen::MatrixXd, Eigen::Upper> llt(U);
 
@@ -351,9 +351,9 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
 
   // Replace response with residuals
   Y = Y - X * beta_tilde;
-
+  
   // n x 1 vector for storing \Sigma^{-1}e
-  Eigen::VectorXd a = (1.0 / psi_r) * (Y - Z * (A * ZtY));
+  Eigen::VectorXd a = (1.0 / psi_r) * (Y - Z * (A * (Z.transpose() * Y)));
 
 
   if (get_val) {
