@@ -49,6 +49,7 @@
 #' }
 #' If \code{REML} is \code{FALSE}, the required elements are:
 #' \itemize{
+#'  \item \code{e = as.vector(Y - X %*% b)}
 #'  \item \code{Zte = as.vector(crossprod(Z, e))}
 #'  \item \code{XtZ = as.matrix(crossprod(X, Z))}
 #'  \item \code{ZtZ = methods::as(crossprod(Z), "generalMatrix")}
@@ -119,9 +120,9 @@ loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = T
                             get_score = get_score,
                             get_inf = get_inf)
   } else{
-    if(is.null(b)){
+    if(is.null(b) & is.null(precomp)){
       e <- as.vector(Y)
-    } else{
+    } else if(is.null(precomp)){
       e <- as.vector(Y - X %*% b)
     }
     if(is.null(precomp)){
@@ -129,6 +130,7 @@ loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = T
         XtZ <- as.matrix(crossprod(X, Z))
         ZtZ <- methods::as(crossprod(Z), "generalMatrix")
     } else{
+        e <- precomp$e
         Zte <- precomp$Zte
         XtZ <- precomp$XtZ
         ZtZ <- precomp$ZtZ

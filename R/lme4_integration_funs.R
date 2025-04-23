@@ -20,13 +20,13 @@
 #'
 #'
 #' @export
-get_Psi_lmer <- function(lmerfit, psimr = NULL){
-  if(is.null(psimr)){
+get_Psi_lmer <- function(lmerfit, psi_mr = NULL){
+  if(is.null(psi_mr)){
     # Extract variances and covariances of random effects ordered as in the covmat
     # lower.tri despite creating upper triangular Psi since it appears to
     # with the indexing in getME(, "Lind")
     rm1 <- lme4::getME(lmerfit, "m")
-    psimr <- as.data.frame(lme4::VarCorr(lmerfit), order = "lower.tri")$vcov[1:rm1]
+    psi_mr <- as.data.frame(lme4::VarCorr(lmerfit), order = "lower.tri")$vcov[1:rm1]
   }
 
   # Lambdat has the right structure, but not the same entries as Psi
@@ -34,7 +34,7 @@ get_Psi_lmer <- function(lmerfit, psimr = NULL){
 
   # Fill in the upper triangular part of Psi with the extracted elements
   param_idx <- lme4::getME(lmerfit, "Lind")
-  Psi_half@x <- psimr[param_idx]
+  Psi_half@x <- psi_mr[param_idx]
 
   # Return symmetric matrix
   Matrix::forceSymmetric(Psi_half, uplo = "U")
@@ -59,22 +59,28 @@ get_Hlist_lmer <- function(lmerfit)
 }
 
 get_precomp_lmer <- function(lmerfit, REML = NULL){
-  # 0 indicates ML
+
   if(is.null(REML)){
+    # 0 indicates ML
     REML <- lme4::getME(lmerfit, "REML") != 0
   }
 
-  Y <- lme4::getME(lmerfit, "y")
   X <- lme4::getME(lmerfit, "X")
   Z <- lme4::getME(lmerfit, "Z")
 
   if(REML){
-    out <- list(XtY = as.vector(crossprod(X, Y)), ZtY = as.vector(crossprod(Z, Y)),
-                XtX = as.matrix(crossprod(X)), XtZ = as.matrix(crossprod(X, Z)),
+    Y <- lme4::getME(lmerfit, "y")
+    out <- list(XtY = as.vector(crossprod(X, Y)),
+                ZtY = as.vector(crossprod(Z, Y)),
+                XtX = as.matrix(crossprod(X)),
+                XtZ = as.matrix(crossprod(X, Z)),
                 ZtZ = methods::as(crossprod(Z), "generalMatrix"))
   } else{
-    Y <- as.vector(Y - X %*% lme4::fixef(lmerfit))
-    out <- list(Zte = as.vector(crossprod(Z, Y)), XtZ = as.matrix(crossprod(X, Z)),
+    # Warning: These are not equal to residuals(lmerfit)
+    e <- Y - X %*% lme4::getME(lmerfit, "beta")
+    out <- list(e = as.vector(e),
+                Zte = as.vector(crossprod(Z, e)),
+                XtZ = as.matrix(crossprod(X, Z)),
                 ZtZ = methods::as(crossprod(Z), "generalMatrix"))
   }
   # Return
@@ -97,10 +103,19 @@ score_test_lmer <- function(lmerfit,
   r_i <- lme4::getME(lmerfit, "m_i")
   r <- sum(r_i) + 1
   precomp <- get_precomp_lmer(lmerfit)
-  p <- ncol(precomp$X)
-  n <- nrow(precomp$X)
+
+  Y <- lme4::getME(lmerfit, " y")
+  X <- lme4::getME(lmerfit, "X")
+  Z <- lme4::getME(lmerfit, "Z")
+  Hlist <- get_Hlist_lmer(lmerfit)
+
+  p <- ncol(X)
+  n <- nrow(X)
+
   psi_hat <- get_psi_hat_lmer(lmerfit)
-  psi_start <- lme4::getME(lmerfit, "Tp")
+
+  last_idx <- lme4::getME(lmerfit, "Tp")
+
   REML <- lme4::getME(lmerfit, "REML") != 0
 
   if(is.null(test_idx)){
@@ -108,19 +123,27 @@ score_test_lmer <- function(lmerfit,
     if(joint){
       psi_null <- psi_hat
       psi_null[-r] <- 0
-      psi_null[r] <- stats::sigma(stats::lm(precomp$Y ~ 0 + precomp$X))^2
+      psi_null[r] <- stats::sigma(stats::lm(Y ~ 0 + X))^2
       if(!REML){
         psi_null[r] <- psi_null[r] * (n - p) / n
       }
-      teststat <- score_stat(psi = psi_null,
+
+      test_stat <- score_stat(psi = psi_null,
                              test_idx = 1:(r - 1),
-                             precomp = precomp,
+                             b = NULL,
+                             Y = Y,
+                             X = X,
+                             Z = Z,
+                             Hlist = Hlist,
                              REML = REML,
                              expected = expected,
                              efficient = efficient,
-                             signed = FALSE)
-      out <- matrix(c(teststat, stats::pchisq(teststat, df = r - 1, lower = F),
+                             signed = FALSE,
+                             precomp = precomp)
+
+      out <- matrix(c(test_stat, stats::pchisq(test_stat, df = r - 1, lower = F),
                       r - 1), nrow = 1, ncol = 3)
+
       colnames(out) <- c("stat", "pval", "df")
       rownames(out) <- "joint"
     } else{ # Separate tests
@@ -128,19 +151,32 @@ score_test_lmer <- function(lmerfit,
       param_idx <- 1
       psi_null <- psi_hat
       for(ii in seq_along(r_i)){ # Loop over terms
-        term_idxs <- (psi_start[ii + 1] - r_i[ii] + 1):(psi_start[ii + 1])
+        term_idxs <- (last_idx[ii + 1] - r_i[ii] + 1):(last_idx[ii + 1])
         for(jj in seq_len(r_i[ii])){ # Loop over parameters within terms
           psi_null <- psi_hat
           psi_null[term_idxs] <- 0
-          psi_null <- partial_min(opt_idx = seq_len(r)[-param_idx],
-                                  precomp = precomp,
-                                  psi_start = psi_null,
-                                  REML = REML,
-                                  expected = expected)$psi_hat
-          out[param_idx, 1] <- c(score_stat(psi = psi_null, test_idx = param_idx,
-                                            precomp = precomp,
-                                            REML = REML, expected = expected,
-                                            efficient = efficient, signed = FALSE))
+          psi_null <- partial_min_psi(psi_start = psi_null,
+                                      opt_idx = seq_len(r)[-param_idx],
+                                      b = NULL,
+                                      Y = Y,
+                                      X = X,
+                                      Z = Z,
+                                      Hlist = Hlist,
+                                      precomp = precomp,
+                                      REML = REML,
+                                      expected = expected)$psi_hat
+          out[param_idx, 1] <- c(score_stat(psi = psi_null,
+                                            test_idx = param_idx,
+                                            b = NULL,
+                                            Y = Y,
+                                            X = X,
+                                            Z = Z,
+                                            Hlist = Hlist,
+                                            REML = REML,
+                                            expected = expected,
+                                            efficient = efficient,
+                                            signed = FALSE,
+                                            precomp = precomp))
           out[param_idx, 2] <- stats::pchisq(out[param_idx, 1], df = 1, lower = F)
           out[param_idx, 3] <- 1
           # Increase parameter index

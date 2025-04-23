@@ -4,7 +4,7 @@
 \alias{get_Psi_lmer}
 \title{Get the covariance matrix of random effects}
 \usage{
-get_Psi_lmer(lmerfit, psimr = NULL)
+get_Psi_lmer(lmerfit, psi_mr = NULL)
 }
 \arguments{
 \item{lmerfit}{An lmerMod object from fitting a linear mixed model using lme4::lmer}

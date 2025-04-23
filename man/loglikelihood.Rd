@@ -62,30 +62,5 @@ Computes log-likelihood, score vector, and information matrix
 for a linear mixed effects model.
 }
 \details{
-{ The model is \deqn{Y = X\beta + Z U + E,} where \eqn{U \sim N_q(0, \Psi)}
-and \eqn{E \sim N_n(0, \psi_r I_n)}. The first \eqn{r - 1} elements of \eqn{\psi}
-parameterize \eqn{\Psi}, while the \eqn{r}th and last element is the error
-variance. It is assumed that \eqn{H_j = \partial \Psi / \partial \psi_j} is
-a (usually sparse) matrix of zeros and ones, \eqn{j \in \{1, \dots, r - 1\}},
-and that \eqn{\Psi = \sum_{j = 1}^{r - 1}\psi_j H_j}. Thus, \eqn{\psi_1, \dots, \psi_{r - 1}}
-are variances and covariances of random effects.
 
-The argument \code{Hlist} is a list whose \eqn{j}th element is \eqn{H_j}.
-
-If \code{REML} is \code{TRUE} and \code{precomp} is supplied, it must be a
-list with following elements:
-\itemize{
-\item \code{XtY = as.vector(crossprod(X, Y))}
-\item \code{ZtY = as.vector(crossprod(Z, Y))}
-\item \code{XtX = as.matrix(crossprod(X))}
-\item \code{XtZ = as.matrix(crossprod(X, Z))}
-\item \code{ZtZ = methods::as(crossprod(Z), "generalMatrix")}
-}
-If \code{REML} is \code{FALSE}, the required elements are:
-\itemize{
-\item \code{Zte = as.vector(crossprod(Z, e))}
-\item \code{XtZ = as.matrix(crossprod(X, Z))}
-\item \code{ZtZ = methods::as(crossprod(Z), "generalMatrix")}
-}
-}
 }

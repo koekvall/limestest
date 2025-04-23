@@ -33,4 +33,4 @@ limestest:::loglikelihood(psi = psi_tilde, b = NULL, precomp = precomp_lmer, REM
 limestest:::loglikelihood(psi = psi_start, b = NULL, precomp = precomp_lmer, REML = TRUE)$value
 
 # Try tests
-profvis::profvis(limestest:::score_test_lmer(fit, joint = FALSE))
+limestest:::score_test_lmer(fit, joint = FALSE)
