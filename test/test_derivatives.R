@@ -112,14 +112,14 @@ Psi1_test <- crossprod(U, diag(runif(2, min = min(ed$values) / 10, max = max(ed$
 Psi_test <- Matrix::kronecker(Matrix::Diagonal(300), Psi1_test)
 test_point <- c(Psi_test[1, 1], Psi_test[2, 1], Psi_test[2, 2], psir_test)
 numerical_score <- numDeriv::grad(loglik_test, test_point)
-analytical_score <- loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
-                               Psi_r = Psi_test / psir_test, psi_r = psir_test, loglik = F,
-                               score = T, finf = F)$score
+analytical_score <- limestest:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+                               Psi_r = Psi_test / psir_test, psi_r = psir_test, get_val = F,
+                               get_score = T, get_inf = F)$score
 
 numerical_hess <- numDeriv::hessian(loglik_test, test_point)
-analytical_hess <- -loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
-                               Psi_r = Psi_test / psir_test, psi_r = psir_test, loglik = F,
-                               score = T, finf = T, expected = F)$finf
+analytical_hess <- -limestest:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+                               Psi_r = Psi_test / psir_test, psi_r = psir_test, get_val = F,
+                               get_score = T, get_inf = T, expected = F)$inf_mat
 
 cat("The max absolute difference between numerical and analytical score at random point is: ",
     max(abs(numerical_score - analytical_score)), "\n")
@@ -252,19 +252,19 @@ Psi_test <- Matrix::kronecker(Matrix::Diagonal(300), Psi1_test)
 test_point <- c(Psi_test[1, 1], Psi_test[2, 1], Psi_test[2, 2], psir_test)
 numerical_score <- numDeriv::grad(loglik_test, test_point)
 
-analytical_score <- res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
+analytical_score <- limestest:::res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
                            ZtZ = crossprod(Z), YtZ = crossprod(Y, Z), Y = Y,
                            X = X, Z = Z, H = H, Psi_r = Psi_test / psir_test,
-                           psi_r = psir_test, loglik = FALSE,
-                           score = TRUE, finf = FALSE)$score
+                           psi_r = psir_test, get_val = FALSE,
+                           get_score = TRUE, get_inf = FALSE)$score
 
 numerical_hess <- numDeriv::hessian(loglik_test, test_point)
 
-analytical_inf <- res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
+analytical_inf <- limestest:::res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
                          ZtZ = crossprod(Z), YtZ = crossprod(Y, Z), Y = Y,
                          X = X, Z = Z, H = H, Psi_r = Psi_test / psir_test,
-                         psi_r = psir_test, loglik = FALSE,
-                         score = TRUE, finf = TRUE)$finf
+                         psi_r = psir_test, get_val = FALSE,
+                         get_score = TRUE, get_inf = TRUE)$inf_mat
 
 cat("The max absolute difference between numerical and analytical score at random point is: ",
     max(abs(numerical_score - analytical_score)), "\n")
