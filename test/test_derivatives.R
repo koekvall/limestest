@@ -200,7 +200,7 @@ cat("The max relative difference between merDeriv and analytical information at 
 
 # Test wrapper function
 psi_hat <- limestest:::get_psi_hat_lmer(fit)
-value_raw <- limestest:::res_ll(XtX = crossprod(X),
+things_raw <- limestest:::res_ll(XtX = crossprod(X),
                                 XtY = crossprod(X, Y),
                                 XtZ = crossprod(X, Z),
                                 ZtZ = crossprod(Z),
@@ -212,8 +212,8 @@ value_raw <- limestest:::res_ll(XtX = crossprod(X),
                                 Psi_r = Psi_test / psir_test,
                                 psi_r = psir_test,
                                 get_val = TRUE,
-                                get_score = FALSE,
-                                get_inf = FALSE)$value
+                                get_score = TRUE,
+                                get_inf = TRUE)
 Hlist <- limestest:::get_Hlist_lmer(fit)
 ll_things <- limestest::loglikelihood(psi = psi_hat,
                                       Y = Y,
@@ -222,25 +222,12 @@ ll_things <- limestest::loglikelihood(psi = psi_hat,
                                       Hlist = Hlist,
                                       REML = TRUE)
 
-cat("The difference in raw and wrapper value is: ", abs(ll_things$value - value_raw), "\n")
+cat("The difference in raw and wrapper value is: ", abs(ll_things$value - things_raw$value), "\n")
 
 cat("The max difference in raw and wrapper score is: ", max(abs(ll_things$score - analytical_score)), "\n")
-cat("The max difference in raw and wrapper Hessian is: ", max(abs(-ll_things$inf_mat - analytical_hess)), "\n")
 
-analytical_inf <- limestest:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
-                                         Psi_r = Psi_test / psir_test, psi_r = psir_test, get_val = F,
-                                         get_score = T, get_inf = TRUE, expected = T)$inf_mat
-ll_things <- limestest::loglikelihood(psi = psi_hat,
-                                      b = lme4::getME(fit, "beta"),
-                                      Y = Y,
-                                      X = X,
-                                      Z = Z,
-                                      Hlist = Hlist,
-                                      REML = FALSE,
-                                      expected = TRUE,
-                                      get_inf = TRUE)
 
-cat("The max difference in raw and wrapper Information is: ", max(abs(ll_things$inf_mat - analytical_inf)), "\n")
+cat("The max difference in raw and wrapper Information is: ", max(abs(ll_things$inf_mat - things_raw$inf_mat)), "\n")
 
 
 # Test derivatives at random point

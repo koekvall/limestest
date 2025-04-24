@@ -48,3 +48,14 @@ limestest:::loglikelihood(psi = psi_start, b = NULL, Y = Y, X = X, Z = Z, Hlist 
 
 # Try tests
 limestest:::score_test_lmer(fit, joint = FALSE)
+
+
+
+###############################################################################
+# Test with example that failed for trust
+###############################################################################
+data(fev1)
+fit <- lmer(exp(logfev1) ~ age + ht + baseage + baseht + (age|id),
+            data = fev1, REML = TRUE)
+
+limestest:::score_test_lmer(fit, joint = FALSE, profile = FALSE)

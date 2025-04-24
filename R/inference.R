@@ -43,7 +43,6 @@ partial_min_psi <- function(psi_start, opt_idx, b = NULL, Y, X, Z, Hlist,
     list("value" = -ll_things$value, "gradient" = -ll_things$score[opt_idx],
          "hessian" = as.matrix(ll_things$inf_mat[opt_idx, opt_idx]))
   }
-
   #############################################################################
   # Do minimization
   #############################################################################

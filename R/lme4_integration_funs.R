@@ -100,9 +100,35 @@ score_test_lmer <- function(lmerfit,
                             profile = TRUE,
                             joint = TRUE)
 {
+
   r_i <- lme4::getME(lmerfit, "m_i")
   r <- sum(r_i) + 1
+
+  if(is.null(psi_null)){
+    psi_null <- rep(0, r)
+  }
+
+  if(is.null(test_idx)){
+    test_idx <- seq_len(r - 1)
+  } else{
+    test_idx <- unique(test_idx)
+  }
+
+  k <- length(test_idx)
+
+  if(r %in% test_idx & psi_null[r] == 0){
+    warning("Testing zero error variance may not be possible")
+  }
+
+
+
   precomp <- get_precomp_lmer(lmerfit)
+  if(!is.null(test_idx)){
+    test_idx <- unique(test_idx)
+    k <- length(test_idx)
+  } else{
+    test_idx <- seq_len(r - 1)
+  }
 
   Y <- lme4::getME(lmerfit, "y")
   X <- lme4::getME(lmerfit, "X")
@@ -112,11 +138,10 @@ score_test_lmer <- function(lmerfit,
   p <- ncol(X)
   n <- nrow(X)
 
-  psi_hat <- get_psi_hat_lmer(lmerfit)
-
   last_idx <- lme4::getME(lmerfit, "Tp")
 
   REML <- lme4::getME(lmerfit, "REML") != 0
+
 
   if(is.null(test_idx)){
     # Test all RE parameters equal to zero either separately or jointly
@@ -187,7 +212,23 @@ score_test_lmer <- function(lmerfit,
       colnames(out) <- c("stat", "pval", "df")
     }
   } else if(!is.null(psi_null)){
-    # Test the hypothesis
+    if(joint & length(test_idx) > 1){
+      out <- matrix(NA, nrow = k, )
+      for(ii)
+    }
+    if(profile){
+      psi_null <- partial_min_psi(psi_start = psi_null,
+                                  opt_idx = seq_len(r)[-test_idx],
+                                  b = NULL,
+                                  Y = Y,
+                                  X = X,
+                                  Z = Z,
+                                  Hlist = Hlist,
+                                  precomp = precomp,
+                                  REML = REML,
+                                  expected = expected)$psi_hat
+    }
+
   } else{
     stop("Unable to test because null hypothesis parameter (psi_null) is missing")
   }
