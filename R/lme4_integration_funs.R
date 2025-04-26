@@ -97,81 +97,84 @@ score_test_lmer <- function(lmerfit,
                             test_idx = NULL,
                             efficient = TRUE,
                             expected = TRUE,
-                            profile = TRUE,
-                            joint = TRUE)
+                            profile = TRUE)
 {
 
   r_i <- lme4::getME(lmerfit, "m_i")
   r <- sum(r_i) + 1
 
+  # Default to zero random effect variances and unit error variance
   if(is.null(psi_null)){
-    psi_null <- rep(0, r)
+    psi_null <- c(rep(0, r - 1), 1)
   }
 
+  # Test all random effects by default
   if(is.null(test_idx)){
     test_idx <- seq_len(r - 1)
   } else{
-    test_idx <- unique(test_idx)
+    test_idx <- sort(unique(test_idx))
   }
 
   k <- length(test_idx)
 
-  if(r %in% test_idx & psi_null[r] == 0){
-    warning("Testing zero error variance may not be possible")
+  if(psi_null[r] == 0){
+    warning("Vanishing error variance is permissible only in special cases")
   }
-
 
 
   precomp <- get_precomp_lmer(lmerfit)
-  if(!is.null(test_idx)){
-    test_idx <- unique(test_idx)
-    k <- length(test_idx)
-  } else{
-    test_idx <- seq_len(r - 1)
-  }
-
   Y <- lme4::getME(lmerfit, "y")
   X <- lme4::getME(lmerfit, "X")
   Z <- lme4::getME(lmerfit, "Z")
+  psi_hat <- get_psi_hat_lmer(lmerfit)
   Hlist <- get_Hlist_lmer(lmerfit)
 
   p <- ncol(X)
   n <- nrow(X)
 
-  last_idx <- lme4::getME(lmerfit, "Tp")
-
   REML <- lme4::getME(lmerfit, "REML") != 0
 
+  # Profile
+  if(profile & all(psi_null[-r] == 0) & all(seq_len(r - 1) %in% test_idx)){
+    # Testing null of Psi = 0, i.e., no random effects is a
+    # special case where partial maximizer has closed form solution from lm
+    psi_null[r] <- stats::sigma(stats::lm(Y ~ 0 + X))^2
+    if(!REML){ # Degree of freedom correction only for REML
+      psi_null[r] <- psi_null[r] * (n - p) / n
+    }
+  } else if(profile){
+    psi_null <- partial_min_psi(psi_start = psi_null,
+                                opt_idx = seq_len(r)[-test_idx],
+                                b = NULL,
+                                Y = Y,
+                                X = X,
+                                Z = Z,
+                                Hlist = Hlist,
+                                precomp = precomp,
+                                REML = REML,
+                                expected = expected)$psi_hat
+  }
 
-  if(is.null(test_idx)){
-    # Test all RE parameters equal to zero either separately or jointly
-    if(joint){
-      psi_null <- psi_hat
-      psi_null[-r] <- 0
-      psi_null[r] <- stats::sigma(stats::lm(Y ~ 0 + X))^2
-      if(!REML){
-        psi_null[r] <- psi_null[r] * (n - p) / n
-      }
+  test_stat <- score_stat(psi = psi_null,
+                          test_idx = test_idx,
+                          b = NULL,
+                          Y = Y,
+                          X = X,
+                          Z = Z,
+                          Hlist = Hlist,
+                          REML = REML,
+                          expected = expected,
+                          efficient = efficient,
+                          signed = FALSE,
+                          precomp = precomp)
+  # Return
+  c("stat" = test_stat,
+    "p_val" = stats::pchisq(test_stat, df = k, lower = F),
+    "df" = k)
+}
 
-      test_stat <- score_stat(psi = psi_null,
-                             test_idx = 1:(r - 1),
-                             b = NULL,
-                             Y = Y,
-                             X = X,
-                             Z = Z,
-                             Hlist = Hlist,
-                             REML = REML,
-                             expected = expected,
-                             efficient = efficient,
-                             signed = FALSE,
-                             precomp = precomp)
-
-      out <- matrix(c(test_stat, stats::pchisq(test_stat, df = r - 1, lower = F),
-                      r - 1), nrow = 1, ncol = 3)
-
-      colnames(out) <- c("stat", "pval", "df")
-      rownames(out) <- "joint"
-    } else{ # Separate tests
+infer_lmer <- function(lmerfit, test_idx, joint)
+    last_idx <- lme4::getME(lmerfit, "Tp")
       out <- matrix(NA, nrow = r - 1, ncol = 3)
       param_idx <- 1
       psi_null <- psi_hat
