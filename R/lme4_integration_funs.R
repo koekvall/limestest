@@ -103,7 +103,7 @@ score_test_lmer <- function(lmerfit,
   r_i <- lme4::getME(lmerfit, "m_i")
   r <- sum(r_i) + 1
 
-  # Default to zero random effect variances and unit error variance
+  # Default to testing zero random effect variances and unit error variance
   if(is.null(psi_null)){
     psi_null <- c(rep(0, r - 1), 1)
   }
@@ -120,22 +120,16 @@ score_test_lmer <- function(lmerfit,
   if(psi_null[r] == 0){
     warning("Vanishing error variance is permissible only in special cases")
   }
-
-
   precomp <- get_precomp_lmer(lmerfit)
   Y <- lme4::getME(lmerfit, "y")
   X <- lme4::getME(lmerfit, "X")
   Z <- lme4::getME(lmerfit, "Z")
-  psi_hat <- get_psi_hat_lmer(lmerfit)
   Hlist <- get_Hlist_lmer(lmerfit)
-
-  p <- ncol(X)
-  n <- nrow(X)
 
   REML <- lme4::getME(lmerfit, "REML") != 0
 
   # Profile
-  if(profile & all(psi_null[-r] == 0) & all(seq_len(r - 1) %in% test_idx)){
+  if(profile && all(psi_null[-r] == 0) && all(seq_len(r - 1) %in% test_idx)){
     # Testing null of Psi = 0, i.e., no random effects is a
     # special case where partial maximizer has closed form solution from lm
     psi_null[r] <- stats::sigma(stats::lm(Y ~ 0 + X))^2
@@ -169,50 +163,69 @@ score_test_lmer <- function(lmerfit,
                           precomp = precomp)
   # Return
   c("stat" = test_stat,
-    "p_val" = stats::pchisq(test_stat, df = k, lower = F),
+    "p_val" = stats::pchisq(test_stat, df = k, lower = FALSE),
     "df" = k)
 }
 
-infer_lmer <- function(lmerfit, test_idx, joint)
-    last_idx <- lme4::getME(lmerfit, "Tp")
-      out <- matrix(NA, nrow = r - 1, ncol = 3)
-      param_idx <- 1
-      psi_null <- psi_hat
-      for(ii in seq_along(r_i)){ # Loop over terms
-        term_idxs <- (last_idx[ii + 1] - r_i[ii] + 1):(last_idx[ii + 1])
-        for(jj in seq_len(r_i[ii])){ # Loop over parameters within terms
-          psi_null <- psi_hat
-          psi_null[term_idxs] <- 0
-          psi_null <- partial_min_psi(psi_start = psi_null,
-                                      opt_idx = seq_len(r)[-param_idx],
-                                      b = NULL,
-                                      Y = Y,
-                                      X = X,
-                                      Z = Z,
-                                      Hlist = Hlist,
-                                      precomp = precomp,
-                                      REML = REML,
-                                      expected = expected)$psi_hat
-          out[param_idx, 1] <- c(score_stat(psi = psi_null,
-                                            test_idx = param_idx,
-                                            b = NULL,
-                                            Y = Y,
-                                            X = X,
-                                            Z = Z,
-                                            Hlist = Hlist,
-                                            REML = REML,
-                                            expected = expected,
-                                            efficient = efficient,
-                                            signed = FALSE,
-                                            precomp = precomp))
-          out[param_idx, 2] <- stats::pchisq(out[param_idx, 1], df = 1, lower = F)
-          out[param_idx, 3] <- 1
-          # Increase parameter index
-          param_idx <- param_idx + 1
+auto_test_lmer <- function(lmerfit,
+                           psi_null = NULL,
+                           test_idx = NULL,
+                           efficient = TRUE,
+                           expected = TRUE,
+                           profile = TRUE)
+{
+  r_i <- lme4::getME(lmerfit, "m_i")
+  r <- sum(r_i) + 1
+
+  # Default to testing zero random effect variances and unit error variance
+  if(is.null(psi_null)){
+    psi_null <- c(rep(0, r - 1), 1)
+  }
+
+  # Test all random effects by default
+  if(is.null(test_idx)){
+    test_idx <- seq_len(r - 1)
+  } else{
+    test_idx <- sort(unique(test_idx))
+  }
+
+  if(psi_null[r] == 0){
+    warning("Vanishing error variance is permissible only in special cases")
+  }
+
+  precomp <- get_precomp_lmer(lmerfit)
+  Y <- lme4::getME(lmerfit, "y")
+  X <- lme4::getME(lmerfit, "X")
+  Z <- lme4::getME(lmerfit, "Z")
+  Hlist <- get_Hlist_lmer(lmerfit)
+  psi_hat <- get_psi_hat_lmer(lmerfit)
+  REML <- lme4::getME(lmerfit, "REML") != 0
+  k <- length(test_idx)
+  
+  # Is parameter a variance or covaraince?
+  is_var_param <- is.na(as.data.frame(lme4::VarCorr(lmerfit))$var2)
+  stopifnot(all(psi_null[is_var_param] >= 0))
+  # Loop over parameters
+  out <- matrix(NA, nrow = k, ncol = 3)
+  param_idx <- 1
+  last_idx <- lme4::getME(lmerfit, "Tp")
+  for(ii in seq_along(r_i)){ # Loop over terms
+    # Index for parameter corresponding to term
+    term_idxs <- (last_idx[ii + 1] - r_i[ii] + 1):(last_idx[ii + 1])
+    # Dimension of term covariance matrix
+    dim_i <- as.integer(0.5 * (-1 + sqrt(1 + 8 * r_i[ii])))
+    for(jj in seq_len(r_i[ii])){ # Loop over parameters within terms
+      if(param_idx %in% test_idx){
+        Psi1 <- matrix(0, dim_i, dim_i)
+        Psi1[lower.tri(Psi1, diag = TRUE)][jj] <- psi_null[param_idx]
+        if(!is_var_param[param_idx]){
+         # Make diagonally dominant starting value 
         }
       }
-      rownames(out) <- paste0("psi_", seq_len(r - 1))
-      colnames(out) <- c("stat", "pval", "df")
+      param_idx <- param_idx + 1
+    }
+  }
+  colnames(out) <- c("stat", "pval", "df")
     }
   } else if(!is.null(psi_null)){
     if(joint & length(test_idx) > 1){
