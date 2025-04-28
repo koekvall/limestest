@@ -65,4 +65,18 @@ limestest:::score_test_lmer(fit, test_idx = 3)
 # Search for error; is starting point valid?
 limestest:::auto_test_lmer(fit)
 
+# get the row and column index from the vectorization of the
+# lower triangular part of an n x n matrix
+get_row_col <- function(idx, n)
+{
+  last_idx <- as.integer(n * (n + 1) / 2)
+  stopifnot(idx <= last_idx)
+  # Count backwards to our idx
+  back_idx <- last_idx - idx + 1
+  # Column counting from the right
+  back_col <- ceiling(0.5 * (-1 + sqrt(1 + 8 * back_idx)))
+  # Column counting from the left
+  col <- n - back_col + 1
+  col
+}
 

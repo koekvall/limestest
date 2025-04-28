@@ -204,7 +204,7 @@ auto_test_lmer <- function(lmerfit,
   k <- length(test_idx)
 
   # Is parameter a variance or covaraince?
-  is_var_param <- is.na(as.data.frame(lme4::VarCorr(lmerfit))$var2)
+  is_var_param <- is.na(as.data.frame(lme4::VarCorr(lmerfit), order = "lower.tri")$var2)
   stopifnot(all(psi_null[is_var_param] >= 0))
   # Loop over parameters
   out <- matrix(NA, nrow = k, ncol = 3)
@@ -213,15 +213,13 @@ auto_test_lmer <- function(lmerfit,
   since_var <- 0
   last_idx <- lme4::getME(lmerfit, "Tp")
   for(ii in seq_along(r_i)){ # Loop over terms
-    # Index for parameter corresponding to term
+    # Index for parameters corresponding to term
     term_idxs <- (last_idx[ii + 1] - r_i[ii] + 1):(last_idx[ii + 1])
-    # Dimension of term covariance matrix
-    dim_i <- as.integer(0.5 * (-1 + sqrt(1 + 8 * r_i[ii])))
     for(jj in seq_len(r_i[ii])){ # Loop over parameters within terms
       if(param_idx %in% test_idx){
         # Create starting point for profile optimization. Starting point
-        psi_start <- psi_null
-        psi_start[-r] <- 0
+        psi_start <- psi_hat
+        psi_start[term_idxs] <- 0
         psi_start[param_idx] <- psi_null[param_idx]
         if(is_var_param[param_idx]){
           since_var <- 0
@@ -232,7 +230,7 @@ auto_test_lmer <- function(lmerfit,
          psi_start[param_idx - since_var] <- 1.5 * abs(psi_start[param_idx])
         }
         # Get partial minimizer and compute test-statistic
-        psi_null <- partial_min_psi(psi_start = psi_start,
+        psi_tilde <- partial_min_psi(psi_start = psi_start,
                                     opt_idx = seq_len(r)[-param_idx],
                                     b = NULL,
                                     Y = Y,
@@ -244,7 +242,7 @@ auto_test_lmer <- function(lmerfit,
                                     expected = expected)$psi_hat
         # Do test with profile = FALSE because already profiled
         out[test_idx, ] <- score_test_lmer(lmerfit = lmerfit,
-                                           psi_null = psi_null,
+                                           psi_null = psi_tilde,
                                            test_idx = param_idx,
                                            efficient = efficient,
                                            expected = expected,
