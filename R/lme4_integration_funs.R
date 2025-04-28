@@ -210,7 +210,6 @@ auto_test_lmer <- function(lmerfit,
   out <- matrix(NA, nrow = k, ncol = 3)
   param_idx <- 1
   test_idx <- 1
-  since_var <- 0
   last_idx <- lme4::getME(lmerfit, "Tp")
   for(ii in seq_along(r_i)){ # Loop over terms
     # Index for parameters corresponding to term
@@ -219,14 +218,13 @@ auto_test_lmer <- function(lmerfit,
       if(param_idx %in% test_idx){
         # Create starting point for profile optimization. Starting point
         psi_start <- psi_hat
-        psi_start[term_idxs] <- 0
+        psi_start[term_idxs][!is_var_param[term_idxs]] # Set off-diagonal to zero
         psi_start[param_idx] <- psi_null[param_idx]
-        if(is_var_param[param_idx]){
-          since_var <- 0
-        } else{
+        if(!is_var_param[param_idx]){
          # Set the corresponding variance to ensure diagonally dominant
          # starting value, which guarantees valid starting point for trust
-         since_var <- since_var + 1
+         mat_idx <-
+
          psi_start[param_idx - since_var] <- 1.5 * abs(psi_start[param_idx])
         }
         # Get partial minimizer and compute test-statistic
