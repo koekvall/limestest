@@ -9,7 +9,7 @@ get_Psi_lmer(lmerfit, psi_mr = NULL)
 \arguments{
 \item{lmerfit}{An lmerMod object from fitting a linear mixed model using lme4::lmer}
 
-\item{psimr}{Optional vector with covariance parameters, not including the error variance;}
+\item{psi_mr}{Optional vector with covariance parameters, not including the error variance;}
 }
 \value{
 A usually sparse covariance matrix of random effects of type dsCMatrix

@@ -336,9 +336,9 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
 
   if (llt.info() != Eigen::Success) {
     return Rcpp::List::create(
-      Rcpp::Named("ll") = -R_PosInf,
+      Rcpp::Named("value") = -R_PosInf,
       Rcpp::Named("score") = s_psi,
-      Rcpp::Named("finf") = I_psi,
+      Rcpp::Named("inf_mat") = I_psi,
       Rcpp::Named("beta") = Eigen::VectorXd::Constant(p, NA_REAL),
       Rcpp::Named("I_b_inv_chol") = Eigen::MatrixXd::Constant(p, p, NA_REAL));
   }
@@ -351,7 +351,7 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
 
   // Replace response with residuals
   Y = Y - X * beta_tilde;
-  
+
   // n x 1 vector for storing \Sigma^{-1}e
   Eigen::VectorXd a = (1.0 / psi_r) * (Y - Z * (A * (Z.transpose() * Y)));
 

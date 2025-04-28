@@ -57,5 +57,16 @@ limestest:::score_test_lmer(fit, joint = FALSE)
 data(fev1)
 fit <- lmer(exp(logfev1) ~ age + ht + baseage + baseht + (age|id),
             data = fev1, REML = TRUE)
+psi_hat <- limestest:::get_psi_hat_lmer(fit)
 
-limestest:::score_test_lmer(fit, joint = FALSE, profile = FALSE)
+# This failed but now works
+limestest:::score_test_lmer(fit, test_idx = 3)
+
+# Search for error; is starting point valid?
+psi_start <- psi_hat
+psi_start[4] <- 0.0225
+fit_null <- limestest:::partial_min_psi(psi_start = psi_hat, opt_idx = c(1:3), b = NULL, Y = Y, X = X, Z = Z, Hlist = Hlist)
+
+loglikelihood(psi = fit_null$psi_hat, Y = Y, X = X, Z = Z, Hlist = Hlist)
+
+

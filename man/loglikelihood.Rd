@@ -31,7 +31,7 @@ loglikelihood(
 
 \item{Z}{Sparse design matrix for the random effects of size \eqn{n\times q}.}
 
-\item{Hlist}{A list of derivatives of the random effects' covariance matrix \eqn{\Psi} (see details)}
+\item{Hlist}{A list of matrices determining how \eqn{\psi} is mapped to \eqn{\Psi} (see details)}
 
 \item{REML}{If \code{TRUE}, use the restricted likelihood; otherwise the regular likelihood is used}
 
@@ -62,5 +62,31 @@ Computes log-likelihood, score vector, and information matrix
 for a linear mixed effects model.
 }
 \details{
+The model is \deqn{Y = X\beta + Z U + E,} where \eqn{U \sim N_q(0, \Psi)}
+and \eqn{E \sim N_n(0, \psi_r I_n)}. The last element of \eqn{\psi} (or \code{psi[r]})
+is the error variance. The first \eqn{r - 1} elements of \eqn{\psi}
+are variances and covariances of random effects.
 
+Specifically, \eqn{\Psi = \sum_{j = 1}^{r - 1}\psi_j H_j} where each \eqn{H_j}
+is a \eqn{q\times q} matrix of zeros and ones. The argument \code{Hlist} is a list of lenght
+\eqn{r - 1} whose \eqn{j}th element is \eqn{H_j}. This specification implies
+each element of \eqn{\Psi} is one of \eqn{\psi_1, \dots, \psi_{r - 1}}.
+
+If \code{REML} is \code{TRUE} and \code{precomp} is supplied, it must be a
+list with following elements:
+\itemize{
+\item \code{XtY = as.vector(crossprod(X, Y))}
+\item \code{ZtY = as.vector(crossprod(Z, Y))}
+\item \code{XtX = as.matrix(crossprod(X))}
+\item \code{XtZ = as.matrix(crossprod(X, Z))}
+\item \code{ZtZ = methods::as(crossprod(Z), "generalMatrix")}
+}
+
+If \code{REML} is \code{FALSE}, the required elements are:
+\itemize{
+\item \code{e = as.vector(Y - X \%*\% b)}
+\item \code{Zte = as.vector(crossprod(Z, e))}
+\item \code{XtZ = as.matrix(crossprod(X, Z))}
+\item \code{ZtZ = methods::as(crossprod(Z), "generalMatrix")}
+}
 }

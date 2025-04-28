@@ -5,7 +5,7 @@
 #' supplied as an argument.
 #'
 #' @param lmerfit An lmerMod object from fitting a linear mixed model using lme4::lmer
-#' @param psimr Optional vector with covariance parameters, not including the error variance;
+#' @param psi_mr Optional vector with covariance parameters, not including the error variance;
 #   psi minus its r:th element (see details).
 #'
 #' @return A usually sparse covariance matrix of random effects of type dsCMatrix
@@ -125,7 +125,8 @@ score_test_lmer <- function(lmerfit,
   X <- lme4::getME(lmerfit, "X")
   Z <- lme4::getME(lmerfit, "Z")
   Hlist <- get_Hlist_lmer(lmerfit)
-
+  n <- length(Y)
+  p <- ncol(X)
   REML <- lme4::getME(lmerfit, "REML") != 0
 
   # Profile
@@ -201,13 +202,14 @@ auto_test_lmer <- function(lmerfit,
   psi_hat <- get_psi_hat_lmer(lmerfit)
   REML <- lme4::getME(lmerfit, "REML") != 0
   k <- length(test_idx)
-  
+
   # Is parameter a variance or covaraince?
   is_var_param <- is.na(as.data.frame(lme4::VarCorr(lmerfit))$var2)
   stopifnot(all(psi_null[is_var_param] >= 0))
   # Loop over parameters
   out <- matrix(NA, nrow = k, ncol = 3)
   param_idx <- 1
+  test_idx <- 1
   since_var <- 0
   last_idx <- lme4::getME(lmerfit, "Tp")
   for(ii in seq_along(r_i)){ # Loop over terms
@@ -217,44 +219,41 @@ auto_test_lmer <- function(lmerfit,
     dim_i <- as.integer(0.5 * (-1 + sqrt(1 + 8 * r_i[ii])))
     for(jj in seq_len(r_i[ii])){ # Loop over parameters within terms
       if(param_idx %in% test_idx){
-        Psi1 <- matrix(0, dim_i, dim_i)
-        Psi1[lower.tri(Psi1, diag = TRUE)][jj] <- psi_null[param_idx]
+        # Create starting point for profile optimization. Starting point
+        psi_start <- psi_null
+        psi_start[-r] <- 0
+        psi_start[param_idx] <- psi_null[param_idx]
         if(is_var_param[param_idx]){
           since_var <- 0
         } else{
-         # Make diagonally dominant starting value
+         # Set the corresponding variance to ensure diagonally dominant
+         # starting value, which guarantees valid starting point for trust
          since_var <- since_var + 1
-
+         psi_start[param_idx - since_var] <- 1.5 * abs(psi_start[param_idx])
         }
-        if(!is_var_param[param_idx]){
+        # Get partial minimizer and compute test-statistic
+        psi_null <- partial_min_psi(psi_start = psi_start,
+                                    opt_idx = seq_len(r)[-param_idx],
+                                    b = NULL,
+                                    Y = Y,
+                                    X = X,
+                                    Z = Z,
+                                    Hlist = Hlist,
+                                    precomp = precomp,
+                                    REML = REML,
+                                    expected = expected)$psi_hat
+        # Do test with profile = FALSE because already profiled
+        out[test_idx, ] <- score_test_lmer(lmerfit = lmerfit,
+                                           psi_null = psi_null,
+                                           test_idx = param_idx,
+                                           efficient = efficient,
+                                           expected = expected,
+                                           profile = FALSE)
+        test_idx <- test_idx + 1
 
-        } else{}
       }
       param_idx <- param_idx + 1
     }
-  }
-  colnames(out) <- c("stat", "pval", "df")
-    }
-  } else if(!is.null(psi_null)){
-    if(joint & length(test_idx) > 1){
-      out <- matrix(NA, nrow = k, )
-      for(ii)
-    }
-    if(profile){
-      psi_null <- partial_min_psi(psi_start = psi_null,
-                                  opt_idx = seq_len(r)[-test_idx],
-                                  b = NULL,
-                                  Y = Y,
-                                  X = X,
-                                  Z = Z,
-                                  Hlist = Hlist,
-                                  precomp = precomp,
-                                  REML = REML,
-                                  expected = expected)$psi_hat
-    }
-
-  } else{
-    stop("Unable to test because null hypothesis parameter (psi_null) is missing")
   }
   out
 }
