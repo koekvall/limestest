@@ -75,7 +75,7 @@ loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = T
   if(get_beta & REML){
     warning("Score or information for beta not available for restricted likelihood")
   }
-
+  stopifnot(is.numeric(psi) && length(psi) > 0)
   r <- length(psi)
   stopifnot((r - 1) == length(Hlist))
   H <- methods::as(do.call(cbind, Hlist), "generalMatrix")
