@@ -118,7 +118,7 @@ score_test_lmer <- function(lmerfit,
   k <- length(test_idx)
 
   if(psi_null[r] == 0){
-    warning("Vanishing error variance is permissible only in special cases")
+    stop("Vanishing error variance is not permitted")
   }
   precomp <- get_precomp_lmer(lmerfit)
   Y <- lme4::getME(lmerfit, "y")
@@ -191,7 +191,7 @@ auto_test_lmer <- function(lmerfit,
   }
 
   if(psi_null[r] == 0){
-    warning("Vanishing error variance is permissible only in special cases")
+    stop("Vanishing error variance is not permitted")
   }
 
   precomp <- get_precomp_lmer(lmerfit)
