@@ -208,6 +208,7 @@ auto_test_lmer <- function(lmerfit,
   # Loop over parameters
   out <- matrix(NA, nrow = k, ncol = 3)
   param_idx <- 1
+  since_var <- 0
   last_idx <- lme4::getME(lmerfit, "Tp")
   for(ii in seq_along(r_i)){ # Loop over terms
     # Index for parameter corresponding to term
@@ -218,9 +219,16 @@ auto_test_lmer <- function(lmerfit,
       if(param_idx %in% test_idx){
         Psi1 <- matrix(0, dim_i, dim_i)
         Psi1[lower.tri(Psi1, diag = TRUE)][jj] <- psi_null[param_idx]
-        if(!is_var_param[param_idx]){
-         # Make diagonally dominant starting value 
+        if(is_var_param[param_idx]){
+          since_var <- 0
+        } else{
+         # Make diagonally dominant starting value
+         since_var <- since_var + 1
+
         }
+        if(!is_var_param[param_idx]){
+
+        } else{}
       }
       param_idx <- param_idx + 1
     }
