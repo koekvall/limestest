@@ -156,18 +156,31 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
 
   // solver for Psi_rZtZ + I_q
   Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
-
   Eigen::SparseMatrix<double> Id_q(q, q);
   Id_q = Eigen::MatrixXd::Identity(q, q).sparseView();
   solver.compute(A + Id_q);
 
+  bool stop_early = solver.info() != Eigen::Success;
+
   // Add loglik term before overwriting
   if (get_val) {
     ll = -0.5 * solver.logAbsDeterminant() - 0.5 * n * log(psi_r);
+    stop_early = stop_early || (solver.info() != Eigen::Success);
   }
+
+
   // Matrix denoted M in manuscript is A[, 1:q]
   A = solver.solve(A);
   Ae = solver.solve(Ae);
+
+  stop_early = stop_early || (solver.info() != Eigen::Success);
+
+  if(stop_early || (psi_r <= 0.0)){
+    ll = -R_PosInf;
+    return Rcpp::List::create(Rcpp::Named("value") = ll,
+                              Rcpp::Named("score") = s_psi,
+                              Rcpp::Named("inf_mat") = I_psi);
+  }
 
   Eigen::VectorXd e_save(n);
   if(get_val | (get_inf & !expected)){
@@ -193,7 +206,7 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
   // B = Z'Z (M - I_q) in paper notation, sparse
   // Note that the use of the identity is needed because the diagonal of A
   // can only be accessed as an array if nonzero, making B = A followed by
-  // B.diagonal().array() -= 1.0 fail in som cases.
+  // B.diagonal().array() -= 1.0 fail in some cases.
   Eigen::SparseMatrix<double> B = A - Id_q;
   B = ZtZ * B;
 
