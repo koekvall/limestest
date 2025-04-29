@@ -84,7 +84,7 @@ score_stat <- function(psi, test_idx, b = NULL, Y, X, Z, Hlist, REML = TRUE,
 
   inf_mat <- ll_things$inf_mat[test_idx, test_idx, drop = F]
 
-  if(efficient & (r > 1)){
+  if(efficient && (r > 1)){
     inf_mat <- inf_mat - crossprod(ll_things$inf_mat[-test_idx, test_idx, drop = F],
                                  solve(ll_things$inf_mat[-test_idx, -test_idx, drop = F],
                                        ll_things$inf_mat[-test_idx, test_idx, drop = F]))

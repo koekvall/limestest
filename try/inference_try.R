@@ -47,50 +47,21 @@ limestest:::loglikelihood(psi = psi_tilde, b = NULL, Y = Y, X = X, Z = Z, Hlist 
 limestest:::loglikelihood(psi = psi_start, b = NULL, Y = Y, X = X, Z = Z, Hlist = Hlist)$value
 
 # Try tests
-limestest:::score_test_lmer(fit, joint = FALSE)
-
+limestest:::score_test_lmer(fit, test_idx = 3)
 
 
 ###############################################################################
 # Test with example that failed for trust
 ###############################################################################
 data(fev1)
-fit <- lmer(exp(logfev1) ~ age + ht + baseage + baseht + (age|id),
-            data = fev1, REML = TRUE)
+fit <- lme4::lmer(exp(logfev1) ~ age + ht + baseage + baseht + (age|id),
+            data = fev1, REML = FALSE)
 psi_hat <- limestest:::get_psi_hat_lmer(fit)
 
-# This failed but now works
-limestest:::score_test_lmer(fit, test_idx = 3)
+# This fails
+limestest:::score_test_lmer(fit, test_idx = 1)
 
 # Search for error; is starting point valid?
 limestest:::auto_test_lmer(fit)
 
-# get the row and column index from the vectorization of the
-# lower triangular part of an n x n matrix
-get_row_col_ltri <- function(idx, n)
-{
-  last_idx <- as.integer(n * (n + 1) / 2)
-  stopifnot(idx <= last_idx)
-  # Count backwards from the end to our idx
-  back_idx <- last_idx - idx + 1
-  # Column counting from the right
-  back_col <- ceiling(0.5 * (-1 + sqrt(1 + 8 * back_idx)))
-  # Column counting from the left
-  col <- n - back_col + 1
-
-  # Get the row
-  row <- 0.5 * back_col * (back_col + 1)
-  row <- (n - back_col) + (row - back_idx) + 1
-  c(row, col)
-}
-
-# Get the index in vectorization of lower triangular
-get_idx_ltri <- function(row, col, n)
-{
-  stopifnot(row >= col && row <= n && col <= n)
-  back_col <- n - col + 1
-  # Indexing counting backwards from the end
-  back_idx <- 0.5 * back_col * (back_col + 1) + col - row
-  0.5 * n * (n + 1) - back_idx + 1
-}
 

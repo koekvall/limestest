@@ -67,9 +67,8 @@ get_precomp_lmer <- function(lmerfit, REML = NULL){
 
   X <- lme4::getME(lmerfit, "X")
   Z <- lme4::getME(lmerfit, "Z")
-
+  Y <- lme4::getME(lmerfit, "y")
   if(REML){
-    Y <- lme4::getME(lmerfit, "y")
     out <- list(XtY = as.vector(crossprod(X, Y)),
                 ZtY = as.vector(crossprod(Z, Y)),
                 XtX = as.matrix(crossprod(X)),
@@ -102,11 +101,12 @@ score_test_lmer <- function(lmerfit,
 
   r_i <- lme4::getME(lmerfit, "m_i")
   r <- sum(r_i) + 1
-
   # Default to testing zero random effect variances and unit error variance
   if(is.null(psi_null)){
     psi_null <- c(rep(0, r - 1), 1)
   }
+
+  stopifnot(is.numeric(psi_null) && length(psi_null) > 0)
 
   # Test all random effects by default
   if(is.null(test_idx)){
@@ -115,11 +115,14 @@ score_test_lmer <- function(lmerfit,
     test_idx <- sort(unique(test_idx))
   }
 
+  stopifnot(is.numeric(test_idx) && all(test_idx == floor(test_idx)) && length(test_idx) > 0)
   k <- length(test_idx)
+
 
   if(psi_null[r] == 0){
     stop("Vanishing error variance is not permitted")
   }
+
   precomp <- get_precomp_lmer(lmerfit)
   Y <- lme4::getME(lmerfit, "y")
   X <- lme4::getME(lmerfit, "X")
@@ -168,12 +171,11 @@ score_test_lmer <- function(lmerfit,
     "df" = k)
 }
 
-auto_test_lmer <- function(lmerfit,
+test_all_lmer <- function(lmerfit,
                            psi_null = NULL,
                            test_idx = NULL,
                            efficient = TRUE,
-                           expected = TRUE,
-                           profile = TRUE)
+                           expected = TRUE)
 {
   r_i <- lme4::getME(lmerfit, "m_i")
   r <- sum(r_i) + 1
@@ -206,46 +208,46 @@ auto_test_lmer <- function(lmerfit,
   # Is parameter a variance or covaraince?
   is_var_param <- is.na(as.data.frame(lme4::VarCorr(lmerfit), order = "lower.tri")$var2)
   stopifnot(all(psi_null[is_var_param] >= 0))
-  # Loop over parameters
-  out <- matrix(NA, nrow = k, ncol = 3)
-  param_idx <- 1
-  test_idx <- 1
+
+  # Prepare to loop over parameters
+
+  # Used to determine which term a parameter belongs to
   last_idx <- lme4::getME(lmerfit, "Tp")
+
+  out <- matrix(NA, nrow = k, ncol = 3) # Store test results
+  param_idx <- 1 # Counts which parameter test is for
+  test_num <- 1  # Counts the tests
   for(ii in seq_along(r_i)){ # Loop over terms
     # Index for parameters corresponding to term
     term_idxs <- (last_idx[ii + 1] - r_i[ii] + 1):(last_idx[ii + 1])
+
+    # Covariance matrix dimension for ith term
+    dim_i <- as.integer(0.5 * (-1 + sqrt(1 + 8 * r_i[ii])))
+
     for(jj in seq_len(r_i[ii])){ # Loop over parameters within terms
       if(param_idx %in% test_idx){
-        # Create starting point for profile optimization. Starting point
-        psi_start <- psi_hat
-        psi_start[term_idxs][!is_var_param[term_idxs]] # Set off-diagonal to zero
-        psi_start[param_idx] <- psi_null[param_idx]
+        # Create starting point for profile optimization that is guaranteed
+        # to be valid
+        psi_start <- c(rep(0, r - 1), 1) # Start model with no random effects
+        # psi_start[term_idxs][!is_var_param[term_idxs]] <- 0 # Set off-diagonal to zero
+        psi_start[param_idx] <- psi_null[param_idx] # Set null hypothesis value
         if(!is_var_param[param_idx]){
-         # Set the corresponding variance to ensure diagonally dominant
-         # starting value, which guarantees valid starting point for trust
-         mat_idx <-
-
-         psi_start[param_idx - since_var] <- 1.5 * abs(psi_start[param_idx])
+         # If the null hypothesis is for a covariance, set corresponding variances
+         # to ensure positive semi-definite starting value for Psi. This works
+         # because other off-diagonal elements were set to zero
+         row_col <- get_row_col_ltri(jj, n = dim_i)
+         var_idx1 <- get_idx_ltri(row = row_col[2], col = row_col[2], n = dim_i)
+         var_idx2 <- get_idx_ltri(row = row_col[1], col = row_col[1], n = dim_i)
+         psi_start[term_idxs][c(var_idx1, var_idx2)] <-
+           pmax(psi_start[term_idxs][c(var_idx1, var_idx2)], abs(psi_start[param_idx]))
         }
-        # Get partial minimizer and compute test-statistic
-        psi_tilde <- partial_min_psi(psi_start = psi_start,
-                                    opt_idx = seq_len(r)[-param_idx],
-                                    b = NULL,
-                                    Y = Y,
-                                    X = X,
-                                    Z = Z,
-                                    Hlist = Hlist,
-                                    precomp = precomp,
-                                    REML = REML,
-                                    expected = expected)$psi_hat
-        # Do test with profile = FALSE because already profiled
-        out[test_idx, ] <- score_test_lmer(lmerfit = lmerfit,
-                                           psi_null = psi_tilde,
+        out[test_num, ] <- score_test_lmer(lmerfit = lmerfit,
+                                           psi_null = psi_start,
                                            test_idx = param_idx,
                                            efficient = efficient,
                                            expected = expected,
-                                           profile = FALSE)
-        test_idx <- test_idx + 1
+                                           profile = TRUE)
+        test_num <- test_num + 1
 
       }
       param_idx <- param_idx + 1

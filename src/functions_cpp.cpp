@@ -75,7 +75,9 @@ Eigen::SparseMatrix<double> Psi_from_H_cpp(const Eigen::Map<Eigen::VectorXd> psi
   int rm1 = H.cols() / q;
   Eigen::SparseMatrix<double> Psi(q, q);
   for (int ii = 0; ii < rm1; ii++) {
-     Psi += psi_mr(ii) * H.middleCols(ii * q, q);
+     if(psi_mr(ii) != 0.0){ // avoid initializing elements that are zero anyway
+       Psi += psi_mr(ii) * H.middleCols(ii * q, q);
+     }
   }
   return Psi;
 }
@@ -189,8 +191,10 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
   }
 
   // B = Z'Z (M - I_q) in paper notation, sparse
-  Eigen::SparseMatrix<double> B = A;
-  B.diagonal().array() -= 1;// -= Eigen::VectorXd::Constant(q,1);
+  // Note that the use of the identity is needed because the diagonal of A
+  // can only be accessed as an array if nonzero, making B = A followed by
+  // B.diagonal().array() -= 1.0 fail in som cases.
+  Eigen::SparseMatrix<double> B = A - Id_q;
   B = ZtZ * B;
 
   if (!get_inf) {
