@@ -261,8 +261,6 @@ cat("The max relative difference between numerical and analytical score at rando
 
 # Test wrapper function
 
-
-
 ###############################################################################
 # Simulation for Hessian
 ###############################################################################

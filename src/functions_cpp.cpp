@@ -315,7 +315,6 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
                       const bool get_score = true,
                       const bool get_inf = true)
 {
-;
   // Define dimensions
   int n = Y.size();
   int q = Psi_r.cols();
