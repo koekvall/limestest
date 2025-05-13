@@ -63,16 +63,16 @@ loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = T
                          get_score = TRUE, get_inf = TRUE, get_beta = FALSE,
                          expected = TRUE, precomp = NULL)
 {
-  if(!expected & REML){
+  if(!expected && REML){
     warning("Observed information not implemented for restricted likelihood;
             using expected")
   }
 
-  if(!is.null(b) & REML){
+  if(!is.null(b) && REML){
     warning("Coefficient vector supplied but not used by REML")
   }
 
-  if(get_beta & REML){
+  if(get_beta && REML){
     warning("Score or information for beta not available for restricted likelihood")
   }
   stopifnot(is.numeric(psi) && length(psi) > 0)
@@ -85,7 +85,7 @@ loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = T
   stopifnot(length(Y) == n)
 
 
-  if(!is.null(b) & is.null(precomp)){
+  if(!is.null(b) && is.null(precomp)){
     p <- length(b)
     stopifnot(p == ncol(X), n == nrow(X))
   }
@@ -121,7 +121,7 @@ loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = T
                             get_score = get_score,
                             get_inf = get_inf)
   } else{
-    if(is.null(b) & is.null(precomp)){
+    if(is.null(b) && is.null(precomp)){
       e <- as.vector(Y)
     } else if(is.null(precomp)){
       e <- as.vector(Y - X %*% b)
@@ -237,7 +237,7 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, get_val = TRUE,
 
   # Score for error variance psi_r
   # NB: REPLACE e by Sigma^{-1}e
-  if(get_val | (get_inf & !expected)){
+  if(get_val || (get_inf && !expected)){
    e_save <- e
   }
   e <- (1 / psi_r) * (e - Z %*% A[, q + p + 1]) # = Sigma^{-1}e

@@ -54,7 +54,7 @@ limestest:::score_test_lmer(fit, test_idx = 3)
 # Test with example that failed for trust
 ###############################################################################
 data(fev1)
-fit <- lme4::lmer(exp(logfev1) ~ age + ht + baseage + baseht + (age|id),
+fit <- lme4::lmer(exp(logfev1) ~ age + ht + baseage + baseht + (1|id)  + (0 + age|id),
             data = fev1, REML = FALSE)
 psi_hat <- limestest:::get_psi_hat_lmer(fit)
 
