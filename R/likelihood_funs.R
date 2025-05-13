@@ -148,19 +148,32 @@ loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = T
                                 get_score = get_score,
                                 get_inf = get_inf,
                                 expected = expected)
-    if(get_beta){
-      # The below is inefficient and will be replaced
-      Sigma <- psi[r] * (Psi_r + Matrix::Diagonal(n))
-      if(get_score){
-        ll_things$score <- c(c(crossprod(X, solve(Sigma, e))), ll_things$score)
-      }
 
-      if(get_inf){
-        ll_things$inf_mat <- Matrix::bdiag(crossprod(X, solve(Sigma, X)),
+    if(get_beta) {
+      if(get_score) {
+        temp1 <- solve(Psi_r) + ZtZ
+        temp2 <- solve(temp1, t(Z))
+        scr <- (1/psi[r]) * (t(X) - XtZ %*% temp2) %*% e
+        ll_things$score <- c(as.vector(scr), ll_things$score)
+      }
+      if(get_inf) {
+        if (!get_score) {
+          temp1 <- solve(Psi_r) + ZtZ
+          temp2 <- solve(temp1, t(Z))
+        }
+        # note: we only obtain XtX from precomp or calculate XtX earlier if REML=TRUE
+        # REML = FALSE always when including beta
+        if(is.null(precomp)){
+          XtX <- as.matrix(crossprod(X))
+        } else{
+          XtX <- precomp$XtX
+        }
+        info <- (1/psi[r]) * (XtX - XtZ %*% (temp2 %*% X))
+        # old:  info <- (1/psi[r]) * (XtX - XtZ %*% solve(temp1, t(XtZ)))
+        ll_things$inf_mat <- Matrix::bdiag(info,
                                            ll_things$inf_mat)
       }
     }
-
   }
   list("value" = ll_things$value,
        "score" = ll_things$score,
