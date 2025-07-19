@@ -158,11 +158,9 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
   Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
   Eigen::SparseMatrix<double> Id_q(q, q);
   Id_q = Eigen::MatrixXd::Identity(q, q).sparseView();
-  solver.compute(A + Id_q);
+  Eigen::SparseMatrix<double> B = A + Id_q;
+  solver.compute(B);
   bool stop_early = solver.info() != Eigen::Success;
-  if(stop_early){
-    Rcpp::Rcout << "Failed" << std::endl;
-  }
 
   // Add loglik term before overwriting
 
@@ -174,8 +172,7 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
   // Matrix denoted M in manuscript is A[, 1:q]
 
   Ae = solver.solve(Ae).eval();
-  Rcpp::Rcout << "1" << std::endl;
-  A = solver.solve(A).eval();
+  A = solver.solve(B);
 
   stop_early = stop_early || (solver.info() != Eigen::Success);
 
@@ -211,7 +208,7 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
   // Note that the use of the identity is needed because the diagonal of A
   // can only be accessed as an array if nonzero, making B = A followed by
   // B.diagonal().array() -= 1.0 fail in some cases.
-  Eigen::SparseMatrix<double> B = A - Id_q;
+  B = A - Id_q;
   B = (ZtZ * B).eval();
 
   if (!get_inf) {
@@ -254,7 +251,6 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
       }
     }
   }
-  Rcpp::Rcout << "2" << std::endl;
   I_psi = I_psi.selfadjointView<Eigen::Upper>();
   return Rcpp::List::create(Rcpp::Named("value") = ll,
                             Rcpp::Named("score") = s_psi,
