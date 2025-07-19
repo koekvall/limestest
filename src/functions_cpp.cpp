@@ -159,19 +159,23 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
   Eigen::SparseMatrix<double> Id_q(q, q);
   Id_q = Eigen::MatrixXd::Identity(q, q).sparseView();
   solver.compute(A + Id_q);
-
   bool stop_early = solver.info() != Eigen::Success;
+  if(stop_early){
+    Rcpp::Rcout << "Failed" << std::endl;
+  }
 
   // Add loglik term before overwriting
+
   if (get_val) {
     ll = -0.5 * solver.logAbsDeterminant() - 0.5 * n * log(psi_r);
     stop_early = stop_early || (solver.info() != Eigen::Success);
   }
 
-
   // Matrix denoted M in manuscript is A[, 1:q]
-  A = solver.solve(A);
-  Ae = solver.solve(Ae);
+
+  Ae = solver.solve(Ae).eval();
+  Rcpp::Rcout << "1" << std::endl;
+  A = solver.solve(A).eval();
 
   stop_early = stop_early || (solver.info() != Eigen::Success);
 
@@ -181,11 +185,11 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
                               Rcpp::Named("score") = s_psi,
                               Rcpp::Named("inf_mat") = I_psi);
   }
-
   Eigen::VectorXd e_save(n);
   if(get_val | (get_inf & !expected)){
      e_save = e;
   }
+
   // update e
   e = (1.0 / psi_r) * (e - Z * Ae); // = Sigma^{-1}e
   if (get_val) {
@@ -208,7 +212,7 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
   // can only be accessed as an array if nonzero, making B = A followed by
   // B.diagonal().array() -= 1.0 fail in some cases.
   Eigen::SparseMatrix<double> B = A - Id_q;
-  B = ZtZ * B;
+  B = (ZtZ * B).eval();
 
   if (!get_inf) {
     // Compute -[ZtZ (I_q - M) * H_1, ..., ZtZ (I_q - M) * H_r] using recycling
@@ -250,6 +254,7 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
       }
     }
   }
+  Rcpp::Rcout << "2" << std::endl;
   I_psi = I_psi.selfadjointView<Eigen::Upper>();
   return Rcpp::List::create(Rcpp::Named("value") = ll,
                             Rcpp::Named("score") = s_psi,
@@ -324,9 +329,9 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
   // loglikelihood to return
   double ll = NA_REAL;
   // Score vector to return
-  Eigen::VectorXd s_psi(r);
+  Eigen::VectorXd s_psi = Eigen::VectorXd::Zero(r);
   // Information matrix to return
-  Eigen::MatrixXd I_psi(r, r);
+  Eigen::MatrixXd I_psi =  Eigen::MatrixXd::Zero(r, r);
 
 
   // Pre-compute (I_q + Psi_r Z'Z)^{-1} Psi_r
@@ -433,7 +438,6 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
     Eigen::SparseMatrix<double> H_b2(q, q);
     Eigen::MatrixXd H2_b1(q, q);
     Eigen::MatrixXd H2_b2(q, q);
-
     for (int jj = 0; jj < rm1; jj++) {
       H_b1 = H.middleCols(jj * q, q);
       H2_b1 = H2.middleCols(jj * q, q);
