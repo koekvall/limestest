@@ -165,14 +165,14 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
   // Add loglik term before overwriting
 
   if (get_val) {
-    ll = -0.5 * solver.logAbsDeterminant() - 0.5 * n * log(psi_r);
+    ll = -0.5 * solver.logAbsDeterminant() - 0.5 * (double)n * log(psi_r);
     stop_early = stop_early || (solver.info() != Eigen::Success);
   }
 
   // Matrix denoted M in manuscript is A[, 1:q]
 
   Ae = solver.solve(Ae).eval();
-  A = solver.solve(B);
+  A = solver.solve(A);
 
   stop_early = stop_early || (solver.info() != Eigen::Success);
 
@@ -194,7 +194,7 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
   }
   double trace_M = A.diagonal().sum();
 
-  s_psi(rm1) = 0.5 * e.dot(e) - (0.5 / psi_r) * (n - trace_M);
+  s_psi(rm1) = 0.5 * e.dot(e) - (0.5 / psi_r) * ((double)n - trace_M);
 
   // v is Z'Sigma^{-1}e, w is e'Sigma^{-1}Z[H1...Hr]
   Eigen::VectorXd v = (Z.transpose() * e);

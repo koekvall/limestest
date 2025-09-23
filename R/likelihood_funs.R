@@ -247,6 +247,7 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, get_val = TRUE,
   }
 
   trace_M <- sum(Matrix::diag(A[, 1:q]))
+
   s_psi[r] <- 0.5 * sum(e^2) - (0.5 / psi_r) * (n - trace_M)
 
 
