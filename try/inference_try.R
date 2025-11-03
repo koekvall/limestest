@@ -36,7 +36,7 @@ fit_our <- limestest:::partial_min_psi(psi_start = psi_hat,
                                        Z = Z,
                                        Hlist = Hlist,
                                        precomp = precomp_lmer,
-                                       REML = FALSE,
+                                       REML = TRUE,
                                        expected = TRUE)
 psi_hat_our <- fit_our$psi_hat
 
