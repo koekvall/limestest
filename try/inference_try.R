@@ -24,7 +24,7 @@ fit_null <- limestest:::partial_min_psi(psi_start = psi_start,
                                         Z = Z,
                                         Hlist = Hlist,
                                         precomp = precomp_lmer,
-                                        REML = FALSE,
+                                        REML = TRUE,
                                         expected = TRUE)
 psi_tilde <- fit_null$psi_hat
 

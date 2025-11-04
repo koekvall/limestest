@@ -46,6 +46,7 @@ partial_min_psi <- function(psi_start, opt_idx, b = NULL, Y, X, Z, Hlist,
   #############################################################################
   # Do minimization
   #############################################################################
+  browser()
   fit <- trust::trust(objfun = obj_fun, parinit = psi_start[opt_idx], rinit  = 1,
                       rmax = 100, ...)
   # Return results

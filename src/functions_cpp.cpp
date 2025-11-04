@@ -126,7 +126,7 @@ Eigen::SparseMatrix<double> Psi_from_H_cpp(const Eigen::Map<Eigen::VectorXd> psi
 //' @import Matrix
 // [[Rcpp::export]]
 
-Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
+Rcpp::List loglik(Eigen::VectorXd e,
                           const Eigen::MappedSparseMatrix<double> Z,
                           const Eigen::Map<Eigen::VectorXd> Zte,
                           const Eigen::Map<Eigen::MatrixXd> XtZ,
@@ -152,7 +152,6 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
   Eigen::MatrixXd I_psi(r, r);
 
   Eigen::SparseMatrix<double> A = Psi_r * ZtZ;
-  Eigen::VectorXd Ae = Psi_r * Zte;
 
   // solver for Psi_rZtZ + I_q
   Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
@@ -169,10 +168,7 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
     stop_early = stop_early || (solver.info() != Eigen::Success);
   }
 
-  // Matrix denoted M in manuscript is A[, 1:q]
-
-  Ae = solver.solve(Ae).eval();
-  A = solver.solve(A);
+  A = solver.solve(Psi_r); // This is (I_q + Psi_r ZtZ)^{-1}Psi_r
 
   stop_early = stop_early || (solver.info() != Eigen::Success);
 
@@ -187,8 +183,8 @@ Rcpp::List loglik_psi_cpp(Eigen::VectorXd e,
      e_save = e;
   }
 
-  // update e
-  e = (1.0 / psi_r) * (e - Z * Ae); // = Sigma^{-1}e
+  // update e to Sigma^{-1}e
+  e = (1.0 / psi_r) * (e - Z * (A * (Z.transpose() * e))); // =
   if (get_val) {
     ll = ll - 0.5 * e.dot(e_save);
   }
