@@ -184,11 +184,12 @@ Rcpp::List loglik(Eigen::VectorXd e,
   }
 
   // update e to Sigma^{-1}e
-  e = (1.0 / psi_r) * (e - Z * (A * (Z.transpose() * e))); // =
+  e = (1.0 / psi_r) * (e - Z * (A * (Z.transpose() * e)));
   if (get_val) {
     ll = ll - 0.5 * e.dot(e_save);
   }
-  double trace_M = A.diagonal().sum();
+
+
 
   s_psi(rm1) = 0.5 * e.dot(e) - (0.5 / psi_r) * ((double)n - trace_M);
 
