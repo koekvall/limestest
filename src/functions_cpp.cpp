@@ -192,8 +192,8 @@ Rcpp::List loglik(
   // Get score for psi
   Eigen::SparseMatrix<double> C = Id_q - A * ZtZ;
 
-  S(p + r - 1) = 0.5 * etilde.dot(etilde) - (1 / psi_r) * (n - q +
-    C.diagonal().sum());
+  S(p + r - 1) = 0.5 * (etilde.dot(etilde) - (1 / psi_r) * (n - q +
+    C.diagonal().sum()));
 
   // v is Z'Sigma^{-1}e, w is e'Sigma^{-1}Z[H1...Hr]
   Eigen::VectorXd v = (Z.transpose() * etilde);
@@ -207,7 +207,7 @@ Rcpp::List loglik(
 
   if (!get_inf) {
     for (int ii = 0; ii < r - 1; ii++) {
-      S(p + ii) += (0.5 / psi_r) * H.middleCols(ii * q, q).cwiseProduct(B).sum();
+      S(p + ii) -= 0.5 * H.middleCols(ii * q, q).cwiseProduct(B).sum();
     }
   } else {
     I(p + r - 1, p + r - 1) = (0.5 / (psi_r * psi_r)) *
@@ -221,7 +221,7 @@ Rcpp::List loglik(
     for (int jj = 0; jj < r - 1; jj++) {
       H1 = H.middleCols(jj * q, q);
       I(p + jj, p + r - 1) = (0.5 / psi_r) * H1.cwiseProduct(C).sum();
-      S(p + jj) += (0.5 / psi_r) * H1.diagonal().sum();
+      S(p + jj) -= 0.5 * H1.diagonal().sum();
       for (int ii = 0; ii <= jj; ii++) {
         H2 = H.middleCols(ii * q, q).transpose();
         I(p + ii, p + jj) = (0.5 / (psi_r * psi_r)) * H1.cwiseProduct(H2).sum();

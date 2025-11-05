@@ -8,6 +8,7 @@ H <- do.call(cbind, Hlist)
 psi_hat <- limestest:::get_psi_hat_lmer(fit)
 Z <- getME(fit, "Z")
 X <- getME(fit, "X")
+p <- ncol(X)
 Y <- getME(fit, "y")
 b <- getME(fit, "beta")
 Y <- Y - X %*% b
@@ -32,22 +33,20 @@ loglik_R <- limestest:::loglik_psi(Z = Z,
                                    get_inf = TRUE,
                                    expected = TRUE)
 
-loglik_cpp <- limestest:::loglik_psi_cpp(ZtZ = as(crossprod(Z), "generalMatrix"),
-                                         XtZ = as.matrix(crossprod(X, Z)),
-                                         Zte = as.vector(crossprod(Z, Y)),
-                                         Z = Z,
-                                         e = Y,
-                                         H = H,
-                                         Psi_r = Psi_cpp / psi_hat[r],
-                                         psi_r = psi_hat[r],
-                                         get_val = TRUE,
-                                         get_score = TRUE,
-                                         get_inf = TRUE,
-                                         expected = TRUE)
+loglik_cpp <- limestest:::loglik(Psi_r = Psi_cpp / psi_hat[r],
+                                 psi_r = psi_hat[r],
+                                 H = H,
+                                 e = Y,
+                                 X = X,
+                                 Z = Z,
+                                 XtX = crossprod(X),
+                                 XtZ = as.matrix(crossprod(X, Z)),
+                                 ZtZ = as(crossprod(Z), "generalMatrix"),
+                                 get_inf = TRUE)
 
 cat("Difference in R and Cpp loglik: ", abs(loglik_R$value - loglik_cpp$value) , "\n")
-cat("Max difference in R and Cpp score: ", max(abs(loglik_R$score - loglik_cpp$score)) , "\n")
-cat("Max difference in R and Cpp information: ", max(abs(loglik_R$inf_mat - loglik_cpp$inf_mat)) , "\n")
+cat("Max difference in R and Cpp score: ", max(abs(loglik_R$score - loglik_cpp$score[-c(1:p)])) , "\n")
+cat("Max difference in R and Cpp information: ", max(abs(loglik_R$inf_mat - loglik_cpp$inf_mat[-c(1:p), -c(1:p)])) , "\n")
 
 loglik_R <- limestest:::loglik_psi(Z = Z,
                                   ZtZXe = crossprod(Z, cbind(Z, X, Y)),
