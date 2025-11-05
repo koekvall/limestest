@@ -126,132 +126,130 @@ Eigen::SparseMatrix<double> Psi_from_H_cpp(const Eigen::Map<Eigen::VectorXd> psi
 //' @import Matrix
 // [[Rcpp::export]]
 
-Rcpp::List loglik(Eigen::VectorXd e,
-                          const Eigen::MappedSparseMatrix<double> Z,
-                          const Eigen::Map<Eigen::VectorXd> Zte,
-                          const Eigen::Map<Eigen::MatrixXd> XtZ,
-                          const Eigen::MappedSparseMatrix<double> ZtZ,
-                          const Eigen::MappedSparseMatrix<double> Psi_r,
-                          const double psi_r,
-                          Eigen::SparseMatrix<double> H,
-                          const bool get_val = true,
-                          const bool get_score = true,
-                          const bool get_inf = true,
-                          const bool expected = true) {
-
+Rcpp::List loglik(
+                  const Eigen::MappedSparseMatrix<double> Psi_r,
+                  const double psi_r,
+                  Eigen::SparseMatrix<double> H,
+                  Eigen::VectorXd e,
+                  const Eigen::Map<Eigen::MatrixXd> X,
+                  const Eigen::MappedSparseMatrix<double> Z,
+                  const Eigen::Map<Eigen::MatrixXd> XtX,
+                  const Eigen::Map<Eigen::MatrixXd> XtZ,
+                  const Eigen::MappedSparseMatrix<double> ZtZ,
+                  const bool get_val = true,
+                  const bool get_score = true,
+                  const bool get_inf = true,
+                  const bool expected = true) {
   // Define dimensions
+  int p = X.cols();
   int n = e.size();
   int q = Psi_r.cols();
-  int rm1 = H.cols() / q;
-  int r = rm1 + 1;
-  // loglikelihood to return
+  int r = H.cols() / q + 1;
+
+  // Initialize returns
   double ll = NA_REAL;
-  // Score vector to return
-  Eigen::VectorXd s_psi(r);
-  // Fisher information to return
-  Eigen::MatrixXd I_psi(r, r);
+  Eigen::VectorXd S(p + r);
+  Eigen::MatrixXd I(p + r, p + r);
 
-  Eigen::SparseMatrix<double> A = Psi_r * ZtZ;
-
-  // solver for Psi_rZtZ + I_q
-  Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+  // Initialize identity matrix
   Eigen::SparseMatrix<double> Id_q(q, q);
   Id_q = Eigen::MatrixXd::Identity(q, q).sparseView();
-  Eigen::SparseMatrix<double> B = A + Id_q;
+
+  // Compute matrices B and A in manuscript
+  Eigen::SparseMatrix<double> B = Psi_r * ZtZ + Id_q;
+  Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
   solver.compute(B);
   bool stop_early = solver.info() != Eigen::Success;
 
   // Add loglik term before overwriting
-
   if (get_val) {
     ll = -0.5 * solver.logAbsDeterminant() - 0.5 * (double)n * log(psi_r);
     stop_early = stop_early || (solver.info() != Eigen::Success);
   }
 
-  A = solver.solve(Psi_r); // This is (I_q + Psi_r ZtZ)^{-1}Psi_r
+  // This is A = (I_q + Psi_r ZtZ)^{-1}Psi_r
+  Eigen::SparseMatrix<double> A = solver.solve(Psi_r);
 
   stop_early = stop_early || (solver.info() != Eigen::Success);
 
   if(stop_early || (psi_r <= 0.0)){
     ll = -R_PosInf;
     return Rcpp::List::create(Rcpp::Named("value") = ll,
-                              Rcpp::Named("score") = s_psi,
-                              Rcpp::Named("inf_mat") = I_psi);
-  }
-  Eigen::VectorXd e_save(n);
-  if(get_val | (get_inf & !expected)){
-     e_save = e;
+                              Rcpp::Named("score") = S,
+                              Rcpp::Named("inf_mat") = I);
   }
 
-  // update e to Sigma^{-1}e
-  e = (1.0 / psi_r) * (e - Z * (A * (Z.transpose() * e)));
+
+  Eigen::VectorXd etilde = (1.0 / psi_r) * (e - Z * (A * (Z.transpose() * e)));
+
   if (get_val) {
-    ll = ll - 0.5 * e.dot(e_save);
+    ll = ll - 0.5 * etilde.dot(e);
   }
 
+  // Get score for beta
+  S.head(p) = X.transpose() * etilde;
 
+  // Get score for psi
+  Eigen::SparseMatrix<double> C = Id_q - A * ZtZ;
 
-  s_psi(rm1) = 0.5 * e.dot(e) - (0.5 / psi_r) * ((double)n - trace_M);
+  S(p + r - 1) = 0.5 * etilde.dot(etilde) - (1 / psi_r) * (n - q +
+    C.diagonal().sum());
 
   // v is Z'Sigma^{-1}e, w is e'Sigma^{-1}Z[H1...Hr]
-  Eigen::VectorXd v = (Z.transpose() * e);
+  Eigen::VectorXd v = (Z.transpose() * etilde);
   Eigen::VectorXd w = H.transpose() * v;
-
-  for (int ii = 0; ii < rm1; ii++) {
-    s_psi(ii) = 0.5 * w.middleRows(ii * q, q).dot(v);
+  for (int ii = 0; ii < r - 1; ii++) {
+    S(p + ii) = 0.5 * w.middleRows(ii * q, q).dot(v);
   }
 
-  // B = Z'Z (M - I_q) in paper notation, sparse
-  // Note that the use of the identity is needed because the diagonal of A
-  // can only be accessed as an array if nonzero, making B = A followed by
-  // B.diagonal().array() -= 1.0 fail in some cases.
-  B = A - Id_q;
-  B = (ZtZ * B).eval();
+  // Overwriting B with Z' \Sigma^{-1} Z
+  B = (1 / psi_r) * ZtZ * C;
 
   if (!get_inf) {
-    // Compute -[ZtZ (I_q - M) * H_1, ..., ZtZ (I_q - M) * H_r] using recycling
-    // The "if" is because the calculation is a byproduct of a more expensive one
-    // (B %*% H) done to get Fisher information
-    for (int ii = 0; ii < rm1; ii++) {
-      s_psi(ii) += (0.5 / psi_r) * H.middleCols(ii * q, q).cwiseProduct(B).sum();
+    for (int ii = 0; ii < r - 1; ii++) {
+      S(p + ii) += (0.5 / psi_r) * H.middleCols(ii * q, q).cwiseProduct(B).sum();
     }
   } else {
-    H = B * H;
-    I_psi(rm1, rm1) = (0.5 / (psi_r * psi_r)) * (n - 2 * trace_M +
-      Eigen::SparseMatrix<double>(A.transpose()).cwiseProduct(A).sum());
+    I(p + r - 1, p + r - 1) = (0.5 / (psi_r * psi_r)) *
+      (n - q + C.cwiseProduct(C.transpose()).sum());
 
-    // M = M-I
-    A.diagonal().array() -= 1;
+    // Replace H by Z'\Sigma^{-1}Z H
+    H = B * H;
     Eigen::SparseMatrix<double> H1(q, q);
     Eigen::SparseMatrix<double> H2(q, q);
-    for (int jj = 0; jj < rm1; jj++) {
+
+    for (int jj = 0; jj < r - 1; jj++) {
       H1 = H.middleCols(jj * q, q);
-      I_psi(jj, rm1) = (0.5 / (psi_r * psi_r)) * A.cwiseProduct(H1).sum();
-      s_psi(jj) += (0.5 / psi_r) * H1.diagonal().sum();
+      I(p + jj, p + r - 1) = (0.5 / psi_r) * H1.cwiseProduct(C).sum();
+      S(p + jj) += (0.5 / psi_r) * H1.diagonal().sum();
       for (int ii = 0; ii <= jj; ii++) {
         H2 = H.middleCols(ii * q, q).transpose();
-        I_psi(ii, jj) = (0.5 / (psi_r * psi_r)) * H1.cwiseProduct(H2).sum();
+        I(p + ii, p + jj) = (0.5 / (psi_r * psi_r)) * H1.cwiseProduct(H2).sum();
       }
     }
     if (!expected) {
-      I_psi = -I_psi;
-      // u = Sigma^{-2}e. Some calculations could be saved from before
-      Eigen::VectorXd u = (1.0 / (psi_r * psi_r)) * (e_save + Z * (-2.0 * Ae + (A + Id_q) * Ae));
-      I_psi(rm1, rm1) += e.dot(u);
-      v = Z.transpose() * u;
+      I.bottomRightCorner(q, q) = -I.bottomRightCorner(q, q);
 
-      for (int jj = 0; jj < rm1; jj++) {
-        I_psi(jj, rm1) +=  w.middleRows(jj * q, q).dot(v);
+      // Replace e by Sigma^{-2}e = \Sigma^{-1}\tilde{e} = \check{e}
+      e = (1 / psi_r) * (etilde - Z * (A * v));
+      Eigen::VectorXd u = Z.transpose() * e;
+
+      I.topRightCorner(p, 1) = X.transpose() * e;
+      I(p + r - 1, p + r - 1) += e.dot(e);
+
+      for (int jj = 0; jj < r - 1; jj++) {
+        // Put observed infor beta_psi here
+        I(p + jj, r - 1) += w.middleRows(jj * q, q).dot(u);
         for (int ii = 0; ii <= jj; ii++) {
-          I_psi(ii, jj) -= (1 / psi_r) * (B * w.middleRows(ii * q, q)).dot(w.middleRows(jj * q, q));
+          I(p + ii, p + jj) +=  (B * w.middleRows(ii * q, q)).dot(w.middleRows(jj * q, q));
         }
       }
     }
   }
-  I_psi = I_psi.selfadjointView<Eigen::Upper>();
+  I = I.selfadjointView<Eigen::Upper>();
   return Rcpp::List::create(Rcpp::Named("value") = ll,
-                            Rcpp::Named("score") = s_psi,
-                            Rcpp::Named("inf_mat") = I_psi);
+                            Rcpp::Named("score") = S,
+                            Rcpp::Named("inf_mat") = I);
 }
 
 //' Restricted log-likelihood using RcppEigen
