@@ -55,8 +55,8 @@ Psi_from_H_cpp <- function(psi_mr, H) {
 #'
 #' @useDynLib limestest, .registration=TRUE
 #' @import Matrix
-loglik_psi_cpp <- function(e, Z, Zte, XtZ, ZtZ, Psi_r, psi_r, H, get_val = TRUE, get_score = TRUE, get_inf = TRUE, expected = TRUE) {
-    .Call(`_limestest_loglik_psi_cpp`, e, Z, Zte, XtZ, ZtZ, Psi_r, psi_r, H, get_val, get_score, get_inf, expected)
+loglik <- function(Psi_r, psi_r, H, e, X, Z, XtX, XtZ, ZtZ, get_val = TRUE, get_score = TRUE, get_inf = TRUE, expected = TRUE) {
+    .Call(`_limestest_loglik`, Psi_r, psi_r, H, e, X, Z, XtX, XtZ, ZtZ, get_val, get_score, get_inf, expected)
 }
 
 #' Restricted log-likelihood using RcppEigen

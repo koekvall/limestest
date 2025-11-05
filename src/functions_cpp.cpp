@@ -211,7 +211,7 @@ Rcpp::List loglik(
     }
   } else {
     I(p + r - 1, p + r - 1) = (0.5 / (psi_r * psi_r)) *
-      (n - q + C.cwiseProduct(C.transpose()).sum());
+      (n - q + C.squaredNorm());
 
     // Replace H by Z'\Sigma^{-1}Z H
     H = B * H;
