@@ -238,7 +238,7 @@ Rcpp::List loglik(
       I(p + r - 1, p + r - 1) += e.dot(e);
 
       for (int jj = 0; jj < r - 1; jj++) {
-        // Put observed infor beta_psi here
+        I.block(0, p + jj, p, 1) = (1 / psi_r) * (XtZ *(C * w.middleRows(jj * q, q)));
         I(p + jj, r - 1) += w.middleRows(jj * q, q).dot(u);
         for (int ii = 0; ii <= jj; ii++) {
           I(p + ii, p + jj) +=  (B * w.middleRows(ii * q, q)).dot(w.middleRows(jj * q, q));
