@@ -60,22 +60,21 @@ loglik_R <- limestest:::loglik_psi(Z = Z,
                                   get_val = TRUE,
                                   get_score = TRUE,
                                   get_inf = TRUE,
-                                  expected = TRUE)
+                                  expected = FALSE)
 
-loglik_cpp <- limestest:::loglik_psi_cpp(ZtZ = as(crossprod(Z), "generalMatrix"),
-                                         XtZ = as.matrix(crossprod(X, Z)),
-                                         Zte = as.vector(crossprod(Z, Y)),
-                                         Z = Z,
-                                         e = Y,
-                                         H = H,
-                                         Psi_r = Psi_cpp / psi_hat[r],
-                                         psi_r = psi_hat[r],
-                                         get_val = TRUE,
-                                         get_score = TRUE,
-                                         get_inf = TRUE,
-                                         expected = FALSE)
+loglik_cpp <- loglik_cpp <- limestest:::loglik(Psi_r = Psi_cpp / psi_hat[r],
+                                               psi_r = psi_hat[r],
+                                               H = H,
+                                               e = Y,
+                                               X = X,
+                                               Z = Z,
+                                               XtX = crossprod(X),
+                                               XtZ = as.matrix(crossprod(X, Z)),
+                                               ZtZ = as(crossprod(Z), "generalMatrix"),
+                                               get_inf = TRUE,
+                                               expected = FALSE)
 
-cat("Max difference in R and Cpp Hessian: ", max(abs(loglik_R$inf_mat - loglik_cpp$inf_mat)) , "\n")
+cat("Max difference in R and Cpp Hessian: ", max(abs(loglik_R$inf_mat - loglik_cpp$inf_mat[-c(1:p), -c(1:p)])) , "\n")
 
 # Restricted likelihood
 Y <- Y + X %*% b # Test with nonzero mean to avoid errors otherwise hidden
@@ -95,7 +94,7 @@ resloglik_R <- limestest:::res_ll(XtX = crossprod(X),
                                get_score = TRUE,
                                get_inf = TRUE)
 
-resloglik_cpp <- limestest:::res_ll_cpp(Y = Y,
+resloglik_cpp <- limestest:::res_loglik(Y = Y,
                                      X = X,
                                      Z = Z,
                                      XtY = as.vector(crossprod(X, Y)),
