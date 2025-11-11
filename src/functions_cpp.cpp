@@ -329,16 +329,26 @@ Rcpp::List res_loglik(const Eigen::MappedSparseMatrix<double> Psi_r,
   // Information matrix to return
   Eigen::MatrixXd I_psi =  Eigen::MatrixXd::Zero(r, r);
 
-  // Pre-compute (I_q + Psi_r Z'Z)^{-1} Psi_r
-  // solver for Psi_rZtZ + I_q
+  // Compute A = (I_q + Psi_r Z'Z)^{-1} Psi_r
   Eigen::SparseMatrix<double> Id_q(q, q);
   Id_q.setIdentity();
   Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
   solver.compute(Psi_r * ZtZ + Id_q);
 
-  if (get_val) {
+  bool stop_early = solver.info() != Eigen::Success || psi_r <= 0.0;
+  if (stop_early) {
+    return Rcpp::List::create(
+      Rcpp::Named("value") = -R_PosInf,
+      Rcpp::Named("score") = s_psi,
+      Rcpp::Named("inf_mat") = I_psi,
+      Rcpp::Named("beta") = Eigen::VectorXd::Constant(p, NA_REAL),
+      Rcpp::Named("I_b_inv_chol") = Eigen::MatrixXd::Constant(p, p, NA_REAL));
+  } else if (get_val) {
     ll = solver.logAbsDeterminant();
   }
+
+
+
   Eigen::SparseMatrix<double> A = solver.solve(Psi_r);
   Eigen::MatrixXd B = XtZ * A;
 
