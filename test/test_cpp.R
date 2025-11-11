@@ -42,7 +42,10 @@ loglik_cpp <- limestest:::loglik(Psi_r = Psi_cpp / psi_hat[r],
                                  XtX = crossprod(X),
                                  XtZ = as.matrix(crossprod(X, Z)),
                                  ZtZ = as(crossprod(Z), "generalMatrix"),
-                                 get_inf = TRUE)
+                                 get_inf = TRUE,
+                                 expected = TRUE)
+
+(as.matrix(loglik_R$inf_mat) - loglik_cpp$inf_mat[4:9, 4:9]) / as.matrix(loglik_R$inf_mat)
 
 cat("Difference in R and Cpp loglik: ", abs(loglik_R$value - loglik_cpp$value) , "\n")
 cat("Max difference in R and Cpp score: ", max(abs(loglik_R$score - loglik_cpp$score[-c(1:p)])) , "\n")
@@ -57,7 +60,7 @@ loglik_R <- limestest:::loglik_psi(Z = Z,
                                   get_val = TRUE,
                                   get_score = TRUE,
                                   get_inf = TRUE,
-                                  expected = FALSE)
+                                  expected = TRUE)
 
 loglik_cpp <- limestest:::loglik_psi_cpp(ZtZ = as(crossprod(Z), "generalMatrix"),
                                          XtZ = as.matrix(crossprod(X, Z)),

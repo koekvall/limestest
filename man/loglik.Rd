@@ -31,13 +31,17 @@ derivatives of \eqn{\Psi} (see details) of class \code{dgCMatrix}.}
 
 \item{e}{Vector of length \eqn{n} of errors, or residuals, \eqn{e = Y - X \beta}.}
 
-\item{Z}{Sparse \eqn{n \times q} random effect design matrix of class \code{dgCMatrix}}
+\item{X}{Matrix of size \eqn{n \times p} of predictors, of class \code{matrix}.}
 
-\item{XtZ}{Precomputed matrix \code{crossprod(X, Z)} of class \code{matrix}}
+\item{Z}{Sparse \eqn{n \times q} random effect design matrix of class \code{dgCMatrix}.}
 
-\item{ZtZ}{Precomputed matrix \code{crossprod(Z)} of class \code{dgCMatrix}}
+\item{XtX}{Precomputed matrix \code{crossprod(X)} of class \code{matrix}.}
 
-\item{get_val}{If \code{TRUE}, the value of the loglikelihood is computed}
+\item{XtZ}{Precomputed matrix \code{crossprod(X, Z)} of class \code{matrix}.}
+
+\item{ZtZ}{Precomputed matrix \code{crossprod(Z)} of class \code{dgCMatrix}.}
+
+\item{get_val}{If \code{TRUE}, the value of the loglikelihood is computed.}
 
 \item{get_score}{If \code{TRUE} the score vector is calculated.}
 
@@ -45,8 +49,6 @@ derivatives of \eqn{\Psi} (see details) of class \code{dgCMatrix}.}
 
 \item{expected}{If \code{TRUE}, the expected information is calculated; otherwise
 the observed, or negative Hessian of the loglikelihood.}
-
-\item{Zte}{Precomputed vector \code{crossprod(Z, e)} of class \code{numeric}}
 }
 \value{
 A list with components:
@@ -68,8 +70,9 @@ and that \eqn{\Psi = \sum_{j = 1}^{r - 1}\psi_j H_j}. Thus, \eqn{\psi_1, \dots, 
 are variances and covariances of random effects.
 The argument matrix \code{H} is \eqn{H = [H_1, \dots, H_{r - 1}]}.
 
-The fixed effects  \eqn{\beta} affect the likelihood only through the
+The fixed effects \eqn{\beta} affect the likelihood only through the
 precomputed \eqn{e = Y - X\beta}.
 
-The score and information for \eqn{\beta} are not computed.
+The information matrix includes both \eqn{\beta} and \eqn{\psi} parameters,
+with dimensions \eqn{(p + r) \times (p + r)}.
 }

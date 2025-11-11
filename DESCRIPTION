@@ -1,7 +1,7 @@
 Package: limestest
 Title: Linear Mixed Effects Model Score Test
 Version: 0.1
-Authors@R:  c(
+Authors@R: c(
     person("Karl Oskar", "Ekvall", email = "k.o.ekvall@gmail.com",
     role = c("aut", "cre")),
     person("Yiqiao", "Zhang", email = "yiqiaozhang@ufl.edu", role = "aut"),
@@ -10,7 +10,7 @@ Description: Calculate likelihoods and score-based tests and confidence interval
 License: MIT
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
 Depends: 
     R (>= 2.10)
 LazyData: true

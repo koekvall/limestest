@@ -18,17 +18,18 @@ Psi_from_H_cpp <- function(psi_mr, H) {
 #' Computes the log-likelihood, score vector, and information matrix
 #' for the covariance parameter vector in a linear mixed effects model.
 #'
-#' @param e Vector of length \eqn{n} of errors, or residuals, \eqn{e = Y - X \beta}.
-#' @param Z Sparse \eqn{n \times q} random effect design matrix of class \code{dgCMatrix}
-#' @param Zte Precomputed vector \code{crossprod(Z, e)} of class \code{numeric}
-#' @param XtZ Precomputed matrix \code{crossprod(X, Z)} of class \code{matrix}
-#' @param ZtZ Precomputed matrix \code{crossprod(Z)} of class \code{dgCMatrix}
 #' @param Psi_r The \eqn{q\times q} covariance matrix of random effects (\eqn{\Psi}) divided by error
 #'        variance, \eqn{\Psi_r = \Psi / \psi_r}.
 #' @param psi_r The error variance \eqn{\psi_r > 0}.
 #' @param H Sparse \eqn{q \times (qr - q)} matrix of horizontally concatenated
 #'        derivatives of \eqn{\Psi} (see details) of class \code{dgCMatrix}.
-#' @param get_val If \code{TRUE}, the value of the loglikelihood is computed
+#' @param e Vector of length \eqn{n} of errors, or residuals, \eqn{e = Y - X \beta}.
+#' @param X Matrix of size \eqn{n \times p} of predictors, of class \code{matrix}.
+#' @param Z Sparse \eqn{n \times q} random effect design matrix of class \code{dgCMatrix}.
+#' @param XtX Precomputed matrix \code{crossprod(X)} of class \code{matrix}.
+#' @param XtZ Precomputed matrix \code{crossprod(X, Z)} of class \code{matrix}.
+#' @param ZtZ Precomputed matrix \code{crossprod(Z)} of class \code{dgCMatrix}.
+#' @param get_val If \code{TRUE}, the value of the loglikelihood is computed.
 #' @param get_score If \code{TRUE} the score vector is calculated.
 #' @param get_inf If \code{TRUE}, an information matrix is calculated.
 #' @param expected If \code{TRUE}, the expected information is calculated; otherwise
@@ -48,10 +49,11 @@ Psi_from_H_cpp <- function(psi_mr, H) {
 #' are variances and covariances of random effects.
 #' The argument matrix \code{H} is \eqn{H = [H_1, \dots, H_{r - 1}]}.
 #'
-#' The fixed effects  \eqn{\beta} affect the likelihood only through the
+#' The fixed effects \eqn{\beta} affect the likelihood only through the
 #' precomputed \eqn{e = Y - X\beta}.
 #'
-#' The score and information for \eqn{\beta} are not computed.
+#' The information matrix includes both \eqn{\beta} and \eqn{\psi} parameters,
+#' with dimensions \eqn{(p + r) \times (p + r)}.
 #'
 #' @useDynLib limestest, .registration=TRUE
 #' @import Matrix

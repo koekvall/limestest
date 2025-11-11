@@ -87,17 +87,18 @@ Eigen::SparseMatrix<double> Psi_from_H_cpp(const Eigen::Map<Eigen::VectorXd> psi
 //' Computes the log-likelihood, score vector, and information matrix
 //' for the covariance parameter vector in a linear mixed effects model.
 //'
-//' @param e Vector of length \eqn{n} of errors, or residuals, \eqn{e = Y - X \beta}.
-//' @param Z Sparse \eqn{n \times q} random effect design matrix of class \code{dgCMatrix}
-//' @param Zte Precomputed vector \code{crossprod(Z, e)} of class \code{numeric}
-//' @param XtZ Precomputed matrix \code{crossprod(X, Z)} of class \code{matrix}
-//' @param ZtZ Precomputed matrix \code{crossprod(Z)} of class \code{dgCMatrix}
 //' @param Psi_r The \eqn{q\times q} covariance matrix of random effects (\eqn{\Psi}) divided by error
 //'        variance, \eqn{\Psi_r = \Psi / \psi_r}.
 //' @param psi_r The error variance \eqn{\psi_r > 0}.
 //' @param H Sparse \eqn{q \times (qr - q)} matrix of horizontally concatenated
 //'        derivatives of \eqn{\Psi} (see details) of class \code{dgCMatrix}.
-//' @param get_val If \code{TRUE}, the value of the loglikelihood is computed
+//' @param e Vector of length \eqn{n} of errors, or residuals, \eqn{e = Y - X \beta}.
+//' @param X Matrix of size \eqn{n \times p} of predictors, of class \code{matrix}.
+//' @param Z Sparse \eqn{n \times q} random effect design matrix of class \code{dgCMatrix}.
+//' @param XtX Precomputed matrix \code{crossprod(X)} of class \code{matrix}.
+//' @param XtZ Precomputed matrix \code{crossprod(X, Z)} of class \code{matrix}.
+//' @param ZtZ Precomputed matrix \code{crossprod(Z)} of class \code{dgCMatrix}.
+//' @param get_val If \code{TRUE}, the value of the loglikelihood is computed.
 //' @param get_score If \code{TRUE} the score vector is calculated.
 //' @param get_inf If \code{TRUE}, an information matrix is calculated.
 //' @param expected If \code{TRUE}, the expected information is calculated; otherwise
@@ -117,10 +118,11 @@ Eigen::SparseMatrix<double> Psi_from_H_cpp(const Eigen::Map<Eigen::VectorXd> psi
 //' are variances and covariances of random effects.
 //' The argument matrix \code{H} is \eqn{H = [H_1, \dots, H_{r - 1}]}.
 //'
-//' The fixed effects  \eqn{\beta} affect the likelihood only through the
+//' The fixed effects \eqn{\beta} affect the likelihood only through the
 //' precomputed \eqn{e = Y - X\beta}.
 //'
-//' The score and information for \eqn{\beta} are not computed.
+//' The information matrix includes both \eqn{\beta} and \eqn{\psi} parameters,
+//' with dimensions \eqn{(p + r) \times (p + r)}.
 //'
 //' @useDynLib limestest, .registration=TRUE
 //' @import Matrix
@@ -153,7 +155,7 @@ Rcpp::List loglik(
 
   // Initialize identity matrix
   Eigen::SparseMatrix<double> Id_q(q, q);
-  Id_q = Eigen::MatrixXd::Identity(q, q).sparseView();
+  Id_q.setIdentity();
 
   // Compute matrices B and A in manuscript
   Eigen::SparseMatrix<double> B = Psi_r * ZtZ + Id_q;
@@ -179,7 +181,7 @@ Rcpp::List loglik(
                               Rcpp::Named("inf_mat") = I);
   }
 
-
+  // Compute \tilde{e} = \Sigma^{-1}e
   Eigen::VectorXd etilde = (1.0 / psi_r) * (e - Z * (A * (Z.transpose() * e)));
 
   if (get_val) {
@@ -210,36 +212,37 @@ Rcpp::List loglik(
       S(p + ii) -= 0.5 * H.middleCols(ii * q, q).cwiseProduct(B).sum();
     }
   } else {
-    I(p + r - 1, p + r - 1) = (0.5 / (psi_r * psi_r)) *
-      (n - q + C.squaredNorm());
+    I.topLeftCorner(p, p) = (1 / psi_r) * (XtX - XtZ * (A * XtZ.transpose()));
 
+    Eigen::SparseMatrix<double> H1 = C.transpose(); // This is replaced later. 
+    // Putting instead C.transpose() in next call does not compile
+    I(p + r - 1, p + r - 1) = (0.5 / (psi_r * psi_r)) *
+      (n - q + C.cwiseProduct(H1).sum());
     // Replace H by Z'\Sigma^{-1}Z H
     H = B * H;
-    Eigen::SparseMatrix<double> H1(q, q);
     Eigen::SparseMatrix<double> H2(q, q);
-
     for (int jj = 0; jj < r - 1; jj++) {
       H1 = H.middleCols(jj * q, q);
       I(p + jj, p + r - 1) = (0.5 / psi_r) * H1.cwiseProduct(C).sum();
       S(p + jj) -= 0.5 * H1.diagonal().sum();
       for (int ii = 0; ii <= jj; ii++) {
         H2 = H.middleCols(ii * q, q).transpose();
-        I(p + ii, p + jj) = (0.5 / (psi_r * psi_r)) * H1.cwiseProduct(H2).sum();
+        I(p + ii, p + jj) = 0.5 * H1.cwiseProduct(H2).sum();
       }
     }
     if (!expected) {
-      I.bottomRightCorner(q, q) = -I.bottomRightCorner(q, q);
-
-      // Replace e by Sigma^{-2}e = \Sigma^{-1}\tilde{e} = \check{e}
+      I.bottomRightCorner(r, r) = -I.bottomRightCorner(r, r);
+      // Replace e by \check{e} = Sigma^{-2}e = \Sigma^{-1}\tilde{e}
       e = (1 / psi_r) * (etilde - Z * (A * v));
-      Eigen::VectorXd u = Z.transpose() * e;
+      v = Z.transpose() * e;
 
       I.topRightCorner(p, 1) = X.transpose() * e;
-      I(p + r - 1, p + r - 1) += e.dot(e);
+      
+      I(p + r - 1, p + r - 1) += e.dot(etilde);
 
       for (int jj = 0; jj < r - 1; jj++) {
         I.block(0, p + jj, p, 1) = (1 / psi_r) * (XtZ *(C * w.middleRows(jj * q, q)));
-        I(p + jj, r - 1) += w.middleRows(jj * q, q).dot(u);
+        I(p + jj, p + r - 1) += w.middleRows(jj * q, q).dot(v);
         for (int ii = 0; ii <= jj; ii++) {
           I(p + ii, p + jj) +=  (B * w.middleRows(ii * q, q)).dot(w.middleRows(jj * q, q));
         }
@@ -296,7 +299,9 @@ Rcpp::List loglik(
 //'
 //'
 // [[Rcpp::export]]
-Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
+Rcpp::List res_loglik(const Eigen::MappedSparseMatrix<double> Psi_r,
+                      const double psi_r,
+                      Eigen::VectorXd Y,
                       const Eigen::Map<Eigen::MatrixXd> X,
                       const Eigen::MappedSparseMatrix<double> Z,
                       const Eigen::Map<Eigen::MatrixXd> XtY,
@@ -304,8 +309,6 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
                       const Eigen::Map<Eigen::MatrixXd> XtX,
                       const Eigen::Map<Eigen::MatrixXd> XtZ,
                       const Eigen::MappedSparseMatrix<double> ZtZ,
-                      const Eigen::MappedSparseMatrix<double> Psi_r,
-                      const double psi_r,
                       Eigen::SparseMatrix<double> H,
                       const bool get_val = true,
                       const bool get_score = true,
@@ -323,7 +326,6 @@ Rcpp::List res_ll_cpp(Eigen::VectorXd Y,
   Eigen::VectorXd s_psi = Eigen::VectorXd::Zero(r);
   // Information matrix to return
   Eigen::MatrixXd I_psi =  Eigen::MatrixXd::Zero(r, r);
-
 
   // Pre-compute (I_q + Psi_r Z'Z)^{-1} Psi_r
   // solver for Psi_rZtZ + I_q
