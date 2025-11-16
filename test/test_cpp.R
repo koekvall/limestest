@@ -94,7 +94,7 @@ resloglik_R <- limestest:::res_ll(XtX = crossprod(X),
                                get_score = TRUE,
                                get_inf = TRUE)
 
-resloglik_cpp <- limestest:::res_loglik(Y = Y,
+resloglik_cpp <- limestest:::loglik_res(Y = Y,
                                      X = X,
                                      Z = Z,
                                      XtY = as.vector(crossprod(X, Y)),
@@ -108,6 +108,7 @@ resloglik_cpp <- limestest:::res_loglik(Y = Y,
                                      get_val = TRUE,
                                      get_score = TRUE,
                                      get_inf = TRUE)
+
 cat("Difference in R and Cpp res. loglik: ", abs(resloglik_R$value - resloglik_cpp$value) , "\n")
 cat("Max difference in R and Cpp res. score: ", max(abs(resloglik_R$score - resloglik_cpp$score)) , "\n")
 cat("Max difference in R and Cpp res. information: ", max(abs(resloglik_R$inf_mat - resloglik_cpp$inf_mat)) , "\n")

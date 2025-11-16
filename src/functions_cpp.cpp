@@ -631,7 +631,7 @@ Rcpp::List loglik_res(const Eigen::MappedSparseMatrix<double> Psi_r,
     Eigen::MatrixXd E2 = (1.0 / psi_r) * E1 * C;
 
     // Score for psi_r is done after this
-    s_psi(r - 1) -= (0.5 / psi_r) * (n - q - C.diagonal().sum());
+    s_psi(r - 1) -= (0.5 / psi_r) * (n - q + C.diagonal().sum());
     s_psi(r - 1) += 0.5 * D2.diagonal().sum();
 
     ////////////////////////////////////////////////////////////////////////////
@@ -641,9 +641,10 @@ Rcpp::List loglik_res(const Eigen::MappedSparseMatrix<double> Psi_r,
     I_psi(r - 1, r - 1) = (-1.0 / psi_r) * (D2.diagonal().sum() -
       E2.cwiseProduct(XtZ * A).sum());
     
-    // The term 0.5 tr(\Sigma^{-2})
     // A IS OVERWRITTEN HERE
     A = C.transpose();
+    
+    // The term 0.5 tr(\Sigma^{-2})
     I_psi(r - 1, r - 1) += (0.5 / (psi_r * psi_r)) * 
                             (n - q + C.cwiseProduct(A).sum());
     
@@ -658,16 +659,16 @@ Rcpp::List loglik_res(const Eigen::MappedSparseMatrix<double> Psi_r,
     Eigen::SparseMatrix<double> ZtSiZ = (1.0 / psi_r) * ZtZ * C;
     Eigen::MatrixXd ZtSiXE1 = XtSiZ.transpose() * E1;
 
-    //Terms for I(psi_j, psi_r)
-    //Re-use C to hold ZtSi2Z
+    // C IS OVERWRITTEN HERE to hold ZtSi2Z
     C = (1.0 / psi_r) * ZtSiZ * C;
+    
+     //Terms for I(psi_j, psi_r)
     Eigen::MatrixXd ZtSiXE2 = XtSiZ.transpose() * E2;
     Eigen::MatrixXd ZtSiXD2E1 = XtSiZ.transpose() * D2 * E1;
 
-    // Termsfor I(psi_j, psi_k)
-    // Already have ZtSiZ and ZtSiXE1
+    // Terms for I(psi_j, psi_k) not needed; already have ZtSiZ and ZtSiXE1
    
-    // We can now re-use storage for A, C, E1, D2, E2
+    // We can now re-use storage for A, C, E1, D2, E2 if needed
     for(int jj = 0; jj < r - 1; jj++) {
       // Score for psi_j
       s_psi(jj) -= 0.5 * ZtSiZ.cwiseProduct(H.middleCols(jj * q, q)).sum() - 
@@ -676,10 +677,10 @@ Rcpp::List loglik_res(const Eigen::MappedSparseMatrix<double> Psi_r,
       // Information for I(psi_j, psi_r)
       I_psi(jj, r - 1) = 0.5 * C.cwiseProduct(H.middleCols(jj * q, q)).sum()
        - ZtSiXE2.cwiseProduct(H.middleCols(jj * q, q)).sum()
-       + ZtSiXD2E1.cwiseProduct(H.middleCols(jj * q, q)).sum();
+       + 0.5 * ZtSiXD2E1.cwiseProduct(H.middleCols(jj * q, q)).sum();
       
       // No qxq dense matrices to re-use here, so create new ones
-      Eigen::MatrixXd M1 = (ZtSiZ.transpose() - ZtSiXE1) * H.middleCols(jj * q, q);
+      Eigen::MatrixXd M1 = H.middleCols(jj * q, q) * (ZtSiZ - ZtSiXE1.transpose());
       Eigen::MatrixXd M2(q, q);
       for(int kk = 0; kk <= jj; kk++) {
       //information for I(psi_j, psi_k)
@@ -690,16 +691,17 @@ Rcpp::List loglik_res(const Eigen::MappedSparseMatrix<double> Psi_r,
   } else if (get_score) {
     // Terms for S(psi_j)
     Eigen::SparseMatrix<double> Id_p(p, p);
-    Id_p.setIdentity();
-    
-    //OVERWRITE A HERE WITH C
-    A = Id_q - A * ZtZ;
-    
-    Eigen::MatrixXd XtSiZ = (1.0 / psi_r) * XtZ * A;
+    Id_p.setIdentity(); 
+    Eigen::SparseMatrix<double> C = Id_q - A * ZtZ;
+    Eigen::MatrixXd XtSiZ = (1.0 / psi_r) * XtZ * C;
     Eigen::MatrixXd E1 = llt.solve(XtSiZ); 
 
-    // OVERWRITE A AGAIN HERE TO HOLD ZtSiZ
-    A = (1.0 / psi_r) * ZtZ * A;
+    s_psi(r - 1) -= (0.5 / psi_r) * (n - q + C.diagonal().sum());
+    s_psi(r - 1) += (0.5 / psi_r) * (p - E1.cwiseProduct(XtZ * A).sum());
+  
+    // OVERWRITE A HERE TO HOLD ZtSiZ
+    A = (1.0 / psi_r) * ZtZ * C;
+
     Eigen::MatrixXd ZtSiXE1 = XtSiZ.transpose() * E1;
     for(int jj = 0; jj < r - 1; jj++) {
       // Score for psi_j
