@@ -8,7 +8,7 @@ loglikelihood(
   psi,
   b = NULL,
   Y,
-  X,
+  X = NULL,
   Z,
   Hlist,
   REML = TRUE,
@@ -23,7 +23,7 @@ loglikelihood(
 \arguments{
 \item{psi}{Vector of length \eqn{r} of covariance parameters (see details).}
 
-\item{b}{Vector of length\eqn{p} of fixed effects parameters, or regression coefficients}
+\item{b}{Vector of length\eqn{p} of fixed effects parameters}
 
 \item{Y}{Vector of length \eqn{n} of responses.}
 
@@ -47,7 +47,7 @@ information for \eqn{\theta = [\beta', \psi']'}, otherwise for \eqn{\psi} only.}
 \item{expected}{If \code{TRUE}, the expected information is calculated; otherwise the observed, or negative Hessian of the log-likelihood.}
 
 \item{precomp}{Optional list of pre-computed quantities. Entries must have the
-right names and class (see details).}
+correct names and classes (see details).}
 }
 \value{
 A list with components:
@@ -68,7 +68,7 @@ is the error variance. The first \eqn{r - 1} elements of \eqn{\psi}
 are variances and covariances of random effects.
 
 Specifically, \eqn{\Psi = \sum_{j = 1}^{r - 1}\psi_j H_j} where each \eqn{H_j}
-is a \eqn{q\times q} matrix of zeros and ones. The argument \code{Hlist} is a list of lenght
+is a \eqn{q\times q} matrix of zeros and ones. The argument \code{Hlist} is a list of length
 \eqn{r - 1} whose \eqn{j}th element is \eqn{H_j}. This specification implies
 each element of \eqn{\Psi} is one of \eqn{\psi_1, \dots, \psi_{r - 1}}.
 
@@ -82,11 +82,15 @@ list with following elements:
 \item \code{ZtZ = methods::as(crossprod(Z), "generalMatrix")}
 }
 
-If \code{REML} is \code{FALSE}, the required elements are:
+If \code{REML} is \code{FALSE} and \code{precomp} is supplied, the required elements are:
 \itemize{
-\item \code{e = as.vector(Y - X \%*\% b)}
-\item \code{Zte = as.vector(crossprod(Z, e))}
+\item \code{e = as.vector(Y - X \%*\% b)} (residuals; if \code{p = 0}, use \code{e = Y})
+\item \code{XtX = crossprod(X)}
 \item \code{XtZ = as.matrix(crossprod(X, Z))}
 \item \code{ZtZ = methods::as(crossprod(Z), "generalMatrix")}
 }
+
+If \code{REML} is \code{FALSE} and \code{precomp} is \code{NULL}, the parameter \code{b}
+must be provided when \code{p > 0} to compute residuals \code{e = Y - X \%*\% b}.
+When \code{p = 0}, residuals are computed as \code{e = Y}.
 }

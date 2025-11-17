@@ -1,64 +1,4 @@
-#include <RcppArmadillo.h>
 #include <RcppEigen.h>
-
-// [[Rcpp::depends(RcppArmadillo)]]
-// [[Rcpp::depends(RcppEigen)]]
-
-// Compute projection onto intersection of set with restricted elements
-// and set of symmetric matrices with eigenvalues bounded below.
-//
-// Arguments:
-//
-// X: symmetric matrix to project
-// restr_idx: vector of indexes of X to restrict (in column-major order)
-// restr: vector of values to restrict elements of X to (column major order)
-// eps: scalar (double) lower bound on the eigenvalues of matrices in the set
-//   projected on.
-// tol: scalar (double) tolerance for terminating the algorithm.
-// maxit: positive integer with maximum number of iterations for algorithm.
-arma::mat project_rcpp(arma::mat X, const arma::uvec restr_idx,
-                       const arma::vec restr, const double eps, const double tol, uint maxit)
-{
-  const uint d = X.n_cols;
-  const double Inf = std::numeric_limits<double>::infinity();
-
-  arma::mat Xk(d, d);
-  if(restr_idx.n_elem == 0){
-    arma::vec e(d);
-    X = arma::symmatu(X);
-    arma::eig_sym(e, X, X);
-    Xk = X * arma::diagmat(arma::clamp(e, eps, Inf)) * X.t();
-  } else{
-    arma::mat Xkm1 = X;
-    arma::mat Pkm1(d, d, arma::fill::zeros);
-    arma::mat Qkm1(d, d, arma::fill::zeros);
-    double obj_old = 0.0;
-    for (size_t kk = 0; kk < maxit; kk++) {
-      if(kk >= maxit - 1){
-        Rcpp::warning("Projection algorithm reached max. iter. \n");
-      }
-      arma::mat Ykm1 = Xkm1 + Pkm1;
-      Ykm1.elem(restr_idx - 1) = restr; // C++ index start at zero
-      arma::mat Pk = Xkm1 + Pkm1 - Ykm1;
-      arma::mat U = Ykm1 + Qkm1;
-      arma::vec e(d);
-      U = arma::symmatu(U);
-      arma::eig_sym(e, U, U);
-      Xk = U * arma::diagmat(arma::clamp(e, eps, Inf)) * U.t();
-      arma::mat Qk = Ykm1 + Qkm1 - Xk;
-      double obj_new = 0.5 * arma::accu(arma::square((Xk - X)));
-      if(std::abs(obj_new - obj_old) < tol){
-        break;
-      }
-      // prepare next iteration
-      Xkm1 = Xk;
-      Pkm1 = Pk;
-      Qkm1 = Qk;
-      obj_old = obj_new;
-    }
-  }
-  return Xk;
-}
 
 //' Psi_from_H_cpp
 //'
@@ -128,8 +68,7 @@ Eigen::SparseMatrix<double> Psi_from_H_cpp(const Eigen::Map<Eigen::VectorXd> psi
 //' @import Matrix
 // [[Rcpp::export]]
 
-Rcpp::List loglik(
-                  const Eigen::MappedSparseMatrix<double> Psi_r,
+Rcpp::List loglik(const Eigen::MappedSparseMatrix<double> Psi_r,
                   const double psi_r,
                   Eigen::SparseMatrix<double> H,
                   Eigen::VectorXd e,
@@ -189,7 +128,9 @@ Rcpp::List loglik(
   }
 
   // Get score for beta
-  S.head(p) = X.transpose() * etilde;
+  if(p > 0) {
+    S.head(p) = X.transpose() * etilde;
+  }
 
   // Get score for psi
   Eigen::SparseMatrix<double> C = Id_q - A * ZtZ;
@@ -212,8 +153,9 @@ Rcpp::List loglik(
       S(p + ii) -= 0.5 * H.middleCols(ii * q, q).cwiseProduct(B).sum();
     }
   } else {
-    I.topLeftCorner(p, p) = (1 / psi_r) * (XtX - XtZ * (A * XtZ.transpose()));
-
+    if(p > 0) {
+      I.topLeftCorner(p, p) = (1 / psi_r) * (XtX - XtZ * (A * XtZ.transpose()));
+    }
     Eigen::SparseMatrix<double> H1 = C.transpose(); // This is replaced later.
     // Putting instead C.transpose() in next call does not compile
     I(p + r - 1, p + r - 1) = (0.5 / (psi_r * psi_r)) *
@@ -236,12 +178,16 @@ Rcpp::List loglik(
       e = (1 / psi_r) * (etilde - Z * (A * v));
       v = Z.transpose() * e;
 
-      I.topRightCorner(p, 1) = X.transpose() * e;
+      if(p > 0) {
+        I.topRightCorner(p, 1) = X.transpose() * e;
+      }
 
       I(p + r - 1, p + r - 1) += e.dot(etilde);
 
       for (int jj = 0; jj < r - 1; jj++) {
-        I.block(0, p + jj, p, 1) = (1 / psi_r) * (XtZ *(C * w.middleRows(jj * q, q)));
+        if(p > 0) {
+          I.block(0, p + jj, p, 1) = (1 / psi_r) * (XtZ *(C * w.middleRows(jj * q, q)));
+        }
         I(p + jj, p + r - 1) += w.middleRows(jj * q, q).dot(v);
         for (int ii = 0; ii <= jj; ii++) {
           I(p + ii, p + jj) +=  (B * w.middleRows(ii * q, q)).dot(w.middleRows(jj * q, q));
@@ -400,7 +346,7 @@ Rcpp::List loglik_res(const Eigen::MappedSparseMatrix<double> Psi_r,
     Id_p.setIdentity();
     Eigen::SparseMatrix<double> C = Id_q - A * ZtZ;
     Eigen::MatrixXd XtSiZ = (1.0 / psi_r) * XtZ * C;
-    Eigen::MatrixXd E1 = llt.solve(XtSiZ); 
+    Eigen::MatrixXd E1 = llt.solve(XtSiZ);
     Eigen::MatrixXd D2 = (1.0 / psi_r) * (Id_p - E1 * (A * XtZ.transpose()));
     Eigen::MatrixXd E2 = (1.0 / psi_r) * E1 * C;
 
@@ -414,17 +360,17 @@ Rcpp::List loglik_res(const Eigen::MappedSparseMatrix<double> Psi_r,
     // The term -tr(D_{(3)})
     I_psi(r - 1, r - 1) = (-1.0 / psi_r) * (D2.diagonal().sum() -
       E2.cwiseProduct(XtZ * A).sum());
-    
+
     // A IS OVERWRITTEN HERE
     A = C.transpose();
-    
+
     // The term 0.5 tr(\Sigma^{-2})
-    I_psi(r - 1, r - 1) += (0.5 / (psi_r * psi_r)) * 
+    I_psi(r - 1, r - 1) += (0.5 / (psi_r * psi_r)) *
                             (n - q + C.cwiseProduct(A).sum());
-    
+
     // The term 0.5 tr(D_{(2)}^2)
     I_psi(r - 1, r - 1) += 0.5 * D2.transpose().cwiseProduct(D2).sum();
-    
+
     ////////////////////////////////////////////////////////////////////////////
     // Information and score for  psi_{-r}, precompute before loop
     ////////////////////////////////////////////////////////////////////////////
@@ -435,24 +381,24 @@ Rcpp::List loglik_res(const Eigen::MappedSparseMatrix<double> Psi_r,
 
     // C IS OVERWRITTEN HERE to hold ZtSi2Z
     C = (1.0 / psi_r) * ZtSiZ * C;
-    
+
      //Terms for I(psi_j, psi_r)
     Eigen::MatrixXd ZtSiXE2 = XtSiZ.transpose() * E2;
     Eigen::MatrixXd ZtSiXD2E1 = XtSiZ.transpose() * D2 * E1;
 
     // Terms for I(psi_j, psi_k) not needed; already have ZtSiZ and ZtSiXE1
-   
+
     // We can now re-use storage for A, C, E1, D2, E2 if needed
     for(int jj = 0; jj < r - 1; jj++) {
       // Score for psi_j
-      s_psi(jj) -= 0.5 * ZtSiZ.cwiseProduct(H.middleCols(jj * q, q)).sum() - 
+      s_psi(jj) -= 0.5 * ZtSiZ.cwiseProduct(H.middleCols(jj * q, q)).sum() -
         0.5 * ZtSiXE1.cwiseProduct(H.middleCols(jj * q, q)).sum();
-      
+
       // Information for I(psi_j, psi_r)
       I_psi(jj, r - 1) = 0.5 * C.cwiseProduct(H.middleCols(jj * q, q)).sum()
        - ZtSiXE2.cwiseProduct(H.middleCols(jj * q, q)).sum()
        + 0.5 * ZtSiXD2E1.cwiseProduct(H.middleCols(jj * q, q)).sum();
-      
+
       // No qxq dense matrices to re-use here, so create new ones
       Eigen::MatrixXd M1 = H.middleCols(jj * q, q) * (ZtSiZ - ZtSiXE1.transpose());
       Eigen::MatrixXd M2(q, q);
@@ -465,21 +411,21 @@ Rcpp::List loglik_res(const Eigen::MappedSparseMatrix<double> Psi_r,
   } else if (get_score) {
     // Terms for S(psi_j)
     Eigen::SparseMatrix<double> Id_p(p, p);
-    Id_p.setIdentity(); 
+    Id_p.setIdentity();
     Eigen::SparseMatrix<double> C = Id_q - A * ZtZ;
     Eigen::MatrixXd XtSiZ = (1.0 / psi_r) * XtZ * C;
-    Eigen::MatrixXd E1 = llt.solve(XtSiZ); 
+    Eigen::MatrixXd E1 = llt.solve(XtSiZ);
 
     s_psi(r - 1) -= (0.5 / psi_r) * (n - q + C.diagonal().sum());
     s_psi(r - 1) += (0.5 / psi_r) * (p - E1.cwiseProduct(XtZ * A).sum());
-  
+
     // OVERWRITE A HERE TO HOLD ZtSiZ
     A = (1.0 / psi_r) * ZtZ * C;
 
     Eigen::MatrixXd ZtSiXE1 = XtSiZ.transpose() * E1;
     for(int jj = 0; jj < r - 1; jj++) {
       // Score for psi_j
-      s_psi(jj) -= 0.5 * A.cwiseProduct(H.middleCols(jj * q, q)).sum() - 
+      s_psi(jj) -= 0.5 * A.cwiseProduct(H.middleCols(jj * q, q)).sum() -
         0.5 * ZtSiXE1.cwiseProduct(H.middleCols(jj * q, q)).sum();
     }
   }

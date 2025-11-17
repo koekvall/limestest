@@ -4,7 +4,7 @@
 #' for a linear mixed effects model.
 #'
 #' @param psi Vector of length \eqn{r} of covariance parameters (see details).
-#' @param b Vector of length\eqn{p} of fixed effects parameters, or regression coefficients
+#' @param b Vector of length\eqn{p} of fixed effects parameters
 #' @param Y Vector of length \eqn{n} of responses.
 #' @param X Dense matrix of size \eqn{n\times p} of regressors.
 #' @param Z Sparse design matrix for the random effects of size \eqn{n\times q}.
@@ -17,7 +17,7 @@
 #'  information for \eqn{\theta = [\beta', \psi']'}, otherwise for \eqn{\psi} only.
 #' @param expected If \code{TRUE}, the expected information is calculated; otherwise the observed, or negative Hessian of the log-likelihood.
 #' @param precomp Optional list of pre-computed quantities. Entries must have the
-#' right names and class (see details).
+#' correct names and classes (see details).
 #'
 #'
 #' @return A list with components:
@@ -34,7 +34,7 @@
 #' are variances and covariances of random effects.
 #'
 #' Specifically, \eqn{\Psi = \sum_{j = 1}^{r - 1}\psi_j H_j} where each \eqn{H_j}
-#' is a \eqn{q\times q} matrix of zeros and ones. The argument \code{Hlist} is a list of lenght
+#' is a \eqn{q\times q} matrix of zeros and ones. The argument \code{Hlist} is a list of length
 #' \eqn{r - 1} whose \eqn{j}th element is \eqn{H_j}. This specification implies
 #' each element of \eqn{\Psi} is one of \eqn{\psi_1, \dots, \psi_{r - 1}}.
 #'
@@ -48,47 +48,88 @@
 #'  - \code{ZtZ = methods::as(crossprod(Z), "generalMatrix")}
 #'
 #'
-#' If \code{REML} is \code{FALSE}, the required elements are:
+#' If \code{REML} is \code{FALSE} and \code{precomp} is supplied, the required elements are:
 #'
-#'  - \code{e = as.vector(Y - X %*% b)}
-#'  - \code{Zte = as.vector(crossprod(Z, e))}
+#'  - \code{e = as.vector(Y - X %*% b)} (residuals; if \code{p = 0}, use \code{e = Y})
+#'  - \code{XtX = crossprod(X)}
 #'  - \code{XtZ = as.matrix(crossprod(X, Z))}
 #'  - \code{ZtZ = methods::as(crossprod(Z), "generalMatrix")}
+#'
+#' If \code{REML} is \code{FALSE} and \code{precomp} is \code{NULL}, the parameter \code{b}
+#' must be provided when \code{p > 0} to compute residuals \code{e = Y - X %*% b}.
+#' When \code{p = 0}, residuals are computed as \code{e = Y}.
 #'
 #'
 #' @useDynLib limestest, .registration=TRUE
 #' @import Matrix methods
 #' @export
-loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = TRUE,
+loglikelihood <-function(psi, b = NULL, Y, X = NULL, Z, Hlist, REML = TRUE, get_val = TRUE,
                          get_score = TRUE, get_inf = TRUE, get_beta = FALSE,
                          expected = TRUE, precomp = NULL)
 {
+  assertthat::assert_that(is.numeric(psi), length(psi) > 0,
+                          msg = "psi should be a numeric vector of positive length")
+  r <- length(psi)
+
+  assertthat::assert_that(is.null(b) || is.vector(b, mode = "numeric"),
+                          msg = "b should be NULL or a numeric vector")
+
+  assertthat::assert_that(is.vector(Y, mode = "numeric"), length(Y) > 0,
+                          msg = "Y should be a numeric vector of positive length")
+  n <- length(Y)
+
+  assertthat::assert_that(is.null(X) || is.matrix(X), msg = "X should be a NULL
+                         or a matrix")
+
+  if(is.null(X) || ncol(X) == 0){
+    p <- 0
+    X <- matrix(NA, 0, 0)
+    REML <- FALSE
+
+    if(!is.null(b)){
+      warning("X has zero columns or is NULL; setting b to NULL")
+      b <- NULL
+    }
+  } else {
+    p <- ncol(X)
+  }
+
+  assertthat::assert_that(is(Z, "sparseMatrix"), ncol(Z) >= 1, nrow(Z) == n,
+  msg = "Z has to be an n x q matrix with q > 0")
+  Z <- as(Z, "generalMatrix")
+  q <- ncol(Z)
+
+  assertthat::assert_that(is.list(Hlist),
+                          length(Hlist) == r - 1,
+                          all(sapply(Hlist, methods::is, "sparseMatrix")),
+                          all(sapply(Hlist, dim) == c(q, q)),
+                          msg = "Hlist should be a list of length r - 1 with
+                           q x q sparse matrices")
+  H <- methods::as(do.call(cbind, Hlist), "generalMatrix")
+
+  assertthat::assert_that(is.logical(REML),
+                          is.logical(get_val),
+                          is.logical(get_score),
+                          is.logical(get_inf),
+                          is.logical(get_beta),
+                          is.logical(expected),
+                          msg = "REML, get_val, get_score, get_inf, get_beta,
+                          and expected should all be logical")
+
+  if(p > 0 && is.null(b) && !REML){
+    stop("b cannot be NULL when X has positive number of columns unless using REML")
+  }
+
   if(!expected && REML){
     warning("Observed information not implemented for restricted likelihood;
             using expected")
-  }
-
-  if(!is.null(b) && REML){
-    warning("Coefficient vector supplied but not used by REML")
+    expected <- TRUE
   }
 
   if(get_beta && REML){
     warning("Score or information for beta not available for restricted likelihood")
   }
-  stopifnot(is.numeric(psi) && length(psi) > 0)
-  r <- length(psi)
-  stopifnot((r - 1) == length(Hlist))
-  H <- methods::as(do.call(cbind, Hlist), "generalMatrix")
-  q <- nrow(H)
-  stopifnot(r - 1 == ncol(H) / q, ncol(Z) == q)
-  n <- nrow(Z)
-  stopifnot(length(Y) == n)
 
-
-  if(!is.null(b) && is.null(precomp)){
-    p <- length(b)
-    stopifnot(p == ncol(X), n == nrow(X))
-  }
 
   Psi_r <- (1 / psi[r]) * Psi_from_H_cpp(psi_mr = psi[-r], H = H)
 
@@ -106,9 +147,9 @@ loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = T
       XtZ <- precomp$XtZ
       ZtZ <- precomp$ZtZ
     }
-    ll_things <- res_ll_cpp(Y = as.vector(Y),
-                            X = as.matrix(X),
-                            Z = methods::as(Z, "generalMatrix"),
+    ll_things <- loglik_res(Y = Y,
+                            X = X,
+                            Z = Z,
                             XtY = XtY,
                             ZtY = ZtY,
                             XtX = XtX,
@@ -121,58 +162,39 @@ loglikelihood <-function(psi, b = NULL, Y, X, Z, Hlist, REML = TRUE, get_val = T
                             get_score = get_score,
                             get_inf = get_inf)
   } else{
-    if(is.null(b) && is.null(precomp)){
+    if(p == 0){
       e <- as.vector(Y)
-    } else if(is.null(precomp)){
+    } else {
       e <- as.vector(Y - X %*% b)
     }
+
     if(is.null(precomp)){
         Zte <- as.vector(crossprod(Z, e))
         XtZ <- as.matrix(crossprod(X, Z))
         ZtZ <- methods::as(crossprod(Z), "generalMatrix")
+        XtX <- crossprod(X)
     } else{
         e <- precomp$e
-        Zte <- precomp$Zte
         XtZ <- precomp$XtZ
         ZtZ <- precomp$ZtZ
+        XtX <- precomp$XtX
     }
-    ll_things <- loglik_psi_cpp(e = e,
-                                Z = methods::as(Z, "generalMatrix"),
-                                Zte = Zte,
-                                XtZ = XtZ,
-                                ZtZ = ZtZ,
-                                Psi_r = Psi_r,
-                                psi_r = psi[r],
-                                H = H,
-                                get_val = get_val,
-                                get_score = get_score,
-                                get_inf = get_inf,
-                                expected = expected)
-
-    if(get_beta) {
-      if(get_score) {
-        temp1 <- solve(Psi_r) + ZtZ
-        temp2 <- solve(temp1, t(Z))
-        scr <- (1/psi[r]) * (t(X) - XtZ %*% temp2) %*% e
-        ll_things$score <- c(as.vector(scr), ll_things$score)
-      }
-      if(get_inf) {
-        if (!get_score) {
-          temp1 <- solve(Psi_r) + ZtZ
-          temp2 <- solve(temp1, t(Z))
-        }
-        # note: we only obtain XtX from precomp or calculate XtX earlier if REML=TRUE
-        # REML = FALSE always when including beta
-        if(is.null(precomp)){
-          XtX <- as.matrix(crossprod(X))
-        } else{
-          XtX <- precomp$XtX
-        }
-        info <- (1/psi[r]) * (XtX - XtZ %*% (temp2 %*% X))
-        # old:  info <- (1/psi[r]) * (XtX - XtZ %*% solve(temp1, t(XtZ)))
-        ll_things$inf_mat <- Matrix::bdiag(info,
-                                           ll_things$inf_mat)
-      }
+    ll_things <- loglik(e = e,
+                        X = X,
+                        Z = Z,
+                        XtX = XtX,
+                        XtZ = XtZ,
+                        ZtZ = ZtZ,
+                        Psi_r = Psi_r,
+                        psi_r = psi[r],
+                        H = H,
+                        get_val = get_val,
+                        get_score = get_score,
+                        get_inf = get_inf,
+                        expected = expected)
+    if(!get_beta && p > 0){
+      ll_things$score <- ll_things$score[-(1:p)]
+      ll_things$inf_mat <- ll_things$inf_mat[-(1:p), -(1:p), drop = FALSE]
     }
   }
   list("value" = ll_things$value,
@@ -209,7 +231,7 @@ loglik_psi <- function(Z, ZtZXe, e, H, Psi_r, psi_r, get_val = TRUE,
   # Define dimensions
   n <- length(e)
   q <- ncol(Psi_r)
-  rm1 <- ncol(H) / q # Assumes H = [H_1, ... , H_{r-1}], where H_j is q by q
+  rm1 <- ncol(H) / q
   r <- rm1 + 1
   p <- ncol(ZtZXe) - q - 1
 

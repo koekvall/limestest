@@ -83,7 +83,8 @@ ll_things <- limestest::loglikelihood(psi = psi_hat,
                                       Hlist = Hlist,
                                       REML = FALSE,
                                       expected = FALSE,
-                                      get_inf = TRUE)
+                                      get_inf = TRUE,
+                                      get_beta = FALSE)
 
 cat("The difference in raw and wrapper value is: ", abs(ll_things$value - value_raw), "\n")
 cat("The max difference in raw and wrapper score is: ", max(abs(ll_things$score - analytical_score)), "\n")
