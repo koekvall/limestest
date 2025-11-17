@@ -491,5 +491,5 @@ Rcpp::List loglik_res(const Eigen::MappedSparseMatrix<double> Psi_r,
     Rcpp::Named("score") = s_psi,
     Rcpp::Named("inf_mat") = I_psi,
     Rcpp::Named("beta") = beta_tilde,
-    Rcpp::Named("I_b_inv_chol") = U);
+    Rcpp::Named("I_b_chol") = U);
 }
