@@ -14,46 +14,87 @@ Psi_from_Hlist <- function(psi_mr, Hlist)
 }
 
 
-partial_min_psi <- function(psi_start, opt_idx, b = NULL, Y, X, Z, Hlist,
-                        REML = TRUE, expected = TRUE, precomp = NULL, ...)
+maximize_loglik <- function(start_val, opt_idx, Y, X, Z, Hlist, expected = TRUE,
+REML = TRUE, precomp = NULL, ...)
 {
-  if(!is.null(b) & REML){
-    warning("Coefficient vector supplied but not used by restricted likelihood")
-    b <- NULL
+  r <- length(Hlist) + 1
+  p <- ncol(X)
+  assertthat::assert_that((REML && length(start_val) == r) || 
+  (!REML && length(start_val) == p + r),
+  msg = "start_val should be length p + r for ML and r for REML")
+  if(!is.null(precomp)) {
+    precomp <- list("XtX" = crossprod(X),
+                    "XtZ" = as.matrix(crossprod(X, Z)),
+                    "ZtZ" = methods::as(crossprod(Z), "generalMatrix"))
+    if(REML) {
+      precomp$XtY <- as.vector(crossprod(X, Y))
+      precomp$ZtY <- as.vector(crossprod(Z, Y)
+    }
   }
+  
   #############################################################################
   # Define the objective function to be minimized
   #############################################################################
-  obj_fun <- function(x){
-    psi_arg <- psi_start
-    psi_arg[opt_idx] <- x
-    ll_things <- loglikelihood(psi = psi_arg,
-                               b = b,
-                               Y = Y,
-                               X = X,
-                               Z = Z,
-                               Hlist = Hlist,
-                               REML = REML,
-                               get_val = TRUE,
-                               get_score = TRUE,
-                               get_inf = TRUE,
-                               get_beta = FALSE,
-                               expected = expected,
-                               precomp = precomp)
+  if(!REML){
+    obj_fun <- function(x) {
+    theta <- start_val
+    theta[opt_idx] <- x
+    psi <- theta[(p + 1):(r + p)]
+    H <- do.call(cbind, Hlist)
+    Psi <- Psi_from_H_cpp(psi_mr = psi[-r], H = H)
+    b <- ifelse(p == 0, NULL, theta[1:p])
+    e <- ifelse(p == 0, Y, Y - X %*% b)
+    ll_things <- loglik(Psi_r = Psi / psi[r],
+                        psi_r = psi[r],
+                        H = H,
+                        e = e,
+                        X = X,
+                        Z = Z,
+                        XtX = precomp$XtX,
+                        XtZ = precomp$XtZ,
+                        ZtZ = precomp$ZtZ,
+                        get_val = TRUE,
+                        get_score = TRUE,
+                        get_inf = TRUE)
     list("value" = -ll_things$value, "gradient" = -ll_things$score[opt_idx],
          "hessian" = as.matrix(ll_things$inf_mat[opt_idx, opt_idx]))
   }
+  } else{
+    obj_fun <- function(x) {
+    psi <- start_val
+    psi[opt_idx] <- x
+    H <- do.call(cbind, Hlist)
+    Psi <- Psi_from_H_cpp(psi_mr = psi[-r], H = H)
+    ll_things <- loglik_res(Psi_r = Psi / psi[r],
+                            psi_r = psi[r],
+                            H = H,
+                            Y = Y,
+                            X = X,
+                            Z = Z,
+                            XtX = precomp$XtX,
+                            XtZ = precomp$XtZ,
+                            ZtZ = precomp$ZtZ,
+                            XtY = precomp$XtY,
+                            ZtY = precomp$ZtY,
+                            get_val = TRUE,
+                            get_score = TRUE,
+                            get_inf = TRUE)
+    list("value" = -ll_things$value, "gradient" = -ll_things$score[opt_idx],
+         "hessian" = as.matrix(ll_things$inf_mat[opt_idx, opt_idx]))
+  }
+  }
+
   #############################################################################
   # Do minimization
   #############################################################################
-  browser()
-  fit <- trust::trust(objfun = obj_fun, parinit = psi_start[opt_idx], rinit  = 1,
+  fit <- trust::trust(objfun = obj_fun, parinit = start_val[opt_idx], rinit  = 1,
                       rmax = 100, ...)
   # Return results
-  psi_start[opt_idx] <- fit$argument
-  list("psi_hat" = psi_start, "value" = -fit$value, "conv" = fit$converged,
+  start_val[opt_idx] <- fit$argument
+  list("arg" = start_val, "value" = -fit$value, "conv" = fit$converged,
        "iter" = fit$iterations)
 }
+
 
 score_stat <- function(psi, test_idx, b = NULL, Y, X, Z, Hlist, REML = TRUE,
                        expected = TRUE, efficient = TRUE, signed = FALSE,
