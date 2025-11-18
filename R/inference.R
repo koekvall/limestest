@@ -155,7 +155,7 @@ get_conf_int <- function(theta_null, test_idx, interval, Y, X, Z, Hlist,
     null_values <- unique(sort(c(seq(interval[1], intreval[2], by = tol),
                           theta_null[test_idx])))
     start_idx <- which(null_values == theta_null[test_idx])
-
+    num_null <- length(null_values)
     # Start searching to the left of start_idx, including start_idx
     for(ii in 1:start_idx) {
       # Evaluate test-statistic at null_values[start_idx - ii + 1]
@@ -163,9 +163,9 @@ get_conf_int <- function(theta_null, test_idx, interval, Y, X, Z, Hlist,
       # Store the solution from start_idx to use when searching other dir
     }
 
-    if(start_idx < length(null_values)) {
+    if(start_idx < num_null) {
       # Search to the right of start_idx
-      for(ii in 1:(length(null_values) - 1)) {
+      for(ii in 1:(num_null - 1)) {
         # Evaluate test-statistic at null_values[start_idx + ii]
       }
     }
