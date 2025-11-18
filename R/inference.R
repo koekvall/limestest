@@ -13,7 +13,6 @@ Psi_from_Hlist <- function(psi_mr, Hlist)
   Psi
 }
 
-
 maximize_loglik <- function(start_val, opt_idx, Y, X, Z, Hlist, expected = TRUE,
 REML = TRUE, precomp = NULL, ...)
 {
@@ -22,13 +21,13 @@ REML = TRUE, precomp = NULL, ...)
   assertthat::assert_that((REML && length(start_val) == r) || 
   (!REML && length(start_val) == p + r),
   msg = "start_val should be length p + r for ML and r for REML")
-  if(!is.null(precomp)) {
+  if(is.null(precomp)) {
     precomp <- list("XtX" = crossprod(X),
                     "XtZ" = as.matrix(crossprod(X, Z)),
                     "ZtZ" = methods::as(crossprod(Z), "generalMatrix"))
     if(REML) {
       precomp$XtY <- as.vector(crossprod(X, Y))
-      precomp$ZtY <- as.vector(crossprod(Z, Y)
+      precomp$ZtY <- as.vector(crossprod(Z, Y))
     }
   }
   
@@ -42,8 +41,8 @@ REML = TRUE, precomp = NULL, ...)
     psi <- theta[(p + 1):(r + p)]
     H <- do.call(cbind, Hlist)
     Psi <- Psi_from_H_cpp(psi_mr = psi[-r], H = H)
-    b <- ifelse(p == 0, NULL, theta[1:p])
-    e <- ifelse(p == 0, Y, Y - X %*% b)
+    b <- if(p == 0) NULL else theta[1:p]
+    e <- if(p == 0) Y else Y - X %*% b
     ll_things <- loglik(Psi_r = Psi / psi[r],
                         psi_r = psi[r],
                         H = H,
@@ -55,7 +54,8 @@ REML = TRUE, precomp = NULL, ...)
                         ZtZ = precomp$ZtZ,
                         get_val = TRUE,
                         get_score = TRUE,
-                        get_inf = TRUE)
+                        get_inf = TRUE,
+                        expected = expected)
     list("value" = -ll_things$value, "gradient" = -ll_things$score[opt_idx],
          "hessian" = as.matrix(ll_things$inf_mat[opt_idx, opt_idx]))
   }
