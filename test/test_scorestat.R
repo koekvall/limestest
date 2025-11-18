@@ -43,3 +43,7 @@ pchisq(stat, df = 1, lower = FALSE)
 # RLRT
 stat_LRT <- 2 * (fit_ours$value - fit_null_ours$value)
 pchisq(stat_LRT, df = 1, lower = FALSE)
+
+###############################################################################
+# Get confidence interval for covariance between slope and intercept
+###############################################################################

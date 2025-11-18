@@ -147,3 +147,26 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
   }
   as.vector(test_stat)
 }
+
+
+get_conf_int <- function(theta_null, test_idx, interval, Y, X, Z, Hlist,
+  REML = TRUE, expected = TRUE, efficient = TRUE, precomp = NULL, tol = NULL) {
+    if(is.null(tol)) tol = diff(interval) / 1e2
+    null_values <- unique(sort(c(seq(interval[1], intreval[2], by = tol),
+                          theta_null[test_idx])))
+    start_idx <- which(null_values == theta_null[test_idx])
+
+    # Start searching to the left of start_idx, including start_idx
+    for(ii in 1:start_idx) {
+      # Evaluate test-statistic at null_values[start_idx - ii + 1]
+
+      # Store the solution from start_idx to use when searching other dir
+    }
+
+    if(start_idx < length(null_values)) {
+      # Search to the right of start_idx
+      for(ii in 1:(length(null_values) - 1)) {
+        # Evaluate test-statistic at null_values[start_idx + ii]
+      }
+    }
+}
