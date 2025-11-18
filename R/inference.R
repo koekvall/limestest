@@ -41,8 +41,8 @@ maximize_loglik <- function(start_val, opt_idx, Y, X, Z, Hlist, expected = TRUE,
       psi <- theta[(p + 1):(r + p)]
       H <- do.call(cbind, Hlist)
       Psi <- Psi_from_H_cpp(psi_mr = psi[-r], H = H)
-      b <- if(p == 0) NULL else theta[1:p]
-      e <- if(p == 0) Y else Y - X %*% b
+      b <- if (p == 0) NULL else theta[1:p]
+      e <- if (p == 0) Y else Y - X %*% b
       ll_things <- loglik(Psi_r = Psi / psi[r],
                           psi_r = psi[r],
                           H = H,
@@ -97,7 +97,7 @@ maximize_loglik <- function(start_val, opt_idx, Y, X, Z, Hlist, expected = TRUE,
 }
 
 
-score_stat <- function(psi, test_idx, b = NULL, Y, X, Z, Hlist, REML = TRUE,
+score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
                        expected = TRUE, efficient = TRUE, signed = FALSE,
                        precomp = NULL)
 {
@@ -105,11 +105,13 @@ score_stat <- function(psi, test_idx, b = NULL, Y, X, Z, Hlist, REML = TRUE,
     warning("Observed information not available for restricted likelihood; using
             expected.")
   }
-
   test_idx <- unique(test_idx)
-  r <- length(psi)
+  p <- ncol(X)
+  r <- length(Hlist) + 1
   k <- length(test_idx)
-  stopifnot(all(test_idx %in% seq_len(r)), k <= r)
+
+  psi <- if(REML || p < 1) theta else theta[-seq_len(p)]
+  b <- if(!REML && p >= 1) theta[seq_len(p)] else NULL
 
   ll_things <- loglikelihood(psi = psi,
                              b = b,
@@ -121,7 +123,7 @@ score_stat <- function(psi, test_idx, b = NULL, Y, X, Z, Hlist, REML = TRUE,
                              get_val = FALSE,
                              get_score = TRUE,
                              get_inf = TRUE,
-                             get_beta = FALSE,
+                             get_beta = (!REML && p>=1),
                              expected = expected,
                              precomp = precomp)
 
