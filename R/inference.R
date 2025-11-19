@@ -203,140 +203,140 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
 score_nuisance <- function(theta_null, test_idx, max_radius = 0, num_points = 1e2,
                            Y, X, Z, Hlist, REML = TRUE, expected = TRUE,
                            efficient = TRUE, signed = TRUE, precomp = NULL) {
-    # Argument checking
-    assertthat::assert_that(is.numeric(theta_null), length(theta_null) > 0,
-                            msg = "theta_null should be a numeric vector of positive length")
-    
-    assertthat::assert_that(is.numeric(test_idx), length(test_idx) == 1,
-                            test_idx >= 1, test_idx <= length(theta_null),
-                            msg = "test_idx should be a single integer between 1 and length(theta_null)")
-    
-    assertthat::assert_that(is.numeric(max_radius), length(max_radius) %in% c(1, 2),
-                            all(max_radius >= 0),
-                            msg = "max_radius should be a numeric value or vector of length 1 or 2 with non-negative values")
-    
-    assertthat::assert_that(is.numeric(num_points), length(num_points) == 1,
-                            num_points >= 1,
-                            msg = "num_points should be a positive integer")
-    
-    assertthat::assert_that(is.vector(Y, mode = "numeric"), length(Y) > 0,
-                            msg = "Y should be a numeric vector of positive length")
-    
-    assertthat::assert_that(is.matrix(X), nrow(X) == length(Y),
-                            msg = "X should be a matrix with nrow(X) == length(Y)")
-    
-    assertthat::assert_that(is(Z, "sparseMatrix"), ncol(Z) >= 1, nrow(Z) == length(Y),
-                            msg = "Z should be a sparse matrix with nrow(Z) == length(Y)")
-    
-    assertthat::assert_that(is.list(Hlist), length(Hlist) >= 1,
-                            all(sapply(Hlist, methods::is, "sparseMatrix")),
-                            msg = "Hlist should be a list of sparse matrices")
-    
-    assertthat::assert_that(is.logical(REML), is.logical(expected),
-                            is.logical(efficient), is.logical(signed),
-                            msg = "REML, expected, efficient, and signed should all be logical")
-    
-    assertthat::assert_that(is.null(precomp) || is.list(precomp),
-                            msg = "precomp should be NULL or a list")
-    
-    p <- ncol(X)
-    # If max_radius not supplied, can use information matrix to make default
-    if (length(max_radius) == 2) {
-      lwr <- theta_null[test_idx] - max_radius[1]
-      upr <- theta_null[test_idx] + max_radius[2]
-    } else { # Assume length == 1
-      lwr <- theta_null[test_idx] - max_radius
-      upr <- theta_null[test_idx] + max_radius
-    }
-    if (lwr == upr) {
-      null_values <- theta_null[test_idx]
-      start_idx <- 1
-    } else {
-      null_values <- unique(sort(c(seq(lwr, upr, length.out = num_points),
-        theta_null[test_idx])))
-      start_idx <- which(null_values == theta_null[test_idx])
-    }
-    num_null <- length(null_values) # Can be 1, num_points, or num_points + 1
-    # Start searching to the left of start_idx, including start_idx
-    stat_vals <- rep(0, num_null)
-    theta_tilde <- theta_null
-    d <- length(theta_tilde)
-    b <- if(!REML && p > 0) theta_tilde[1:p] else NULL
-    if (is.null(precomp)) precomp <- get_precomp(Y = Y, X = X, Z = Z, b = b,
-      REML = REML)
+  # Argument checking
+  assertthat::assert_that(is.numeric(theta_null), length(theta_null) > 0,
+                          msg = "theta_null should be a numeric vector of positive length")
 
-    # Evaluate test-statistic at null_values[start_idx - ii + 1]
-    for(ii in 1:start_idx) {
-      # Starting value for optimization is parameter vector with null
-      # fixed and nuisance parameters at solutions at previous iteration
-      # Should be valid for small enough step size.
-      theta_tilde[test_idx] <- null_values[start_idx - ii + 1]
+  assertthat::assert_that(is.numeric(test_idx), length(test_idx) == 1,
+                          test_idx >= 1, test_idx <= length(theta_null),
+                          msg = "test_idx should be a single integer between 1 and length(theta_null)")
+
+  assertthat::assert_that(is.numeric(max_radius), length(max_radius) %in% c(1, 2),
+                          all(max_radius >= 0),
+                          msg = "max_radius should be a numeric value or vector of length 1 or 2 with non-negative values")
+
+  assertthat::assert_that(is.numeric(num_points), length(num_points) == 1,
+                          num_points >= 1,
+                          msg = "num_points should be a positive integer")
+
+  assertthat::assert_that(is.vector(Y, mode = "numeric"), length(Y) > 0,
+                          msg = "Y should be a numeric vector of positive length")
+
+  assertthat::assert_that(is.matrix(X), nrow(X) == length(Y),
+                          msg = "X should be a matrix with nrow(X) == length(Y)")
+
+  assertthat::assert_that(is(Z, "sparseMatrix"), ncol(Z) >= 1, nrow(Z) == length(Y),
+                          msg = "Z should be a sparse matrix with nrow(Z) == length(Y)")
+
+  assertthat::assert_that(is.list(Hlist), length(Hlist) >= 1,
+                          all(sapply(Hlist, methods::is, "sparseMatrix")),
+                          msg = "Hlist should be a list of sparse matrices")
+
+  assertthat::assert_that(is.logical(REML), is.logical(expected),
+                          is.logical(efficient), is.logical(signed),
+                          msg = "REML, expected, efficient, and signed should all be logical")
+
+  assertthat::assert_that(is.null(precomp) || is.list(precomp),
+                          msg = "precomp should be NULL or a list")
+    
+  p <- ncol(X)
+  # If max_radius not supplied, can use information matrix to make default
+  if (length(max_radius) == 2) {
+    lwr <- theta_null[test_idx] - max_radius[1]
+    upr <- theta_null[test_idx] + max_radius[2]
+  } else { # Assume length == 1
+    lwr <- theta_null[test_idx] - max_radius
+    upr <- theta_null[test_idx] + max_radius
+  }
+  if (lwr == upr) {
+    null_values <- theta_null[test_idx]
+    start_idx <- 1
+  } else {
+    null_values <- unique(sort(c(seq(lwr, upr, length.out = num_points),
+      theta_null[test_idx])))
+    start_idx <- which(null_values == theta_null[test_idx])
+  }
+  num_null <- length(null_values) # Can be 1, num_points, or num_points + 1
+  # Start searching to the left of start_idx, including start_idx
+  stat_vals <- rep(0, num_null)
+  theta_tilde <- theta_null
+  d <- length(theta_tilde)
+  b <- if(!REML && p > 0) theta_tilde[1:p] else NULL
+  if (is.null(precomp)) precomp <- get_precomp(Y = Y, X = X, Z = Z, b = b,
+    REML = REML)
+
+  # Evaluate test-statistic at null_values[start_idx - ii + 1]
+  for(ii in 1:start_idx) {
+    # Starting value for optimization is parameter vector with null
+    # fixed and nuisance parameters at solutions at previous iteration
+    # Should be valid for small enough step size.
+    theta_tilde[test_idx] <- null_values[start_idx - ii + 1]
+    theta_tilde <- maximize_loglik(start_val = theta_tilde,
+                                    opt_idx = seq(d)[-test_idx],
+                                    Y = Y,
+                                    X = X,
+                                    Z = Z,
+                                    Hlist = Hlist,
+                                    expected = TRUE,
+                                    REML = REML,
+                                    precomp = precomp)$arg
+    # Update residual and relevant entries of precompute
+    if(!REML && p > 0) {
+      precomp$e <- Y - X %*% theta_tilde[1:p]
+      precomp$Zte <- as.vector(crossprod(Z, precomp$e))
+    }
+    # Store the solution from start_idx to use when searching other direction
+    if (ii == 1) {
+      theta_tilde_start <- theta_tilde
+    } 
+    # Store test_statistic value
+    stat_vals[start_idx - ii + 1] <- score_stat(theta = theta_tilde, 
+                                                test_idx = test_idx, 
+                                                Y = Y,
+                                                X = X,
+                                                Z = Z,
+                                                Hlist = Hlist, 
+                                                REML = REML,
+                                                expected = expected,
+                                                efficient = efficient,
+                                                signed = signed,
+                                                precomp = precomp) 
+  }
+  # Search to the right of start_idx
+  if(start_idx < num_null) {
+    theta_tilde <- theta_tilde_start
+    # Evaluate test-statistic at null_values[ii], ii > start_idx
+    for(ii in (start_idx + 1):num_null) {
+      theta_tilde[test_idx] <- null_values[ii]
       theta_tilde <- maximize_loglik(start_val = theta_tilde,
-                                     opt_idx = seq(d)[-test_idx],
-                                     Y = Y,
-                                     X = X,
-                                     Z = Z,
-                                     Hlist = Hlist,
-                                     expected = TRUE,
-                                     REML = REML,
-                                     precomp = precomp)$arg
-      # Update residual and relevant entries of precompute
-      if(!REML && p > 0) {
-        precomp$e <- Y - X %*% theta_tilde[1:p]
-        precomp$Zte <- as.vector(crossprod(Z, precomp$e))
-      }
-      # Store the solution from start_idx to use when searching other direction
-      if (ii == 1) {
-        theta_tilde_start <- theta_tilde
-      } 
-      # Store test_statistic value
-      stat_vals[start_idx - ii + 1] <- score_stat(theta = theta_tilde, 
-                                                  test_idx = test_idx, 
-                                                  Y = Y,
-                                                  X = X,
-                                                  Z = Z,
-                                                  Hlist = Hlist, 
-                                                  REML = REML,
-                                                  expected = expected,
-                                                  efficient = efficient,
-                                                  signed = signed,
-                                                  precomp = precomp) 
+                                    opt_idx = seq(d)[-test_idx],
+                                    Y = Y,
+                                    X = X,
+                                    Z = Z,
+                                    Hlist = Hlist,
+                                    expected = TRUE,
+                                    REML = REML,
+                                    precomp = precomp)$arg
+    # Update residual and relevant entries of precompute
+    if(!REML && p > 0) {
+      precomp$e <- Y - X %*% theta_tilde[1:p]
+      precomp$Zte <- as.vector(crossprod(Z, precomp$e))
     }
-    # Search to the right of start_idx
-    if(start_idx < num_null) {
-      theta_tilde <- theta_tilde_start
-      # Evaluate test-statistic at null_values[ii], ii > start_idx
-      for(ii in (start_idx + 1):num_null) {
-        theta_tilde[test_idx] <- null_values[ii]
-        theta_tilde <- maximize_loglik(start_val = theta_tilde,
-                                      opt_idx = seq(d)[-test_idx],
-                                      Y = Y,
-                                      X = X,
-                                      Z = Z,
-                                      Hlist = Hlist,
-                                      expected = TRUE,
-                                      REML = REML,
-                                      precomp = precomp)$arg
-      # Update residual and relevant entries of precompute
-      if(!REML && p > 0) {
-        precomp$e <- Y - X %*% theta_tilde[1:p]
-        precomp$Zte <- as.vector(crossprod(Z, precomp$e))
-      }
-      # Store test_statistic value
-      stat_vals[ii] <- score_stat(theta = theta_tilde, 
-                                  test_idx = test_idx, 
-                                  Y = Y,
-                                  X = X,
-                                  Z = Z,
-                                  Hlist = Hlist, 
-                                  REML = REML,
-                                  expected = expected,
-                                  efficient = efficient,
-                                  signed = signed,
-                                  precomp = precomp) 
-      }
+    # Store test_statistic value
+    stat_vals[ii] <- score_stat(theta = theta_tilde, 
+                                test_idx = test_idx, 
+                                Y = Y,
+                                X = X,
+                                Z = Z,
+                                Hlist = Hlist, 
+                                REML = REML,
+                                expected = expected,
+                                efficient = efficient,
+                                signed = signed,
+                                precomp = precomp) 
     }
-    # Return
-    names(stat_vals) <- null_values
-    stat_vals
+  }
+  # Return
+  names(stat_vals) <- null_values
+  stat_vals
 }
