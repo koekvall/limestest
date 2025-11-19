@@ -108,7 +108,6 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
   test_idx <- unique(test_idx)
   p <- ncol(X)
   r <- length(Hlist) + 1
-  k <- length(test_idx)
 
   psi <- if(REML || p < 1) theta else theta[-seq_len(p)]
   b <- if(!REML && p >= 1) theta[seq_len(p)] else NULL
@@ -149,10 +148,13 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
 }
 
 
-score_nuisnace <- function(theta_null, test_idx, max_radius = 0, num_points = 1e2,
-  Y, X, Z, Hlist, REML = TRUE, expected = TRUE, efficient = TRUE,
-  precomp = NULL) {
+score_nuisance <- function(theta_null, test_idx, max_radius = 0, num_points = 1e2,
+                           Y, X, Z, Hlist, REML = TRUE, expected = TRUE, efficient = TRUE, signed = TRUE,
+                           precomp = NULL) {
     # Insert argument checking here
+
+    p <- ncol(X)
+    n <- nrow(X)
     # If max_radius not supplied, can use information matrix to make default
     if (length(max_radius) == 2) {
       lwr <- theta_null[test_idx] - max_radius[1]
@@ -174,8 +176,16 @@ score_nuisnace <- function(theta_null, test_idx, max_radius = 0, num_points = 1e
     stat_vals <- rep(0, num_null)
     theta_tilde <- theta_null
     d <- length(theta_tilde)
+    b <- if(REML && p > 0) theta_tilde[1:p] else NULL
+    if (is.null(precomp)) precomp <- get_precomp(Y = Y, X = X, Z = Z, b = b,
+      REML = REML)
+
+    # Evaluate test-statistic at null_values[start_idx - ii + 1]
     for(ii in 1:start_idx) {
-      # Evaluate test-statistic at null_values[start_idx - ii + 1]
+      # Starting value for optimization is parameter vector with null
+      # fixed and nuisance parameters at solutions at previous iteration
+      # Should be valid for small enough step size.
+      theta_tilde[test_idx] <- null_values[start_idx - ii + 1]
       theta_tilde <- maximize_loglik(start_val = theta_tilde,
                                      opt_idx = seq(d)[-test_idx],
                                      Y = Y,
@@ -183,14 +193,65 @@ score_nuisnace <- function(theta_null, test_idx, max_radius = 0, num_points = 1e
                                      Z = Z,
                                      Hlist = Hlist,
                                      expected = TRUE,
-                                     REML = FALSE)
-      # Store the solution from start_idx to use when searching other dir
+                                     REML = REML,
+                                     precomp = precomp)$arg
+      # Update residual and relevant entries of precompute
+      if(!REML && p > 0) {
+        precomp$e <- Y - X %*% theta_tilde[1:p]
+        precomp$Zte <- as.vector(crossprod(Z, precomp$e))
+      }
+      # Store the solution from start_idx to use when searching other 
+      if (ii == 1) {
+        theta_tilde_start <- theta_tilde
+      } 
+      # Store test_statistic value
+      stat_vals[start_idx - ii + 1] <- score_stat(theta = theta_tilde, 
+                                                  test_idx = test_idx, 
+                                                  Y = Y,
+                                                  X = X,
+                                                  Z = Z,
+                                                  Hlist = Hlist, 
+                                                  REML = REML,
+                                                  expected = expected,
+                                                  efficient = efficient,
+                                                  signed = signed,
+                                                  precomp = precomp) 
     }
-
+    # Search to the right of start_idx
     if(start_idx < num_null) {
-      # Search to the right of start_idx
-      for(ii in 1:(num_null - 1)) {
-        # Evaluate test-statistic at null_values[start_idx + ii]
+      theta_tilde <- theta_tilde_start
+      # Evaluate test-statistic at null_values[ii], ii > start_idx
+      for(ii in (start_idx + 1):num_null) {
+        theta_tilde[test_idx] <- null_values[ii]
+        theta_tilde <- maximize_loglik(start_val = theta_tilde,
+                                      opt_idx = seq(d)[-test_idx],
+                                      Y = Y,
+                                      X = X,
+                                      Z = Z,
+                                      Hlist = Hlist,
+                                      expected = TRUE,
+                                      REML = REML,
+                                      precomp = precomp)$arg
+      # Update residual and relevant entries of precompute
+      if(!REML && p > 0) {
+        precomp$e <- Y - X %*% theta_tilde[1:p]
+        precomp$Zte <- as.vector(crossprod(Z, precomp$e))
+      }
+      # Store test_statistic value
+      stat_vals[ii] <- score_stat(theta = theta_tilde, 
+                                  test_idx = test_idx, 
+                                  Y = Y,
+                                  X = X,
+                                  Z = Z,
+                                  Hlist = Hlist, 
+                                  REML = REML,
+                                  expected = expected,
+                                  efficient = efficient,
+                                  signed = signed,
+                                  precomp = precomp) 
       }
     }
+    # Return
+    names(stat_vals) <- null_values
+    stat_vals
 }
