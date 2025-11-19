@@ -149,17 +149,41 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
 }
 
 
-get_conf_int <- function(theta_null, test_idx, interval, Y, X, Z, Hlist,
-  REML = TRUE, expected = TRUE, efficient = TRUE, precomp = NULL, tol = NULL) {
-    if(is.null(tol)) tol = diff(interval) / 1e2
-    null_values <- unique(sort(c(seq(interval[1], intreval[2], by = tol),
-                          theta_null[test_idx])))
-    start_idx <- which(null_values == theta_null[test_idx])
-    num_null <- length(null_values)
+score_nuisnace <- function(theta_null, test_idx, max_radius = 0, num_points = 1e2,
+  Y, X, Z, Hlist, REML = TRUE, expected = TRUE, efficient = TRUE,
+  precomp = NULL) {
+    # Insert argument checking here
+    # If max_radius not supplied, can use information matrix to make default
+    if (length(max_radius) == 2) {
+      lwr <- theta_null[test_idx] - max_radius[1]
+      upr <- theta_null[test_idx] + max_radius[2]
+    } else { # Assume length == 1
+      lwr <- theta_null[test_idx] - max_radius
+      upr <- theta_null[test_idx] + max_radius
+    }
+    if (lwr == upr) {
+      null_values <- theta_null[test_idx]
+      start_idx <- 1
+    } else {
+    null_values <- unique(sort(c(seq(lwr, upr, length.out = num_points),
+      theta_null[test_idx])))
+      start_idx <- which(null_values == theta_null[test_idx])
+    }
+    num_null <- length(null_values) # Can be 1, num_points, or num_points + 1
     # Start searching to the left of start_idx, including start_idx
+    stat_vals <- rep(0, num_null)
+    theta_tilde <- theta_null
+    d <- length(theta_tilde)
     for(ii in 1:start_idx) {
       # Evaluate test-statistic at null_values[start_idx - ii + 1]
-
+      theta_tilde <- maximize_loglik(start_val = theta_tilde,
+                                     opt_idx = seq(d)[-test_idx],
+                                     Y = Y,
+                                     X = X,
+                                     Z = Z,
+                                     Hlist = Hlist,
+                                     expected = TRUE,
+                                     REML = FALSE)
       # Store the solution from start_idx to use when searching other dir
     }
 

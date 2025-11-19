@@ -26,3 +26,21 @@ get_idx_ltri <- function(row, col, n)
   back_idx <- 0.5 * back_col * (back_col + 1) + col - row
   0.5 * n * (n + 1) - back_idx + 1
 }
+
+get_precomp <- function(Y, X, Z, b = NULL, REML = TRUE) {
+  if (REML) {
+    precomp <- list("XtY" = as.vector(crossprod(X, Y)),
+                    "ZtY" = as.vector(crossprod(Z, Y)),
+                    "XtX" = as.matrix(crossprod(X)),
+                    "XtZ" = as.matrix(crossprod(X, Z)),
+                    "ZtZ" = methods::as(crossprod(Z), "generalMatrix"))
+    } else{
+      e <- if(is.null(b)) Y else Y - X %*% b
+      precomp <- list("e" = e, 
+                      "Zte" = as.vector(crossprod(Z, e)),
+                      "XtZ" = as.matrix(crossprod(X, Z)),
+                      "ZtZ" = methods::as(crossprod(Z), "generalMatrix"),
+                      "XtX" = crossprod(X))
+    }
+    precomp
+}
