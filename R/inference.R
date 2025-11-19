@@ -167,8 +167,8 @@ score_nuisance <- function(theta_null, test_idx, max_radius = 0, num_points = 1e
       null_values <- theta_null[test_idx]
       start_idx <- 1
     } else {
-    null_values <- unique(sort(c(seq(lwr, upr, length.out = num_points),
-      theta_null[test_idx])))
+      null_values <- unique(sort(c(seq(lwr, upr, length.out = num_points),
+        theta_null[test_idx])))
       start_idx <- which(null_values == theta_null[test_idx])
     }
     num_null <- length(null_values) # Can be 1, num_points, or num_points + 1
@@ -176,7 +176,7 @@ score_nuisance <- function(theta_null, test_idx, max_radius = 0, num_points = 1e
     stat_vals <- rep(0, num_null)
     theta_tilde <- theta_null
     d <- length(theta_tilde)
-    b <- if(REML && p > 0) theta_tilde[1:p] else NULL
+    b <- if(!REML && p > 0) theta_tilde[1:p] else NULL
     if (is.null(precomp)) precomp <- get_precomp(Y = Y, X = X, Z = Z, b = b,
       REML = REML)
 
@@ -200,7 +200,7 @@ score_nuisance <- function(theta_null, test_idx, max_radius = 0, num_points = 1e
         precomp$e <- Y - X %*% theta_tilde[1:p]
         precomp$Zte <- as.vector(crossprod(Z, precomp$e))
       }
-      # Store the solution from start_idx to use when searching other 
+      # Store the solution from start_idx to use when searching other direction
       if (ii == 1) {
         theta_tilde_start <- theta_tilde
       } 
