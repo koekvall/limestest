@@ -5,7 +5,7 @@
 \title{Score test statistic with nuisance parameters}
 \usage{
 score_nuisance(
-  theta_null,
+  theta_start,
   test_idx,
   max_radius = 0,
   num_points = 100,
@@ -21,20 +21,20 @@ score_nuisance(
 )
 }
 \arguments{
-\item{theta_null}{Vector of parameter values under the null hypothesis to
-search around. Has to be a valid parameter in the null hypothesis set. If
+\item{theta_start}{Vector of parameter values to
+search around. Has to be a valid parameter. If
 \code{REML = FALSE}, this should be of length \eqn{p + r} with
-\code{theta_null = c(beta, psi)}. If \code{REML = TRUE}, this should be of
-length \eqn{r} with \code{theta_null = psi}.}
+\code{theta_start = c(beta, psi)}. If \code{REML = TRUE}, this should be of
+length \eqn{r} with \code{theta_start = psi}.}
 
-\item{test_idx}{Integer specifying which element of \code{theta_null}
+\item{test_idx}{Integer specifying which element of \code{theta_start}
 to test.}
 
 \item{max_radius}{Numeric value or vector of length 2 specifying the radius
-around \code{theta_null[test_idx]} to search. If length 1, search is
+around \code{theta_start[test_idx]} to search. If length 1, search is
 symmetric. If length 2, \code{max_radius[1]} specifies the lower radius and
 \code{max_radius[2]} the upper radius. If 0 (default), only
-\code{theta_null[test_idx]} is evaluated.}
+\code{theta_start[test_idx]} is evaluated.}
 
 \item{num_points}{Integer specifying the number of points to evaluate in the
 range defined by \code{max_radius}. Default is 100.}
@@ -79,12 +79,12 @@ unconstrained optimization.
 This function is useful for constructing confidence intervals or
 performing hypothesis tests that account for uncertainty in nuisance
 parameters. For each value in the specified range around
-\code{theta_null[test_idx]}, the function: \enumerate{ \item Fixes the test
+\code{theta_start[test_idx]}, the function: \enumerate{ \item Fixes the test
 parameter at that value \item Optimizes the remaining (nuisance) parameters
 \item Computes the score test statistic at the resulting parameter values
 }
 
-The search proceeds in two directions from \code{theta_null[test_idx]}: first
+The search proceeds in two directions from \code{theta_start[test_idx]}: first
 decreasing values, then increasing values. This allows for efficient
 warm-starting of the optimization at each step.
 }

@@ -107,7 +107,6 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
   }
   test_idx <- unique(test_idx)
   p <- ncol(X)
-  r <- length(Hlist) + 1
 
   psi <- if(REML || p < 1) theta else theta[-seq_len(p)]
   b <- if(!REML && p >= 1) theta[seq_len(p)] else NULL
@@ -153,18 +152,18 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
 #' Computes the score test statistic when nuisance parameters handled by
 #' unconstrained optimization.
 #'
-#' @param theta_null Vector of parameter values under the null hypothesis to
-#'   search around. Has to be a valid parameter in the null hypothesis set. If
+#' @param theta_start Vector of parameter values to
+#'   search around. Has to be a valid parameter. If
 #'   \code{REML = FALSE}, this should be of length \eqn{p + r} with
-#'   \code{theta_null = c(beta, psi)}. If \code{REML = TRUE}, this should be of
-#'   length \eqn{r} with \code{theta_null = psi}.
-#' @param test_idx Integer specifying which element of \code{theta_null}
+#'   \code{theta_start = c(beta, psi)}. If \code{REML = TRUE}, this should be of
+#'   length \eqn{r} with \code{theta_start = psi}.
+#' @param test_idx Integer specifying which element of \code{theta_start}
 #'   to test.
 #' @param max_radius Numeric value or vector of length 2 specifying the radius
-#'   around \code{theta_null[test_idx]} to search. If length 1, search is
+#'   around \code{theta_start[test_idx]} to search. If length 1, search is
 #'   symmetric. If length 2, \code{max_radius[1]} specifies the lower radius and
 #'   \code{max_radius[2]} the upper radius. If 0 (default), only
-#'   \code{theta_null[test_idx]} is evaluated.
+#'   \code{theta_start[test_idx]} is evaluated.
 #' @param num_points Integer specifying the number of points to evaluate in the
 #'   range defined by \code{max_radius}. Default is 100.
 #' @param Y Vector of length \eqn{n} of responses.
@@ -193,25 +192,25 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
 #' @details This function is useful for constructing confidence intervals or
 #' performing hypothesis tests that account for uncertainty in nuisance
 #' parameters. For each value in the specified range around
-#' \code{theta_null[test_idx]}, the function: \enumerate{ \item Fixes the test
+#' \code{theta_start[test_idx]}, the function: \enumerate{ \item Fixes the test
 #' parameter at that value \item Optimizes the remaining (nuisance) parameters
 #'   \item Computes the score test statistic at the resulting parameter values
 #' }
 #'
-#' The search proceeds in two directions from \code{theta_null[test_idx]}: first
+#' The search proceeds in two directions from \code{theta_start[test_idx]}: first
 #' decreasing values, then increasing values. This allows for efficient
 #' warm-starting of the optimization at each step.
 #' @export
-score_nuisance <- function(theta_null, test_idx, max_radius = 0, num_points = 1e2,
+score_nuisance <- function(theta_start, test_idx, max_radius = 0, num_points = 1e2,
                            Y, X, Z, Hlist, REML = TRUE, expected = TRUE,
                            efficient = TRUE, signed = TRUE, precomp = NULL) {
   # Argument checking
-  assertthat::assert_that(is.numeric(theta_null), length(theta_null) > 0,
-                          msg = "theta_null should be a numeric vector of positive length")
+  assertthat::assert_that(is.numeric(theta_start), length(theta_start) > 0,
+                          msg = "theta_start should be a numeric vector of positive length")
 
   assertthat::assert_that(is.numeric(test_idx), length(test_idx) == 1,
-                          test_idx >= 1, test_idx <= length(theta_null),
-                          msg = "test_idx should be a single integer between 1 and length(theta_null)")
+                          test_idx >= 1, test_idx <= length(theta_start),
+                          msg = "test_idx should be a single integer between 1 and length(theta_start)")
 
   assertthat::assert_that(is.numeric(max_radius), length(max_radius) %in% c(1, 2),
                           all(max_radius >= 0),
@@ -242,46 +241,46 @@ score_nuisance <- function(theta_null, test_idx, max_radius = 0, num_points = 1e
                           msg = "precomp should be NULL or a list")
 
   p <- ncol(X)
-  # If max_radius not supplied, can use information matrix to make default
+  # If max_radius not supplied, could use information matrix to make default
   if (length(max_radius) == 2) {
-    lwr <- theta_null[test_idx] - max_radius[1]
-    upr <- theta_null[test_idx] + max_radius[2]
+    lwr <- theta_start[test_idx] - max_radius[1]
+    upr <- theta_start[test_idx] + max_radius[2]
   } else { # Assume length == 1
-    lwr <- theta_null[test_idx] - max_radius
-    upr <- theta_null[test_idx] + max_radius
+    lwr <- theta_start[test_idx] - max_radius
+    upr <- theta_start[test_idx] + max_radius
   }
   if (lwr == upr) {
-    null_values <- theta_null[test_idx]
+    null_values <- theta_start[test_idx]
     start_idx <- 1
   } else {
     null_values <- unique(sort(c(seq(lwr, upr, length.out = num_points),
-      theta_null[test_idx])))
-    start_idx <- which(null_values == theta_null[test_idx])
+      theta_start[test_idx])))
+    start_idx <- which(null_values == theta_start[test_idx])
   }
   num_null <- length(null_values) # Can be 1, num_points, or num_points + 1
   # Start searching to the left of start_idx, including start_idx
   stat_vals <- rep(0, num_null)
-  theta_tilde <- theta_null
+  theta_tilde <- theta_start
   d <- length(theta_tilde)
-  b <- if(!REML && p > 0) theta_tilde[1:p] else NULL
+  b <- if (!REML && p > 0) theta_tilde[1:p] else NULL
   if (is.null(precomp)) precomp <- get_precomp(Y = Y, X = X, Z = Z, b = b,
     REML = REML)
 
   # Evaluate test-statistic at null_values[start_idx - ii + 1]
-  for(ii in 1:start_idx) {
+  for (ii in 1:start_idx) {
     # Starting value for optimization is parameter vector with null
     # fixed and nuisance parameters at solutions at previous iteration
     # Should be valid for small enough step size.
     theta_tilde[test_idx] <- null_values[start_idx - ii + 1]
     theta_tilde <- maximize_loglik(start_val = theta_tilde,
-                                    opt_idx = seq(d)[-test_idx],
-                                    Y = Y,
-                                    X = X,
-                                    Z = Z,
-                                    Hlist = Hlist,
-                    expected = expected,
-                                    REML = REML,
-                                    precomp = precomp)$arg
+                                   opt_idx = seq(d)[-test_idx],
+                                   Y = Y,
+                                   X = X,
+                                   Z = Z,
+                                   Hlist = Hlist,
+                                   expected = expected,
+                                   REML = REML,
+                                   precomp = precomp)$arg
     # Update residual and relevant entries of precompute
     if(!REML && p > 0) {
       precomp$e <- Y - X %*% theta_tilde[1:p]
@@ -307,6 +306,9 @@ score_nuisance <- function(theta_null, test_idx, max_radius = 0, num_points = 1e
   # Search to the right of start_idx
   if(start_idx < num_null) {
     theta_tilde <- theta_tilde_start
+    if(!REML && p > 0) {
+      precomp$e <- Y - X %*% theta_tilde[1:p]
+    }
     # Evaluate test-statistic at null_values[ii], ii > start_idx
     for(ii in (start_idx + 1):num_null) {
       theta_tilde[test_idx] <- null_values[ii]
@@ -322,7 +324,6 @@ score_nuisance <- function(theta_null, test_idx, max_radius = 0, num_points = 1e
     # Update residual and relevant entries of precompute
     if(!REML && p > 0) {
       precomp$e <- Y - X %*% theta_tilde[1:p]
-      precomp$Zte <- as.vector(crossprod(Z, precomp$e))
     }
     # Store test_statistic value
     stat_vals[ii] <- score_stat(theta = theta_tilde,

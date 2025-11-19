@@ -36,8 +36,7 @@ get_precomp <- function(Y, X, Z, b = NULL, REML = TRUE) {
                     "ZtZ" = methods::as(crossprod(Z), "generalMatrix"))
     } else{
       e <- if(is.null(b)) Y else Y - X %*% b
-      precomp <- list("e" = e, 
-                      "Zte" = as.vector(crossprod(Z, e)),
+      precomp <- list("e" = e,
                       "XtZ" = as.matrix(crossprod(X, Z)),
                       "ZtZ" = methods::as(crossprod(Z), "generalMatrix"),
                       "XtX" = crossprod(X))
