@@ -4,19 +4,19 @@
 #' either as estimated by lme4::lmer or evaluated at a particular parameter value
 #' supplied as an argument.
 #'
-#' @param lmerfit An lmerMod object from fitting a linear mixed model using lme4::lmer
+#' @param lmerfit An `lmerMod` object from fitting a linear mixed model using `lme4::lmer`.
 #' @param psi_mr Optional vector with covariance parameters, not including the error variance;
-#   psi minus its r:th element (see details).
+#'   i.e., `psi` minus its r:th element (see details).
 #'
 #' @return A usually sparse covariance matrix of random effects of type dsCMatrix
 #'
 #' @details
-#' If psimr is not supplied, the estimated covariance matrix is returned. If psimr is
-#' supplied, the covariance matrix is calculated using those parameter values instead.
-#' psimr should be NULL (default) or a numeric vector of length getME(lmerfit, "m").
-#' In the latter case the elements should be ordered as those in the vcov column of
-#' as.data.frame(VarCorr(lmerfit), order = "lower.tri"). The last
-#' element in that column is is the error variance, which should be omitted.
+#' If `psi_mr` is not supplied, the estimated covariance matrix is returned.
+#' If `psi_mr` is supplied, the covariance matrix is calculated using those parameter values instead.
+#' `psi_mr` should be `NULL` (default) or a numeric vector of length `getME(lmerfit, "m")`.
+#' In the latter case the elements should be ordered as those in the `vcov` column of
+#' `as.data.frame(VarCorr(lmerfit), order = "lower.tri")`. The last
+#' element in that column is the error variance, which should be omitted.
 #'
 #'
 #' @export

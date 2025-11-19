@@ -7,9 +7,10 @@
 get_Psi_lmer(lmerfit, psi_mr = NULL)
 }
 \arguments{
-\item{lmerfit}{An lmerMod object from fitting a linear mixed model using lme4::lmer}
+\item{lmerfit}{An \code{lmerMod} object from fitting a linear mixed model using \code{lme4::lmer}.}
 
-\item{psi_mr}{Optional vector with covariance parameters, not including the error variance;}
+\item{psi_mr}{Optional vector with covariance parameters, not including the error variance;
+i.e., \code{psi} minus its r:th element (see details).}
 }
 \value{
 A usually sparse covariance matrix of random effects of type dsCMatrix
@@ -20,10 +21,10 @@ either as estimated by lme4::lmer or evaluated at a particular parameter value
 supplied as an argument.
 }
 \details{
-If psimr is not supplied, the estimated covariance matrix is returned. If psimr is
-supplied, the covariance matrix is calculated using those parameter values instead.
-psimr should be NULL (default) or a numeric vector of length getME(lmerfit, "m").
-In the latter case the elements should be ordered as those in the vcov column of
-as.data.frame(VarCorr(lmerfit), order = "lower.tri"). The last
-element in that column is is the error variance, which should be omitted.
+If \code{psi_mr} is not supplied, the estimated covariance matrix is returned.
+If \code{psi_mr} is supplied, the covariance matrix is calculated using those parameter values instead.
+\code{psi_mr} should be \code{NULL} (default) or a numeric vector of length \code{getME(lmerfit, "m")}.
+In the latter case the elements should be ordered as those in the \code{vcov} column of
+\code{as.data.frame(VarCorr(lmerfit), order = "lower.tri")}. The last
+element in that column is the error variance, which should be omitted.
 }

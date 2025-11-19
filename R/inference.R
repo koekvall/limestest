@@ -126,21 +126,22 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
                              expected = expected,
                              precomp = precomp)
 
-  inf_mat <- ll_things$inf_mat[test_idx, test_idx, drop = F]
+  inf_mat <- ll_things$inf_mat[test_idx, test_idx, drop = FALSE]
 
-  if(efficient && (r > 1)){
-    inf_mat <- inf_mat - crossprod(ll_things$inf_mat[-test_idx, test_idx, drop = F],
-                                   solve(ll_things$inf_mat[-test_idx, -test_idx, drop = F],
-                                         ll_things$inf_mat[-test_idx, test_idx, drop = F]))
+  # Use efficient information only if there are nuisance parameters
+  if (efficient && (length(ll_things$score) > length(test_idx))) {
+    A_nt <- ll_things$inf_mat[-test_idx, test_idx, drop = FALSE]
+    I_nn <- ll_things$inf_mat[-test_idx, -test_idx, drop = FALSE]
+    inf_mat <- inf_mat - crossprod(A_nt, solve(I_nn, A_nt))
   }
 
-  if(signed){
+  if (signed) {
     ed <- eigen(inf_mat, symmetric = TRUE)
-    inf_mat <- ed$vectors %*% (sqrt(ed$values) * t(ed$vectors))
-
-    # Inefficient since eigen decomposition available, but may be more stable
-    test_stat <- solve(inf_mat, ll_things$score[test_idx])
-  } else{
+    # Numerical floor to avoid taking sqrt of tiny/negative values
+    ev <- pmax(ed$values, .Machine$double.eps)
+    inf_root <- ed$vectors %*% (sqrt(ev) * t(ed$vectors))
+    test_stat <- solve(inf_root, ll_things$score[test_idx])
+  } else {
     test_stat <- crossprod(ll_things$score[test_idx], solve(inf_mat,
                                                              ll_things$score[test_idx]))
   }
@@ -156,16 +157,16 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
 #'   search around. Has to be a valid parameter in the null hypothesis set. If
 #'   \code{REML = FALSE}, this should be of length \eqn{p + r} with
 #'   \code{theta_null = c(beta, psi)}. If \code{REML = TRUE}, this should be of
-#'   length \eqn{r} with \code{theta_null = psi}. 
+#'   length \eqn{r} with \code{theta_null = psi}.
 #' @param test_idx Integer specifying which element of \code{theta_null}
 #'   to test.
 #' @param max_radius Numeric value or vector of length 2 specifying the radius
 #'   around \code{theta_null[test_idx]} to search. If length 1, search is
 #'   symmetric. If length 2, \code{max_radius[1]} specifies the lower radius and
-#'   \code{max_radius[2]} the upper radius. If 0 (default), only theta_null is
-#' considered @param num_points Integer specifying the number of points to
-#' evaluate in the range
-#'   defined by \code{max_radius}. Default is 100.
+#'   \code{max_radius[2]} the upper radius. If 0 (default), only
+#'   \code{theta_null[test_idx]} is evaluated.
+#' @param num_points Integer specifying the number of points to evaluate in the
+#'   range defined by \code{max_radius}. Default is 100.
 #' @param Y Vector of length \eqn{n} of responses.
 #' @param X Matrix of size \eqn{n \times p} of fixed effect predictors.
 #' @param Z Sparse \eqn{n \times q} random effect design matrix.
@@ -200,6 +201,7 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
 #' The search proceeds in two directions from \code{theta_null[test_idx]}: first
 #' decreasing values, then increasing values. This allows for efficient
 #' warm-starting of the optimization at each step.
+#' @export
 score_nuisance <- function(theta_null, test_idx, max_radius = 0, num_points = 1e2,
                            Y, X, Z, Hlist, REML = TRUE, expected = TRUE,
                            efficient = TRUE, signed = TRUE, precomp = NULL) {
@@ -238,7 +240,7 @@ score_nuisance <- function(theta_null, test_idx, max_radius = 0, num_points = 1e
 
   assertthat::assert_that(is.null(precomp) || is.list(precomp),
                           msg = "precomp should be NULL or a list")
-    
+
   p <- ncol(X)
   # If max_radius not supplied, can use information matrix to make default
   if (length(max_radius) == 2) {
@@ -277,7 +279,7 @@ score_nuisance <- function(theta_null, test_idx, max_radius = 0, num_points = 1e
                                     X = X,
                                     Z = Z,
                                     Hlist = Hlist,
-                                    expected = TRUE,
+                    expected = expected,
                                     REML = REML,
                                     precomp = precomp)$arg
     # Update residual and relevant entries of precompute
@@ -288,19 +290,19 @@ score_nuisance <- function(theta_null, test_idx, max_radius = 0, num_points = 1e
     # Store the solution from start_idx to use when searching other direction
     if (ii == 1) {
       theta_tilde_start <- theta_tilde
-    } 
+    }
     # Store test_statistic value
-    stat_vals[start_idx - ii + 1] <- score_stat(theta = theta_tilde, 
-                                                test_idx = test_idx, 
+    stat_vals[start_idx - ii + 1] <- score_stat(theta = theta_tilde,
+                                                test_idx = test_idx,
                                                 Y = Y,
                                                 X = X,
                                                 Z = Z,
-                                                Hlist = Hlist, 
+                                                Hlist = Hlist,
                                                 REML = REML,
                                                 expected = expected,
                                                 efficient = efficient,
                                                 signed = signed,
-                                                precomp = precomp) 
+                                                precomp = precomp)
   }
   # Search to the right of start_idx
   if(start_idx < num_null) {
@@ -314,7 +316,7 @@ score_nuisance <- function(theta_null, test_idx, max_radius = 0, num_points = 1e
                                     X = X,
                                     Z = Z,
                                     Hlist = Hlist,
-                                    expected = TRUE,
+                                    expected = expected,
                                     REML = REML,
                                     precomp = precomp)$arg
     # Update residual and relevant entries of precompute
@@ -323,17 +325,17 @@ score_nuisance <- function(theta_null, test_idx, max_radius = 0, num_points = 1e
       precomp$Zte <- as.vector(crossprod(Z, precomp$e))
     }
     # Store test_statistic value
-    stat_vals[ii] <- score_stat(theta = theta_tilde, 
-                                test_idx = test_idx, 
+    stat_vals[ii] <- score_stat(theta = theta_tilde,
+                                test_idx = test_idx,
                                 Y = Y,
                                 X = X,
                                 Z = Z,
-                                Hlist = Hlist, 
+                                Hlist = Hlist,
                                 REML = REML,
                                 expected = expected,
                                 efficient = efficient,
                                 signed = signed,
-                                precomp = precomp) 
+                                precomp = precomp)
     }
   }
   # Return
