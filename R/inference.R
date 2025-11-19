@@ -149,54 +149,96 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
 
 #' Score test statistic with nuisance parameters
 #'
-#' Computes the score test statistic when nuisance parameters handled by unconstrained optimization.
+#' Computes the score test statistic when nuisance parameters handled by
+#' unconstrained optimization.
 #'
-#' @param theta_null Vector of parameter values under the null hypothesis to search around. Has to be a valid parameter in the null hypothesis set. If \code{REML = FALSE},
-#'   this should be of length \eqn{p + r} with \code{theta_null = c(beta, psi)}. If \code{REML = TRUE},
-#'   this should be of length \eqn{r} with \code{theta_null = psi}. 
+#' @param theta_null Vector of parameter values under the null hypothesis to
+#'   search around. Has to be a valid parameter in the null hypothesis set. If
+#'   \code{REML = FALSE}, this should be of length \eqn{p + r} with
+#'   \code{theta_null = c(beta, psi)}. If \code{REML = TRUE}, this should be of
+#'   length \eqn{r} with \code{theta_null = psi}. 
 #' @param test_idx Integer specifying which element of \code{theta_null}
 #'   to test.
-#' @param max_radius Numeric value or vector of length 2 specifying the radius around
-#'   \code{theta_null[test_idx]} to search. If length 1, search is symmetric. If length 2,
-#'   \code{max_radius[1]} specifies the lower radius and \code{max_radius[2]} the upper radius.
-#'   If 0 (default), only theta_null is considered
-#' @param num_points Integer specifying the number of points to evaluate in the range
+#' @param max_radius Numeric value or vector of length 2 specifying the radius
+#'   around \code{theta_null[test_idx]} to search. If length 1, search is
+#'   symmetric. If length 2, \code{max_radius[1]} specifies the lower radius and
+#'   \code{max_radius[2]} the upper radius. If 0 (default), only theta_null is
+#' considered @param num_points Integer specifying the number of points to
+#' evaluate in the range
 #'   defined by \code{max_radius}. Default is 100.
 #' @param Y Vector of length \eqn{n} of responses.
 #' @param X Matrix of size \eqn{n \times p} of fixed effect predictors.
 #' @param Z Sparse \eqn{n \times q} random effect design matrix.
-#' @param Hlist List of matrices determining how \eqn{\psi} is mapped to \eqn{\Psi}
+#' @param Hlist List of matrices determining how \eqn{\psi} is mapped to
+#' \eqn{\Psi}
 #'   (see \code{?loglikelihood}).
 #' @param REML Logical. If \code{TRUE}, use restricted likelihood; otherwise use
 #'   regular likelihood. Default is \code{TRUE}.
-#' @param expected Logical. If \code{TRUE}, use expected information matrix; otherwise
+#' @param expected Logical. If \code{TRUE}, use expected information matrix;
+#' otherwise
 #'   use observed. Default is \code{TRUE}.
-#' @param efficient Logical. If \code{TRUE}, use the efficient information. Default is \code{TRUE}.
-#' @param signed Logical. If \code{TRUE}, return signed score test statistic; otherwise
+#' @param efficient Logical. If \code{TRUE}, use the efficient information.
+#' Default is \code{TRUE}.
+#' @param signed Logical. If \code{TRUE}, return signed score test statistic;
+#' otherwise
 #'   return squared (chi-squared type) statistic. Default is \code{TRUE}.
-#' @param precomp Optional list of pre-computed quantities (see \code{?loglikelihood}).
+#' @param precomp Optional list of pre-computed quantities (see
+#' \code{?loglikelihood}).
 #'   If \code{NULL}, these will be computed internally.
 #'
 #' @return Named numeric vector of score test statistics. Names correspond to the
 #'   values of the test parameter at which the statistic was evaluated.
 #'
-#' @details This function is useful for constructing confidence intervals or performing
-#' hypothesis tests that account for uncertainty in nuisance parameters. For each value
-#' in the specified range around \code{theta_null[test_idx]}, the function:
-#' \enumerate{
-#'   \item Fixes the test parameter at that value
-#'   \item Optimizes the remaining (nuisance) parameters
+#' @details This function is useful for constructing confidence intervals or
+#' performing hypothesis tests that account for uncertainty in nuisance
+#' parameters. For each value in the specified range around
+#' \code{theta_null[test_idx]}, the function: \enumerate{ \item Fixes the test
+#' parameter at that value \item Optimizes the remaining (nuisance) parameters
 #'   \item Computes the score test statistic at the resulting parameter values
 #' }
 #'
 #' The search proceeds in two directions from \code{theta_null[test_idx]}: first
-#' decreasing values, then increasing values. This allows for efficient warm-starting
-#' of the optimization at each step.
+#' decreasing values, then increasing values. This allows for efficient
+#' warm-starting of the optimization at each step.
 score_nuisance <- function(theta_null, test_idx, max_radius = 0, num_points = 1e2,
-                           Y, X, Z, Hlist, REML = TRUE, expected = TRUE, efficient = TRUE, signed = TRUE,
-                           precomp = NULL) {
-    # Insert argument checking here
-
+                           Y, X, Z, Hlist, REML = TRUE, expected = TRUE,
+                           efficient = TRUE, signed = TRUE, precomp = NULL) {
+    # Argument checking
+    assertthat::assert_that(is.numeric(theta_null), length(theta_null) > 0,
+                            msg = "theta_null should be a numeric vector of positive length")
+    
+    assertthat::assert_that(is.numeric(test_idx), length(test_idx) == 1,
+                            test_idx >= 1, test_idx <= length(theta_null),
+                            msg = "test_idx should be a single integer between 1 and length(theta_null)")
+    
+    assertthat::assert_that(is.numeric(max_radius), length(max_radius) %in% c(1, 2),
+                            all(max_radius >= 0),
+                            msg = "max_radius should be a numeric value or vector of length 1 or 2 with non-negative values")
+    
+    assertthat::assert_that(is.numeric(num_points), length(num_points) == 1,
+                            num_points >= 1,
+                            msg = "num_points should be a positive integer")
+    
+    assertthat::assert_that(is.vector(Y, mode = "numeric"), length(Y) > 0,
+                            msg = "Y should be a numeric vector of positive length")
+    
+    assertthat::assert_that(is.matrix(X), nrow(X) == length(Y),
+                            msg = "X should be a matrix with nrow(X) == length(Y)")
+    
+    assertthat::assert_that(is(Z, "sparseMatrix"), ncol(Z) >= 1, nrow(Z) == length(Y),
+                            msg = "Z should be a sparse matrix with nrow(Z) == length(Y)")
+    
+    assertthat::assert_that(is.list(Hlist), length(Hlist) >= 1,
+                            all(sapply(Hlist, methods::is, "sparseMatrix")),
+                            msg = "Hlist should be a list of sparse matrices")
+    
+    assertthat::assert_that(is.logical(REML), is.logical(expected),
+                            is.logical(efficient), is.logical(signed),
+                            msg = "REML, expected, efficient, and signed should all be logical")
+    
+    assertthat::assert_that(is.null(precomp) || is.list(precomp),
+                            msg = "precomp should be NULL or a list")
+    
     p <- ncol(X)
     # If max_radius not supplied, can use information matrix to make default
     if (length(max_radius) == 2) {
