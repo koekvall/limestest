@@ -63,6 +63,8 @@ Psi_from_Hlist <- function(psi_mr, Hlist)
 #'
 #' @seealso \code{\link{score_stat}}, \code{\link{score_nuisance}},
 #'   \code{\link{loglikelihood}}, \code{\link[trust]{trust}}
+#' 
+#' @export
 maximize_loglik <- function(start_val, opt_idx, Y, X, Z, Hlist, expected = TRUE,
                              REML = TRUE, precomp = NULL, ...) {
   # Argument checking

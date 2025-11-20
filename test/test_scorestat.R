@@ -1,3 +1,4 @@
+# devtools::install_github("koekvall/limestest@develop")
 library(tictoc)
 library(lme4)
 data("Pixel", package="nlme")
@@ -10,7 +11,7 @@ fit_lme4 <- lmer(pixel ~ day + I(day^2) + (day | Dog) + (1 | Side) +
                    (1|Side:Dog), data = Pixel, REML = TRUE)
 psi_hat <- limestest:::get_psi_hat_lmer(fit_lme4)
 psi_start <- psi_hat
-fit_ours <- limestest:::maximize_loglik(start_val = psi_hat,
+fit_ours <- limestest::maximize_loglik(start_val = psi_hat,
                                         opt_idx = seq_along(psi_start),
                                         Y = getME(fit_lme4, "y"),
                                         X = getME(fit_lme4, "X"),
@@ -20,7 +21,7 @@ fit_ours <- limestest:::maximize_loglik(start_val = psi_hat,
                                         REML = TRUE)
 # Get constrained estimates of nuisance parameters
 psi_start[3] <- 0
-fit_null_ours <- limestest:::maximize_loglik(start_val = psi_start,
+fit_null_ours <- limestest::maximize_loglik(start_val = psi_start,
                                         opt_idx = seq_along(psi_start)[-3],
                                         Y = getME(fit_lme4, "y"),
                                         X = getME(fit_lme4, "X"),
@@ -30,7 +31,7 @@ fit_null_ours <- limestest:::maximize_loglik(start_val = psi_start,
                                         REML = TRUE)
 
 # Score test
-stat <- limestest:::score_stat(theta = fit_null_ours$arg,
+stat <- limestest::score_stat(theta = fit_null_ours$arg,
                        test_idx = 3,
                        Y = getME(fit_lme4, "y"),
                        X = getME(fit_lme4, "X"),
@@ -62,7 +63,10 @@ stat_values <- limestest::score_nuisance(theta_start = theta_test,
                                          Z = getME(fit_lme4_ml, "Z"),
                                          Hlist = limestest:::get_Hlist_lmer(fit_lme4_ml),
                                          REML = FALSE, iterlim = 1000, signed = FALSE,
-                                         known_idx = 2:9) # Changing this changes behavior
+                                         # Changing known changes behavior.
+                                         # Try known_idx = NULL (all treated unknown)
+                                         # and known_idx = 2:9 (all treated known)
+                                         known_idx = 2:9)
 plot(x = as.numeric(names(stat_values)), abs(stat_values), xlab = "Parameter",
      ylab = "Absolute value of test statistic")
 abline(h = 1.96^2)
