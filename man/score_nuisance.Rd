@@ -81,10 +81,11 @@ are computed internally.}
 used in \code{\link{maximize_loglik}}.}
 }
 \value{
-Named numeric vector of score test statistics. Names correspond to the
-values of the test parameter at which the statistic was evaluated. Under the
-null hypothesis, the squared statistic asymptotically follows a chi-squared
-distribution with 1 degree of freedom.
+Numeric vector of score test statistics with attribute
+\code{"null_values"} containing the values of the test parameter at which
+each statistic was evaluated. Under the null hypothesis, the squared
+statistic asymptotically follows a chi-squared distribution with 1 degree of
+freedom.
 }
 \description{
 Computes the score test statistic over a range of values for a test parameter,
