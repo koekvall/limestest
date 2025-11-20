@@ -441,10 +441,11 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
 #' @param ... Additional arguments passed to \code{\link[trust]{trust}} optimizer
 #'   used in \code{\link{maximize_loglik}}.
 #'
-#' @return Named numeric vector of score test statistics. Names correspond to the
-#'   values of the test parameter at which the statistic was evaluated. Under the
-#'   null hypothesis, the squared statistic asymptotically follows a chi-squared
-#'   distribution with 1 degree of freedom.
+#' @return Numeric vector of score test statistics with attribute
+#'   \code{"null_values"} containing the values of the test parameter at which
+#'   each statistic was evaluated. Under the null hypothesis, the squared
+#'   statistic asymptotically follows a chi-squared distribution with 1 degree of
+#'   freedom.
 #'
 #' @details
 #' This function performs profile-likelihood-based inference by fixing the test
@@ -649,6 +650,6 @@ score_nuisance <- function(theta_start, test_idx, max_radius = 0, num_points = 1
     }
   }
   # Return
-  names(stat_vals) <- null_values
+  attr(stat_vals, "null_values") <- null_values
   stat_vals
 }

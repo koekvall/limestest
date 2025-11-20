@@ -67,7 +67,7 @@ stat_values <- limestest::score_nuisance(theta_start = theta_test,
                                          # Try known_idx = NULL (all treated unknown)
                                          # and known_idx = 2:9 (all treated known)
                                          known_idx = 2:9)
-plot(x = as.numeric(names(stat_values)), abs(stat_values), xlab = "Parameter",
+plot(x = as.numeric(attr(stat_values, "null_values")), abs(stat_values), xlab = "Parameter",
      ylab = "Absolute value of test statistic")
 abline(h = 1.96^2)
 
