@@ -57,7 +57,7 @@ fit_lme4_ml <- update(fit_lme4, REML = F)
 theta_hat <- c(fixef(fit_lme4_ml), limestest:::get_psi_hat_lmer(fit_lme4_ml))
 theta_test <- theta_hat
 theta_test[1] <- 1073
-stat_values <- limestest::score_nuisance(theta_start = theta_test,
+stat_values <- limestest::score_profile(theta_start = theta_test,
                                          test_idx = 1,
                                          max_radius = 100,
                                          num_points = 100,
@@ -87,7 +87,7 @@ fit_null_ours <- limestest:::maximize_loglik(start_val = theta_test,
                                         REML = FALSE, iterlim = 1000)
 
 # This stat is greater than the value in the plot, indicating issue in
-# score_nuisance
+# score_profile
 stat <- limestest:::score_stat(theta = fit_null_ours$arg,
                                test_idx = 1,
                                Y = getME(fit_lme4_ml, "y"),
@@ -105,7 +105,7 @@ stat <- limestest:::score_stat(theta = fit_null_ours$arg,
 ###############################################################################
 psi_null <- psi_hat
 psi_null[3] <- 0
-stat_values <- limestest::score_nuisance(theta_start = psi_null,
+stat_values <- limestest::score_profile(theta_start = psi_null,
                           test_idx = 3,
                           max_radius = c(45, 10),
                           num_points = 1e2,
@@ -123,7 +123,7 @@ abline(h = 1.96)
 ###############################################################################
 psi_null <- psi_hat
 psi_null[5] <- 0
-stat_values <- limestest::score_nuisance(theta_start = psi_null,
+stat_values <- limestest::score_profile(theta_start = psi_null,
                                          test_idx = 5,
                                          max_radius = c(0, 1000),
                                          num_points = 1e3,

@@ -61,7 +61,7 @@ Psi_from_Hlist <- function(psi_mr, Hlist)
 #' does not converge.
 #'
 #'
-#' @seealso \code{\link{score_stat}}, \code{\link{score_nuisance}},
+#' @seealso \code{\link{score_stat}}, \code{\link{score_profile}},
 #'   \code{\link{loglikelihood}}, \code{\link[trust]{trust}}
 #' 
 #' @export
@@ -260,7 +260,7 @@ maximize_loglik <- function(start_val, opt_idx, Y, X, Z, Hlist, expected = TRUE,
 #' number of the information matrix. Warnings are issued if potential numerical
 #' problems are detected.
 #'
-#' @seealso \code{\link{score_nuisance}}, \code{\link{loglikelihood}}
+#' @seealso \code{\link{score_profile}}, \code{\link{loglikelihood}}
 #'
 #' @export
 score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
@@ -478,10 +478,10 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
 #' are held fixed during optimization but their uncertainty is still accounted for
 #' when computing efficient information.
 #' @export
-score_nuisance <- function(theta_start, test_idx, max_radius = 0, num_points = 1e2,
-                           Y, X, Z, Hlist, REML = TRUE, expected = TRUE,
-                           efficient = TRUE, signed = TRUE, known_idx = NULL,
-                           fix_idx = NULL, precomp = NULL, ...) {
+score_profile <- function(theta_start, test_idx, max_radius = 0, num_points = 1e2,
+                          Y, X, Z, Hlist, REML = TRUE, expected = TRUE,
+                          efficient = TRUE, signed = TRUE, known_idx = NULL,
+                          fix_idx = NULL, precomp = NULL, ...) {
   # Argument checking
   assertthat::assert_that(is.vector(theta_start, mode = "numeric"), length(theta_start) > 0,
                           msg = "theta_start should be a numeric vector of positive length")

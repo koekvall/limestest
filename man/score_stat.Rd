@@ -100,5 +100,5 @@ number of the information matrix. Warnings are issued if potential numerical
 problems are detected.
 }
 \seealso{
-\code{\link{score_nuisance}}, \code{\link{loglikelihood}}
+\code{\link{score_profile}}, \code{\link{loglikelihood}}
 }
