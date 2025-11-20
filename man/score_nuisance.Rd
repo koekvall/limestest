@@ -18,6 +18,7 @@ score_nuisance(
   efficient = TRUE,
   signed = TRUE,
   known_idx = NULL,
+  fix_idx = NULL,
   precomp = NULL,
   ...
 )
@@ -68,10 +69,16 @@ otherwise return the squared (chi-squared type) statistic. Default is
 \code{TRUE}.}
 
 \item{known_idx}{Integer vector or \code{NULL} specifying which elements of
-\code{theta_start} (other than \code{test_idx}) have known values and should
-be held fixed during optimization. These parameters will not be treated as
-nuisance parameters. If \code{NULL} (default), all parameters except
-\code{test_idx} are optimized. Must not overlap with \code{test_idx}.}
+\code{theta_start} (other than \code{test_idx}) to treat as known.  If
+\code{NULL} (default), no parameters are treated as known. Must not overlap
+with \code{test_idx} or
+\code{fix_idx}.}
+
+\item{fix_idx}{Integer vector or \code{NULL} specifying which elements of
+\code{theta_start} (other than \code{test_idx} and \code{known_idx}) to hold
+fixed during optimization, but still treat as unknown (estimated) when
+computing efficient information. If \code{NULL} (default), no
+parameters are fixed. Must not overlap with \code{test_idx} or \code{known_idx}.}
 
 \item{precomp}{List or \code{NULL} containing precomputed quantities to speed
 up computation (see \code{?get_precomp}). If \code{NULL}, all quantities
@@ -98,11 +105,10 @@ parameter at various values and optimizing over nuisance parameters. For each
 value in the specified range around \code{theta_start[test_idx]}, the function:
 \enumerate{
 \item Fixes the test parameter at that value
-\item Fixes any known parameters specified in \code{known_idx}
+\item Fixes any known parameters specified in \code{known_idx} and any
+parameters specified in \code{fix_idx}
 \item Optimizes the remaining (nuisance) parameters using
 \code{\link{maximize_loglik}}, unless all other parameters are fixed
-(i.e., when \code{known_idx} specifies all parameters except
-\code{test_idx})
 \item Computes the score test statistic at the resulting parameter values
 using \code{\link{score_stat}}
 }
@@ -113,6 +119,8 @@ warm-starting of the optimization at each step, using the previous solution
 as the starting point.
 
 When \code{efficient = TRUE}, the score test accounts for uncertainty in the
-nuisance parameters. When \code{known_idx} is specified, those parameters are
-treated as fixed and known, not as nuisance parameters to be profiled over.
+nuisance parameters. Parameters in \code{known_idx} are treated as fixed and
+known (their uncertainty is not accounted for), while parameters in \code{fix_idx}
+are held fixed during optimization but their uncertainty is still accounted for
+when computing efficient information.
 }

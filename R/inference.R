@@ -264,7 +264,8 @@ maximize_loglik <- function(start_val, opt_idx, Y, X, Z, Hlist, expected = TRUE,
 #'
 #' @export
 score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
-                       expected = TRUE, efficient = TRUE, signed = FALSE, known_idx = NULL,
+                       expected = TRUE, efficient = TRUE, signed = FALSE,
+                       known_idx = NULL,
                        precomp = NULL)
 {
   # Argument checking
@@ -431,10 +432,15 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
 #'   otherwise return the squared (chi-squared type) statistic. Default is
 #'   \code{TRUE}.
 #' @param known_idx Integer vector or \code{NULL} specifying which elements of
-#'   \code{theta_start} (other than \code{test_idx}) have known values and should
-#'   be held fixed during optimization. These parameters will not be treated as
-#'   nuisance parameters. If \code{NULL} (default), all parameters except
-#'   \code{test_idx} are optimized. Must not overlap with \code{test_idx}.
+#'   \code{theta_start} (other than \code{test_idx}) to treat as known.  If
+#'   \code{NULL} (default), no parameters are treated as known. Must not overlap
+#'   with \code{test_idx} or
+#'   \code{fix_idx}.
+#' @param fix_idx Integer vector or \code{NULL} specifying which elements of
+#'   \code{theta_start} (other than \code{test_idx} and \code{known_idx}) to hold
+#'   fixed during optimization, but still treat as unknown (estimated) when
+#'   computing efficient information. If \code{NULL} (default), no
+#'   parameters are fixed. Must not overlap with \code{test_idx} or \code{known_idx}.
 #' @param precomp List or \code{NULL} containing precomputed quantities to speed
 #'   up computation (see \code{?get_precomp}). If \code{NULL}, all quantities
 #'   are computed internally.
@@ -453,11 +459,10 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
 #' value in the specified range around \code{theta_start[test_idx]}, the function:
 #' \enumerate{
 #'   \item Fixes the test parameter at that value
-#'   \item Fixes any known parameters specified in \code{known_idx}
+#'   \item Fixes any known parameters specified in \code{known_idx} and any
+#'         parameters specified in \code{fix_idx}
 #'   \item Optimizes the remaining (nuisance) parameters using
 #'         \code{\link{maximize_loglik}}, unless all other parameters are fixed
-#'         (i.e., when \code{known_idx} specifies all parameters except
-#'         \code{test_idx})
 #'   \item Computes the score test statistic at the resulting parameter values
 #'         using \code{\link{score_stat}}
 #' }
@@ -468,13 +473,15 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
 #' as the starting point.
 #'
 #' When \code{efficient = TRUE}, the score test accounts for uncertainty in the
-#' nuisance parameters. When \code{known_idx} is specified, those parameters are
-#' treated as fixed and known, not as nuisance parameters to be profiled over.
+#' nuisance parameters. Parameters in \code{known_idx} are treated as fixed and
+#' known (their uncertainty is not accounted for), while parameters in \code{fix_idx}
+#' are held fixed during optimization but their uncertainty is still accounted for
+#' when computing efficient information.
 #' @export
 score_nuisance <- function(theta_start, test_idx, max_radius = 0, num_points = 1e2,
                            Y, X, Z, Hlist, REML = TRUE, expected = TRUE,
                            efficient = TRUE, signed = TRUE, known_idx = NULL,
-                           precomp = NULL, ...) {
+                           fix_idx = NULL, precomp = NULL, ...) {
   # Argument checking
   assertthat::assert_that(is.vector(theta_start, mode = "numeric"), length(theta_start) > 0,
                           msg = "theta_start should be a numeric vector of positive length")
@@ -513,6 +520,11 @@ score_nuisance <- function(theta_start, test_idx, max_radius = 0, num_points = 1
                            all(known_idx == floor(known_idx)) && all(known_idx > 0)),
                           msg = "known_idx should be NULL or a vector of positive integers")
 
+  assertthat::assert_that(is.null(fix_idx) || 
+                          (is.numeric(fix_idx) && length(fix_idx) >= 0 &&
+                           all(fix_idx == floor(fix_idx)) && all(fix_idx > 0)),
+                          msg = "fix_idx should be NULL or a vector of positive integers")
+
   assertthat::assert_that(is.null(precomp) || is.list(precomp),
                           msg = "precomp should be NULL or a list")
 
@@ -528,8 +540,21 @@ score_nuisance <- function(theta_start, test_idx, max_radius = 0, num_points = 1
     assertthat::assert_that(max(known_idx) <= length(theta_start),
                             msg = "known_idx values must not exceed length(theta_start)")
     
-    assertthat::assert_that(!(test_idx %in% known_idx),
+    assertthat::assert_that(length(intersect(test_idx, known_idx)) == 0,
                             msg = "test_idx and known_idx should not overlap")
+  }
+  
+  if (!is.null(fix_idx)) {
+    assertthat::assert_that(max(fix_idx) <= length(theta_start),
+                            msg = "fix_idx values must not exceed length(theta_start)")
+    
+    assertthat::assert_that(length(intersect(test_idx, fix_idx)) == 0,
+                            msg = "test_idx and fix_idx should not overlap")
+    
+    if (!is.null(known_idx)) {
+      assertthat::assert_that(length(intersect(known_idx, fix_idx)) == 0,
+                              msg = "known_idx and fix_idx should not overlap")
+    }
   }
 
   p <- ncol(X)
@@ -558,8 +583,9 @@ score_nuisance <- function(theta_start, test_idx, max_radius = 0, num_points = 1
   if (is.null(precomp)) precomp <- get_precomp(Y = Y, X = X, Z = Z, b = b,
     REML = REML)
 
-  # Determine which parameters to optimize (exclude test and known parameters)
-  exclude_idx <- if (is.null(known_idx)) test_idx else c(test_idx, known_idx)
+  # Determine which parameters to optimize (exclude test, known, and fixed parameters)
+  exclude_idx <- c(test_idx, known_idx, fix_idx)
+  exclude_idx <- unique(exclude_idx[!is.na(exclude_idx)])
   opt_idx <- seq(d)[-exclude_idx]
   
   # Evaluate test-statistic at null_values[start_idx - ii + 1]

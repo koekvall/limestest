@@ -2,14 +2,17 @@
 library(tictoc)
 library(lme4)
 data("Pixel", package="nlme")
-p <- 3
-r <- 6
+
 ###############################################################################
 # Test covariance between slope and intercept zero
 ###############################################################################
 fit_lme4 <- lmer(pixel ~ day + I(day^2) + (day | Dog) + (1 | Side) +
                    (1|Side:Dog), data = Pixel, REML = TRUE)
+p <- getME(fit_lme4, "p")
 psi_hat <- limestest:::get_psi_hat_lmer(fit_lme4)
+r <- length(psi_hat)
+
+# Do unconstrained optimization for RLRT
 psi_start <- psi_hat
 fit_ours <- limestest::maximize_loglik(start_val = psi_hat,
                                         opt_idx = seq_along(psi_start),
@@ -66,7 +69,7 @@ stat_values <- limestest::score_nuisance(theta_start = theta_test,
                                          # Changing known changes behavior.
                                          # Try known_idx = NULL (all treated unknown)
                                          # and known_idx = 2:9 (all treated known)
-                                         known_idx = 2:9)
+                                         known_idx = NULL)
 plot(x = as.numeric(attr(stat_values, "null_values")), abs(stat_values), xlab = "Parameter",
      ylab = "Absolute value of test statistic")
 abline(h = 1.96^2)
@@ -104,14 +107,14 @@ psi_null <- psi_hat
 psi_null[3] <- 0
 stat_values <- limestest::score_nuisance(theta_start = psi_null,
                           test_idx = 3,
-                          max_radius = 200,
+                          max_radius = c(45, 10),
                           num_points = 1e2,
                           Y = getME(fit_lme4, "y"),
                           X = getME(fit_lme4, "X"),
                           Z = getME(fit_lme4, "Z"),
                           Hlist = limestest:::get_Hlist_lmer(fit_lme4),
-                          iterlim = 1e3)
-plot(x = as.numeric(names(stat_values)), abs(stat_values), xlab = "Parameter",
+                          iterlim = 1e3, signed = FALSE, known_idx = c(1))
+plot(x = attr(stat_values, "null_values"), abs(stat_values), xlab = "Parameter",
      ylab = "Absolute value of test statistic")
 abline(h = 1.96)
 
@@ -129,7 +132,7 @@ stat_values <- limestest::score_nuisance(theta_start = psi_null,
                                          Z = getME(fit_lme4, "Z"),
                                          Hlist = limestest:::get_Hlist_lmer(fit_lme4),
                                          efficient = FALSE)
-plot(x = as.numeric(names(stat_values)), abs(stat_values), xlab = "Parameter",
+plot(x = attr(stat_values, "null_values"), abs(stat_values), xlab = "Parameter",
      ylab = "Absolute value of test statistic")
 abline(h = 1.96)
 
