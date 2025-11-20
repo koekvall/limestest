@@ -61,7 +61,8 @@ stat_values <- limestest::score_nuisance(theta_start = theta_test,
                                          X = getME(fit_lme4_ml, "X"),
                                          Z = getME(fit_lme4_ml, "Z"),
                                          Hlist = limestest:::get_Hlist_lmer(fit_lme4_ml),
-                                         REML = FALSE, iterlim = 1000, signed = FALSE)
+                                         REML = FALSE, iterlim = 1000, signed = FALSE,
+                                         known_idx = 2:9)
 plot(x = as.numeric(names(stat_values)), abs(stat_values), xlab = "Parameter",
      ylab = "Absolute value of test statistic")
 abline(h = 1.96^2)

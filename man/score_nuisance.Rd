@@ -99,7 +99,9 @@ value in the specified range around \code{theta_start[test_idx]}, the function:
 \item Fixes the test parameter at that value
 \item Fixes any known parameters specified in \code{known_idx}
 \item Optimizes the remaining (nuisance) parameters using
-\code{\link{maximize_loglik}}
+\code{\link{maximize_loglik}}, unless all other parameters are fixed
+(i.e., when \code{known_idx} specifies all parameters except
+\code{test_idx})
 \item Computes the score test statistic at the resulting parameter values
 using \code{\link{score_stat}}
 }
