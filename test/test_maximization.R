@@ -9,7 +9,8 @@ r <- 6
 
 # lme4
 tic()
-fit_lme4 <- lmer(pixel ~ day + I(day^2) + (day | Dog) + (1 | Side) + (1|Side:Dog), data = Pixel, REML = FALSE)
+fit_lme4 <- lmer(pixel ~ day + I(day^2) + (day | Dog) + (1 | Side) + 
+    (1|Side:Dog), data = Pixel, REML = FALSE)
 toc()
 psi_hat <- limestest:::get_psi_hat_lmer(fit_lme4)
 b_hat <- fixef(fit_lme4)

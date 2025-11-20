@@ -52,23 +52,23 @@ pchisq(stat_LRT, df = 1, lower = FALSE)
 fit_lme4_ml <- update(fit_lme4, REML = F)
 theta_hat <- c(fixef(fit_lme4_ml), limestest:::get_psi_hat_lmer(fit_lme4_ml))
 theta_test <- theta_hat
-theta_test[1] <- 880
+theta_test[1] <- 1073
 stat_values <- limestest::score_nuisance(theta_start = theta_test,
                                          test_idx = 1,
-                                         max_radius = 20,
-                                         num_points = 3,
-                                         Y = getME(fit_lme4, "y"),
-                                         X = getME(fit_lme4, "X"),
-                                         Z = getME(fit_lme4, "Z"),
-                                         Hlist = limestest:::get_Hlist_lmer(fit_lme4),
-                                         REML = FALSE)
+                                         max_radius = 100,
+                                         num_points = 100,
+                                         Y = getME(fit_lme4_ml, "y"),
+                                         X = getME(fit_lme4_ml, "X"),
+                                         Z = getME(fit_lme4_ml, "Z"),
+                                         Hlist = limestest:::get_Hlist_lmer(fit_lme4_ml),
+                                         REML = FALSE, iterlim = 1000, signed = FALSE)
 plot(x = as.numeric(names(stat_values)), abs(stat_values), xlab = "Parameter",
      ylab = "Absolute value of test statistic")
-abline(h = 1.96)
+abline(h = 1.96^2)
 
 ## TROUBESHOOTING BASED ON ABOVE PLOT
 theta_test <- theta_hat
-theta_test[1] <- 900
+theta_test[1] <- 1050
 fit_null_ours <- limestest:::maximize_loglik(start_val = theta_test,
                                         opt_idx = seq_along(theta_test)[-1],
                                         Y = getME(fit_lme4_ml, "y"),
@@ -76,7 +76,7 @@ fit_null_ours <- limestest:::maximize_loglik(start_val = theta_test,
                                         Z = getME(fit_lme4_ml, "Z"),
                                         Hlist = limestest:::get_Hlist_lmer(fit_lme4_ml),
                                         expected = TRUE,
-                                        REML = FALSE)
+                                        REML = FALSE, iterlim = 1000)
 
 # This stat is greater than the value in the plot, indicating issue in
 # score_nuisance
@@ -88,7 +88,7 @@ stat <- limestest:::score_stat(theta = fit_null_ours$arg,
                                Hlist = limestest:::get_Hlist_lmer(fit_lme4_ml),
                                expected = TRUE,
                                REML = FALSE,
-                               signed = TRUE)
+                               signed = FALSE)
 
 
 
@@ -97,14 +97,15 @@ stat <- limestest:::score_stat(theta = fit_null_ours$arg,
 ###############################################################################
 psi_null <- psi_hat
 psi_null[3] <- 0
-stat_values <- limestest::score_nuisance(theta_null = psi_null,
+stat_values <- limestest::score_nuisance(theta_start = psi_null,
                           test_idx = 3,
                           max_radius = 200,
                           num_points = 1e2,
                           Y = getME(fit_lme4, "y"),
                           X = getME(fit_lme4, "X"),
                           Z = getME(fit_lme4, "Z"),
-                          Hlist = limestest:::get_Hlist_lmer(fit_lme4))
+                          Hlist = limestest:::get_Hlist_lmer(fit_lme4),
+                          iterlim = 1e3)
 plot(x = as.numeric(names(stat_values)), abs(stat_values), xlab = "Parameter",
      ylab = "Absolute value of test statistic")
 abline(h = 1.96)
@@ -114,9 +115,9 @@ abline(h = 1.96)
 ###############################################################################
 psi_null <- psi_hat
 psi_null[5] <- 0
-stat_values <- limestest::score_nuisance(theta_null = psi_null,
+stat_values <- limestest::score_nuisance(theta_start = psi_null,
                                          test_idx = 5,
-                                         max_radius = c(0, 100),
+                                         max_radius = c(0, 1000),
                                          num_points = 1e3,
                                          Y = getME(fit_lme4, "y"),
                                          X = getME(fit_lme4, "X"),

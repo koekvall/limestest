@@ -17,74 +17,99 @@ score_nuisance(
   expected = TRUE,
   efficient = TRUE,
   signed = TRUE,
-  precomp = NULL
+  known_idx = NULL,
+  precomp = NULL,
+  ...
 )
 }
 \arguments{
-\item{theta_start}{Vector of parameter values to
-search around. Has to be a valid parameter. If
-\code{REML = FALSE}, this should be of length \eqn{p + r} with
-\code{theta_start = c(beta, psi)}. If \code{REML = TRUE}, this should be of
-length \eqn{r} with \code{theta_start = psi}.}
+\item{theta_start}{Numeric vector of parameter values at which to center the
+search. Must be a valid parameter vector. If \code{REML = FALSE}, this
+should be of length \eqn{p + r} with \code{theta_start = c(beta, psi)},
+where \eqn{p} is the number of fixed effects and \eqn{r} is the number of
+variance parameters. If \code{REML = TRUE}, this should be of length \eqn{r}
+with \code{theta_start = psi}.}
 
-\item{test_idx}{Integer specifying which element of \code{theta_start}
-to test.}
+\item{test_idx}{Integer specifying which element of \code{theta_start} to
+test. This parameter will be fixed at a range of values (null hypotheses)
+while other parameters are optimized.}
 
 \item{max_radius}{Numeric value or vector of length 2 specifying the radius
-around \code{theta_start[test_idx]} to search. If length 1, search is
+around \code{theta_start[test_idx]} to search. If length 1, the search is
 symmetric. If length 2, \code{max_radius[1]} specifies the lower radius and
-\code{max_radius[2]} the upper radius. If 0 (default), only
+\code{max_radius[2]} specifies the upper radius. If 0 (default), only
 \code{theta_start[test_idx]} is evaluated.}
 
 \item{num_points}{Integer specifying the number of points to evaluate in the
 range defined by \code{max_radius}. Default is 100.}
 
-\item{Y}{Vector of length \eqn{n} of responses.}
+\item{Y}{Numeric vector of length \eqn{n} containing the response values.}
 
-\item{X}{Matrix of size \eqn{n \times p} of fixed effect predictors.}
+\item{X}{Numeric matrix of size \eqn{n \times p} containing fixed effect
+predictors.}
 
-\item{Z}{Sparse \eqn{n \times q} random effect design matrix.}
+\item{Z}{Sparse matrix of size \eqn{n \times q} containing the random effect
+design matrix.}
 
-\item{Hlist}{List of matrices determining how \eqn{\psi} is mapped to
-\eqn{\Psi}
-(see \code{?loglikelihood}).}
+\item{Hlist}{List of sparse matrices determining how \eqn{\psi} is mapped to
+the covariance matrix \eqn{\Psi} (see \code{?loglikelihood}).}
 
-\item{REML}{Logical. If \code{TRUE}, use restricted likelihood; otherwise use
-regular likelihood. Default is \code{TRUE}.}
+\item{REML}{Logical. If \code{TRUE}, use restricted maximum likelihood;
+otherwise use maximum likelihood. Default is \code{TRUE}.}
 
-\item{expected}{Logical. If \code{TRUE}, use expected information matrix;
-otherwise
-use observed. Default is \code{TRUE}.}
+\item{expected}{Logical. If \code{TRUE}, use expected Fisher information
+matrix; otherwise use observed information. Default is \code{TRUE}.}
 
-\item{efficient}{Logical. If \code{TRUE}, use the efficient information.
-Default is \code{TRUE}.}
+\item{efficient}{Logical. If \code{TRUE}, use efficient information that
+accounts for estimation of nuisance parameters. Default is \code{TRUE}.}
 
-\item{signed}{Logical. If \code{TRUE}, return signed score test statistic;
-otherwise
-return squared (chi-squared type) statistic. Default is \code{TRUE}.}
+\item{signed}{Logical. If \code{TRUE}, return the signed root statistic;
+otherwise return the squared (chi-squared type) statistic. Default is
+\code{TRUE}.}
 
-\item{precomp}{Optional list of pre-computed quantities (see
-\code{?loglikelihood}).
-If \code{NULL}, these will be computed internally.}
+\item{known_idx}{Integer vector or \code{NULL} specifying which elements of
+\code{theta_start} (other than \code{test_idx}) have known values and should
+be held fixed during optimization. These parameters will not be treated as
+nuisance parameters. If \code{NULL} (default), all parameters except
+\code{test_idx} are optimized. Must not overlap with \code{test_idx}.}
+
+\item{precomp}{List or \code{NULL} containing precomputed quantities to speed
+up computation (see \code{?get_precomp}). If \code{NULL}, all quantities
+are computed internally.}
+
+\item{...}{Additional arguments passed to \code{\link[trust]{trust}} optimizer
+used in \code{\link{maximize_loglik}}.}
 }
 \value{
 Named numeric vector of score test statistics. Names correspond to the
-values of the test parameter at which the statistic was evaluated.
+values of the test parameter at which the statistic was evaluated. Under the
+null hypothesis, the squared statistic asymptotically follows a chi-squared
+distribution with 1 degree of freedom.
 }
 \description{
-Computes the score test statistic when nuisance parameters handled by
-unconstrained optimization.
+Computes the score test statistic over a range of values for a test parameter,
+while optimizing nuisance parameters at each point. This is useful for
+constructing confidence intervals and profile likelihood-based inference.
 }
 \details{
-This function is useful for constructing confidence intervals or
-performing hypothesis tests that account for uncertainty in nuisance
-parameters. For each value in the specified range around
-\code{theta_start[test_idx]}, the function: \enumerate{ \item Fixes the test
-parameter at that value \item Optimizes the remaining (nuisance) parameters
+This function performs profile-likelihood-based inference by fixing the test
+parameter at various values and optimizing over nuisance parameters. For each
+value in the specified range around \code{theta_start[test_idx]}, the function:
+\enumerate{
+\item Fixes the test parameter at that value
+\item Fixes any known parameters specified in \code{known_idx}
+\item Optimizes the remaining (nuisance) parameters using
+\code{\link{maximize_loglik}}
 \item Computes the score test statistic at the resulting parameter values
+using \code{\link{score_stat}}
 }
 
 The search proceeds in two directions from \code{theta_start[test_idx]}: first
 decreasing values, then increasing values. This allows for efficient
-warm-starting of the optimization at each step.
+warm-starting of the optimization at each step, using the previous solution
+as the starting point.
+
+When \code{efficient = TRUE}, the score test accounts for uncertainty in the
+nuisance parameters. When \code{known_idx} is specified, those parameters are
+treated as fixed and known, not as nuisance parameters to be profiled over.
 }

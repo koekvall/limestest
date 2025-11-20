@@ -162,19 +162,14 @@ loglikelihood <-function(psi, b = NULL, Y, X = NULL, Z, Hlist, REML = TRUE, get_
                             get_score = get_score,
                             get_inf = get_inf)
   } else{
-    if(p == 0){
-      e <- as.vector(Y)
-    } else {
-      e <- as.vector(Y - X %*% b)
-    }
-
+    # Always compute e from b to ensure consistency with theta
+    e <- if(p == 0) Y else Y - X %*% b
+    
     if(is.null(precomp)){
-        Zte <- as.vector(crossprod(Z, e))
         XtZ <- as.matrix(crossprod(X, Z))
         ZtZ <- methods::as(crossprod(Z), "generalMatrix")
         XtX <- crossprod(X)
     } else{
-        e <- precomp$e
         XtZ <- precomp$XtZ
         ZtZ <- precomp$ZtZ
         XtX <- precomp$XtX

@@ -3,6 +3,7 @@
 export(get_Psi_lmer)
 export(loglikelihood)
 export(score_nuisance)
+export(score_stat)
 import(Matrix)
 import(methods)
 useDynLib(limestest, .registration=TRUE)
