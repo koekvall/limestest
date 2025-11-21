@@ -52,6 +52,12 @@ pchisq(stat_LRT, df = 1, lower = FALSE)
 
 ###############################################################################
 # Check confidence interval fixed intercept (sanity check)
+#
+# Notes: The behavior appears irregular when profiling. Examine the plots
+# in this section when known_idx = NULL vesus known_idx = 4:9 or known_idx =
+# 2:9. In the latter cases, (profile) likelihood is quadratic. Profiling
+# over random effect parameters changes things. When profiling over all
+# parameters, no null hypotheses are rejected, so CI is (-infty, infty).
 ###############################################################################
 fit_lme4_ml <- update(fit_lme4, REML = F)
 theta_hat <- c(fixef(fit_lme4_ml), limestest:::get_psi_hat_lmer(fit_lme4_ml))
@@ -69,21 +75,22 @@ stat_values <- limestest::score_profile(theta_start = theta_test,
                                          # Changing known changes behavior.
                                          # Try known_idx = NULL (all treated unknown)
                                          # and known_idx = 2:9 (all treated known)
-                                         fix_idx = 5:9,
+                                         # known_idx = 4:9 fixes covariance params
+                                         known_idx = NULL,
                                          return_all = TRUE)
 
 par(mfrow = c(1, 3))
 plot(x = sapply(stat_values, `[[`, "param"),
-     y = sapply(stat_values, `[[`, "stat"), xlab = "Parameter",
+     y = sapply(stat_values, `[[`, "stat"), xlab = "Null value",
      ylab = "Signed test statistic")
 abline(v = theta_hat[1])
 
 plot(x = sapply(stat_values, `[[`, "param"),
-     y = sapply(stat_values, `[[`, "score"), xlab = "Parameter",
+     y = sapply(stat_values, `[[`, "score"), xlab = "Null value",
      ylab = "Score")
 abline(h = 0)
 plot(x = sapply(stat_values, `[[`, "param"),
-     y = sqrt(sapply(stat_values, `[[`, "info")), xlab = "Parameter",
+     y = sqrt(sapply(stat_values, `[[`, "info")), xlab = "Null value",
      ylab = "Square root information")
 abline(v = theta_hat[1])
 
