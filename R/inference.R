@@ -233,12 +233,14 @@ maximize_loglik <- function(start_val, opt_idx, Y, X, Z, Hlist, expected = TRUE,
 #'   up computation (see \code{?get_precomp}). If \code{NULL}, all quantities
 #'   are computed from scratch.
 #'
-#' @return Numeric value or vector containing the score test statistic. If
-#'   \code{signed = FALSE}, returns a scalar (the quadratic form). If
-#'   \code{signed = TRUE}, returns a vector (the signed root statistic).
-#'   Under the null hypothesis, the squared statistic asymptotically follows
-#'   a chi-squared distribution with degrees of freedom equal to
-#'   \code{length(test_idx)}.
+#' @return Numeric value or vector containing the score test statistic with
+#'   attributes \code{"score"} and \code{"info"}. If \code{signed = FALSE},
+#'   returns a scalar (the quadratic form). If \code{signed = TRUE}, returns a
+#'   vector (the signed root statistic). The \code{"score"} attribute contains
+#'   the score vector for the test parameter(s), and \code{"info"} contains
+#'   the used information for the test parameter(s). Under the
+#'   null hypothesis, the squared statistic asymptotically follows a chi-squared
+#'   distribution with degrees of freedom equal to \code{length(test_idx)}.
 #'
 #' @details
 #' The score test statistic is computed as:
@@ -390,7 +392,10 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
     test_stat <- crossprod(ll_things$score[test_idx], solve(inf_mat,
                                     ll_things$score[test_idx]))
   }
-  as.vector(test_stat)
+  test_stat <- as.vector(test_stat)
+  attr(test_stat, "score") <- ll_things$score[test_idx]
+  attr(test_stat, "info") <- inf_mat
+  test_stat
 }
 
 #' Score test statistic with nuisance parameters
@@ -444,14 +449,20 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
 #' @param precomp List or \code{NULL} containing precomputed quantities to speed
 #'   up computation (see \code{?get_precomp}). If \code{NULL}, all quantities
 #'   are computed internally.
-#' @param ... Additional arguments passed to \code{\link[trust]{trust}} optimizer
-#'   used in \code{\link{maximize_loglik}}.
+#' @param return_all Logical. If \code{FALSE} (default), returns a numeric vector
+#'   of test statistics with \code{"null_values"} attribute. If \code{TRUE},
+#'   returns a list where each element contains \code{stat} (test statistic),
+#'   \code{score}, \code{info}, and \code{param} (parameter value tested).
+#' @param ... Additional arguments passed to \code{\\link[trust]{trust}} optimizer
+#'   used in \code{\\link{maximize_loglik}}.
 #'
-#' @return Numeric vector of score test statistics with attribute
-#'   \code{"null_values"} containing the values of the test parameter at which
-#'   each statistic was evaluated. Under the null hypothesis, the squared
-#'   statistic asymptotically follows a chi-squared distribution with 1 degree of
-#'   freedom.
+#' @return If \code{return_all = FALSE}, a numeric vector of score test statistics
+#'   with attribute \code{"null_values"} containing the values of the test
+#'   parameter at which each statistic was evaluated. If \code{return_all = TRUE},
+#'   a list where each element contains: \code{stat} (test statistic), \code{score}
+#'   (score vector), \code{info} (information matrix), and \code{param} (parameter
+#'   value). Under the null hypothesis, the squared statistic asymptotically
+#'   follows a chi-squared distribution with 1 degree of freedom.
 #'
 #' @details
 #' This function performs profile-likelihood-based inference by fixing the test
@@ -481,7 +492,7 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
 score_profile <- function(theta_start, test_idx, max_radius = 0, num_points = 1e2,
                           Y, X, Z, Hlist, REML = TRUE, expected = TRUE,
                           efficient = TRUE, signed = TRUE, known_idx = NULL,
-                          fix_idx = NULL, precomp = NULL, ...) {
+                          fix_idx = NULL, precomp = NULL, return_all = FALSE, ...) {
   # Argument checking
   assertthat::assert_that(is.vector(theta_start, mode = "numeric"), length(theta_start) > 0,
                           msg = "theta_start should be a numeric vector of positive length")
@@ -576,7 +587,11 @@ score_profile <- function(theta_start, test_idx, max_radius = 0, num_points = 1e
   }
   num_null <- length(null_values) # Can be 1, num_points, or num_points + 1
   # Start searching to the left of start_idx, including start_idx
-  stat_vals <- rep(0, num_null)
+  if(return_all){
+   out <- vector("list", num_null)
+  } else {
+    stat_vals <- rep(0, num_null)
+  }
   theta_tilde <- theta_start
   d <- length(theta_tilde)
   b <- if (!REML && p > 0) theta_tilde[1:p] else NULL
@@ -618,19 +633,27 @@ score_profile <- function(theta_start, test_idx, max_radius = 0, num_points = 1e
     if (ii == 1) {
       theta_tilde_start <- theta_tilde
     }
-    # Store test_statistic value
-    stat_vals[start_idx - ii + 1] <- score_stat(theta = theta_tilde,
-                                                test_idx = test_idx,
-                                                Y = Y,
-                                                X = X,
-                                                Z = Z,
-                                                Hlist = Hlist,
-                                                REML = REML,
-                                                expected = expected,
-                                                efficient = efficient,
-                                                signed = signed,
-                                                known_idx = known_idx,
-                                                precomp = precomp)
+    # Store test_statistic 
+    stat_ii <- score_stat(theta = theta_tilde,
+                          test_idx = test_idx,
+                          Y = Y,
+                          X = X,
+                          Z = Z,
+                          Hlist = Hlist,
+                          REML = REML,
+                          expected = expected,
+                          efficient = efficient,
+                          signed = signed,
+                          known_idx = known_idx,
+                          precomp = precomp)
+    if(return_all) {
+      out[[start_idx - ii + 1]]  <- list("stat" = stat_ii,
+      "score" = attr(stat_ii, "score"),
+        "info" = attr(stat_ii, "info"),
+        "param" = theta_tilde[test_idx])
+    } else {
+      stat_vals[start_idx - ii + 1] <- stat_ii
+    }
   }
   # Search to the right of start_idx
   if(start_idx < num_null) {
@@ -660,22 +683,34 @@ score_profile <- function(theta_start, test_idx, max_radius = 0, num_points = 1e
         precomp$e <- Y - X %*% theta_tilde[1:p]
       }
       
-      # Store test_statistic value
-      stat_vals[ii] <- score_stat(theta = theta_tilde,
-                                  test_idx = test_idx,
-                                  Y = Y,
-                                  X = X,
-                                  Z = Z,
-                                  Hlist = Hlist,
-                                  REML = REML,
-                                  expected = expected,
-                                  efficient = efficient,
-                                  signed = signed,
-                                  known_idx = known_idx,
-                                  precomp = precomp)
+      # Store test_statistic
+      stat_ii <- score_stat(theta = theta_tilde,
+                            test_idx = test_idx,
+                            Y = Y,
+                            X = X,
+                            Z = Z,
+                            Hlist = Hlist,
+                            REML = REML,
+                            expected = expected,
+                            efficient = efficient,
+                            signed = signed,
+                            known_idx = known_idx,
+                            precomp = precomp)
+      if(return_all) {
+        out[[ii]] <- list("stat" = stat_ii,
+                          "score" = attr(stat_ii, "score"),
+                          "info" = attr(stat_ii, "info"),
+                          "param" = theta_tilde[test_idx])
+      } else {
+        stat_vals[ii] <- stat_ii
+      }
     }
   }
   # Return
-  attr(stat_vals, "null_values") <- null_values
-  stat_vals
+  if(return_all) {
+    return(out)
+  } else {
+    attr(stat_vals, "null_values") <- null_values
+    return(stat_vals)
+  }
 }

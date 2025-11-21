@@ -66,12 +66,14 @@ up computation (see \code{?get_precomp}). If \code{NULL}, all quantities
 are computed from scratch.}
 }
 \value{
-Numeric value or vector containing the score test statistic. If
-\code{signed = FALSE}, returns a scalar (the quadratic form). If
-\code{signed = TRUE}, returns a vector (the signed root statistic).
-Under the null hypothesis, the squared statistic asymptotically follows
-a chi-squared distribution with degrees of freedom equal to
-\code{length(test_idx)}.
+Numeric value or vector containing the score test statistic with
+attributes \code{"score"} and \code{"info"}. If \code{signed = FALSE},
+returns a scalar (the quadratic form). If \code{signed = TRUE}, returns a
+vector (the signed root statistic). The \code{"score"} attribute contains
+the score vector for the test parameter(s), and \code{"info"} contains
+the used information for the test parameter(s). Under the
+null hypothesis, the squared statistic asymptotically follows a chi-squared
+distribution with degrees of freedom equal to \code{length(test_idx)}.
 }
 \description{
 Computes the score test statistic for testing hypotheses about parameters

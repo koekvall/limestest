@@ -20,6 +20,7 @@ score_profile(
   known_idx = NULL,
   fix_idx = NULL,
   precomp = NULL,
+  return_all = FALSE,
   ...
 )
 }
@@ -84,15 +85,22 @@ parameters are fixed. Must not overlap with \code{test_idx} or \code{known_idx}.
 up computation (see \code{?get_precomp}). If \code{NULL}, all quantities
 are computed internally.}
 
-\item{...}{Additional arguments passed to \code{\link[trust]{trust}} optimizer
-used in \code{\link{maximize_loglik}}.}
+\item{return_all}{Logical. If \code{FALSE} (default), returns a numeric vector
+of test statistics with \code{"null_values"} attribute. If \code{TRUE},
+returns a list where each element contains \code{stat} (test statistic),
+\code{score}, \code{info}, and \code{param} (parameter value tested).}
+
+\item{...}{Additional arguments passed to \code{\\link[trust]{trust}} optimizer
+used in \code{\\link{maximize_loglik}}.}
 }
 \value{
-Numeric vector of score test statistics with attribute
-\code{"null_values"} containing the values of the test parameter at which
-each statistic was evaluated. Under the null hypothesis, the squared
-statistic asymptotically follows a chi-squared distribution with 1 degree of
-freedom.
+If \code{return_all = FALSE}, a numeric vector of score test statistics
+with attribute \code{"null_values"} containing the values of the test
+parameter at which each statistic was evaluated. If \code{return_all = TRUE},
+a list where each element contains: \code{stat} (test statistic), \code{score}
+(score vector), \code{info} (information matrix), and \code{param} (parameter
+value). Under the null hypothesis, the squared statistic asymptotically
+follows a chi-squared distribution with 1 degree of freedom.
 }
 \description{
 Computes the score test statistic over a range of values for a test parameter,

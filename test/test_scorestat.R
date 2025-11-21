@@ -65,39 +65,27 @@ stat_values <- limestest::score_profile(theta_start = theta_test,
                                          X = getME(fit_lme4_ml, "X"),
                                          Z = getME(fit_lme4_ml, "Z"),
                                          Hlist = limestest:::get_Hlist_lmer(fit_lme4_ml),
-                                         REML = FALSE, iterlim = 1000, signed = FALSE,
+                                         REML = FALSE, iterlim = 1000, signed = TRUE,
                                          # Changing known changes behavior.
                                          # Try known_idx = NULL (all treated unknown)
                                          # and known_idx = 2:9 (all treated known)
-                                         known_idx = NULL)
-plot(x = as.numeric(attr(stat_values, "null_values")), abs(stat_values), xlab = "Parameter",
-     ylab = "Absolute value of test statistic")
-abline(h = 1.96^2)
+                                         fix_idx = 5:9,
+                                         return_all = TRUE)
 
-## TROUBESHOOTING BASED ON ABOVE PLOT
-theta_test <- theta_hat
-theta_test[1] <- 1050
-fit_null_ours <- limestest:::maximize_loglik(start_val = theta_test,
-                                        opt_idx = seq_along(theta_test)[-1],
-                                        Y = getME(fit_lme4_ml, "y"),
-                                        X = getME(fit_lme4_ml, "X"),
-                                        Z = getME(fit_lme4_ml, "Z"),
-                                        Hlist = limestest:::get_Hlist_lmer(fit_lme4_ml),
-                                        expected = TRUE,
-                                        REML = FALSE, iterlim = 1000)
+par(mfrow = c(1, 3))
+plot(x = sapply(stat_values, `[[`, "param"),
+     y = sapply(stat_values, `[[`, "stat"), xlab = "Parameter",
+     ylab = "Signed test statistic")
+abline(v = theta_hat[1])
 
-# This stat is greater than the value in the plot, indicating issue in
-# score_profile
-stat <- limestest:::score_stat(theta = fit_null_ours$arg,
-                               test_idx = 1,
-                               Y = getME(fit_lme4_ml, "y"),
-                               X = getME(fit_lme4_ml, "X"),
-                               Z = getME(fit_lme4_ml, "Z"),
-                               Hlist = limestest:::get_Hlist_lmer(fit_lme4_ml),
-                               expected = TRUE,
-                               REML = FALSE,
-                               signed = FALSE)
-
+plot(x = sapply(stat_values, `[[`, "param"),
+     y = sapply(stat_values, `[[`, "score"), xlab = "Parameter",
+     ylab = "Score")
+abline(h = 0)
+plot(x = sapply(stat_values, `[[`, "param"),
+     y = sqrt(sapply(stat_values, `[[`, "info")), xlab = "Parameter",
+     ylab = "Square root information")
+abline(v = theta_hat[1])
 
 
 ###############################################################################
@@ -113,7 +101,7 @@ stat_values <- limestest::score_profile(theta_start = psi_null,
                           X = getME(fit_lme4, "X"),
                           Z = getME(fit_lme4, "Z"),
                           Hlist = limestest:::get_Hlist_lmer(fit_lme4),
-                          iterlim = 1e3, signed = FALSE, known_idx = c(1))
+                          iterlim = 1e3, signed = FALSE, fix_idx = c(1))
 plot(x = attr(stat_values, "null_values"), abs(stat_values), xlab = "Parameter",
      ylab = "Absolute value of test statistic")
 abline(h = 1.96)
@@ -125,13 +113,14 @@ psi_null <- psi_hat
 psi_null[5] <- 0
 stat_values <- limestest::score_profile(theta_start = psi_null,
                                          test_idx = 5,
-                                         max_radius = c(0, 1000),
+                                         fix_idx = NULL,
+                                         max_radius = c(0, 5000),
                                          num_points = 1e3,
                                          Y = getME(fit_lme4, "y"),
                                          X = getME(fit_lme4, "X"),
                                          Z = getME(fit_lme4, "Z"),
                                          Hlist = limestest:::get_Hlist_lmer(fit_lme4),
-                                         efficient = FALSE)
+                                         efficient = TRUE)
 plot(x = attr(stat_values, "null_values"), abs(stat_values), xlab = "Parameter",
      ylab = "Absolute value of test statistic")
 abline(h = 1.96)
