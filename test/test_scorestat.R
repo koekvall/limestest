@@ -54,7 +54,7 @@ pchisq(stat_LRT, df = 1, lower = FALSE)
 # Check confidence interval fixed intercept (sanity check)
 #
 # Notes: The behavior appears irregular when profiling. Examine the plots
-# in this section when known_idx = NULL vesus known_idx = 4:9 or known_idx =
+# in this section when known_idx = NULL versus known_idx = 4:9 or known_idx =
 # 2:9. In the latter cases, (profile) likelihood is quadratic. Profiling
 # over random effect parameters changes things. When profiling over all
 # parameters, no null hypotheses are rejected, so CI is (-infty, infty).
