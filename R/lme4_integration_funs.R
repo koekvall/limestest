@@ -207,71 +207,133 @@ get_psi_hat_lmer <- function(lmerfit)
   vcov_vec
 }
 
+#' Score test for linear mixed model fitted with lme4
+#'
+#' Computes a score test statistic for a linear mixed model fitted using lme4::lmer.
+#' This is a convenience wrapper around \code{\link{score_stat}} that extracts the
+#' necessary components from an lmerMod object.
+#'
+#' @param lmerfit An `lmerMod` object from fitting a linear mixed model using
+#'   `lme4::lmer`.
+#' @param theta_null Numeric vector of parameter values under the null hypothesis.
+#'   For REML fits, this should be a vector of length r (covariance parameters only).
+#'   For ML fits, this should be a vector of length p + r (fixed effects followed by
+#'   covariance parameters). If \code{NULL}, defaults to zero random effects and
+#'   unit error variance.
+#' @param test_idx Integer vector specifying which elements of \code{theta_null} to
+#'   test. If \code{NULL}, tests all covariance parameters except error variance
+#'   (i.e., tests for zero random effects).
+#' @param efficient Logical. If \code{TRUE} (default), use efficient information
+#'   that accounts for estimation of nuisance parameters.
+#' @param expected Logical. If \code{TRUE} (default), use expected Fisher information;
+#'   otherwise use observed information.
+#' @param profile Logical. If \code{TRUE} (default), optimize nuisance parameters
+#'   under the null hypothesis before computing the test statistic.
+#' @param known_idx Integer vector or \code{NULL} specifying which elements of
+#'   \code{theta_null} (other than \code{test_idx}) have known values and should
+#'   not be optimized when \code{profile = TRUE}. If \code{NULL}, all parameters
+#'   except \code{test_idx} are treated as nuisance parameters.
+#'
+#' @return A named numeric vector with elements:
+#'   \item{stat}{The score test statistic}
+#'   \item{p_val}{P-value from chi-squared distribution}
+#'   \item{df}{Degrees of freedom (length of \code{test_idx})}
+#'
+#' @details
+#' This function provides a convenient interface for score testing in lme4 fits.
+#' It automatically extracts the model matrices, variance structure, and other
+#' components needed by \code{\link{score_stat}}.
+#'
+#' When \code{profile = TRUE}, the function uses \code{\link{maximize_loglik}} to
+#' optimize nuisance parameters under the null hypothesis before computing the test
+#' statistic. This typically yields more powerful tests.
+#'
+#' @export
 score_test_lmer <- function(lmerfit,
-                            psi_null = NULL,
+                            theta_null = NULL,
                             test_idx = NULL,
                             efficient = TRUE,
                             expected = TRUE,
-                            profile = TRUE)
+                            profile = TRUE,
+                            known_idx = NULL)
 {
-
-  r_i <- lme4::getME(lmerfit, "m_i")
-  r <- sum(r_i) + 1
-  # Default to testing zero random effect variances and unit error variance
-  if(is.null(psi_null)){
-    psi_null <- c(rep(0, r - 1), 1)
+  # Validate input
+  if (!inherits(lmerfit, "lmerMod")) {
+    stop("lmerfit must be an lmerMod object from lme4::lmer")
   }
 
-  stopifnot(is.numeric(psi_null) && length(psi_null) > 0)
-
-  # Test all random effects by default
-  if(is.null(test_idx)){
-    test_idx <- seq_len(r - 1)
-  } else{
-    test_idx <- sort(unique(test_idx))
-  }
-
-  stopifnot(is.numeric(test_idx) && all(test_idx == floor(test_idx)) && length(test_idx) > 0)
-  k <- length(test_idx)
-
-
-  if(psi_null[r] == 0){
-    stop("Vanishing error variance is not permitted")
-  }
-
-  precomp <- get_precomp_lmer(lmerfit)
+  # Extract model components
   Y <- lme4::getME(lmerfit, "y")
   X <- lme4::getME(lmerfit, "X")
   Z <- lme4::getME(lmerfit, "Z")
   Hlist <- get_Hlist_lmer(lmerfit)
-  n <- length(Y)
-  p <- ncol(X)
   REML <- lme4::getME(lmerfit, "REML") != 0
-
-  # Profile
-  if(profile && all(psi_null[-r] == 0) && all(seq_len(r - 1) %in% test_idx)){
-    # Testing null of Psi = 0, i.e., no random effects is a
-    # special case where partial maximizer has closed form solution from lm
-    psi_null[r] <- stats::sigma(stats::lm(Y ~ 0 + X))^2
-    if(!REML){ # Degree of freedom correction only for REML
-      psi_null[r] <- psi_null[r] * (n - p) / n
+  precomp <- get_precomp_lmer(lmerfit, REML = REML)
+  
+  p <- ncol(X)
+  r <- length(Hlist) + 1
+  
+  # Set up theta_null
+  if(is.null(theta_null)){
+    # Default: zero random effects, unit error variance
+    if(REML){
+      theta_null <- c(rep(0, r - 1), 1)
+    } else {
+      theta_null <- c(lme4::fixef(lmerfit), rep(0, r - 1), 1)
     }
-  } else if(profile){
-    psi_null <- partial_min_psi(psi_start = psi_null,
-                                opt_idx = seq_len(r)[-test_idx],
-                                b = NULL,
-                                Y = Y,
-                                X = X,
-                                Z = Z,
-                                Hlist = Hlist,
-                                precomp = precomp,
-                                REML = REML,
-                                expected = expected)$psi_hat
   }
-
-  test_stat <- score_stat(psi = psi_null,
+  
+  # Validate theta_null
+  expected_length <- if(REML) r else p + r
+  if(length(theta_null) != expected_length){
+    stop("theta_null should have length ", expected_length,
+         " (", if(REML) "r" else "p + r", " for REML = ", REML, ")")
+  }
+  
+  # Check error variance is positive
+  psi_r_idx <- if(REML) r else p + r
+  if(theta_null[psi_r_idx] <= 0){
+    stop("Error variance (last element of theta_null) must be positive")
+  }
+  
+  # Set up test_idx
+  if(is.null(test_idx)){
+    # Default: test all random effect parameters (not error variance)
+    if(REML){
+      test_idx <- seq_len(r - 1)
+    } else {
+      test_idx <- (p + 1):(p + r - 1)
+    }
+  }
+  
+  k <- length(test_idx)
+  if(k == 0){
+    stop("test_idx must have length > 0")
+  }
+  
+  # Profile nuisance parameters if requested
+  if(profile){
+    # Determine which parameters to optimize (exclude test_idx and known_idx)
+    exclude_idx <- c(test_idx, known_idx)
+    opt_idx <- seq_along(theta_null)[-exclude_idx]
+    
+    if(length(opt_idx) > 0){
+      # Optimize nuisance parameters
+      theta_null <- maximize_loglik(start_val = theta_null,
+                                    opt_idx = opt_idx,
+                                    Y = Y,
+                                    X = X,
+                                    Z = Z,
+                                    Hlist = Hlist,
+                                    expected = expected,
+                                    REML = REML,
+                                    precomp = precomp)$arg
+    }
+  }
+  
+  # Compute score test statistic
+  test_stat <- score_stat(theta = theta_null,
                           test_idx = test_idx,
-                          b = NULL,
                           Y = Y,
                           X = X,
                           Z = Z,
@@ -280,94 +342,165 @@ score_test_lmer <- function(lmerfit,
                           expected = expected,
                           efficient = efficient,
                           signed = FALSE,
+                          known_idx = known_idx,
                           precomp = precomp)
-  # Return
-  c("stat" = test_stat,
-    "p_val" = stats::pchisq(test_stat, df = k, lower = FALSE),
+  
+  # Return results
+  c("stat" = as.numeric(test_stat),
+    "p_val" = stats::pchisq(as.numeric(test_stat), df = k, lower.tail = FALSE),
     "df" = k)
 }
 
+#' Test all covariance parameters individually
+#'
+#' Performs individual score tests for each covariance parameter in a linear mixed
+#' model fitted with lme4. This function tests each parameter separately while
+#' profiling over all other parameters.
+#'
+#' @param lmerfit An `lmerMod` object from fitting a linear mixed model using
+#'   `lme4::lmer`.
+#' @param theta_null Numeric vector of parameter values under the null hypothesis.
+#'   For REML fits, this should be a vector of length r (covariance parameters only).
+#'   For ML fits, this should be a vector of length p + r (fixed effects followed by
+#'   covariance parameters). If \code{NULL}, defaults to zero random effects and
+#'   unit error variance for each test.
+#' @param test_idx Integer vector specifying which covariance parameters to test.
+#'   If \code{NULL}, tests all covariance parameters except error variance.
+#' @param efficient Logical. If \code{TRUE} (default), use efficient information
+#'   that accounts for estimation of nuisance parameters.
+#' @param expected Logical. If \code{TRUE} (default), use expected Fisher information;
+#'   otherwise use observed information.
+#'
+#' @return A matrix with one row per tested parameter and three columns:
+#'   \item{stat}{The score test statistic}
+#'   \item{p_val}{P-value from chi-squared distribution with 1 degree of freedom}
+#'   \item{df}{Degrees of freedom (always 1 for individual tests)}
+#'
+#' @details
+#' For each parameter specified in \code{test_idx}, this function:
+#' \enumerate{
+#'   \item Sets up a null hypothesis with that parameter at its null value
+#'   \item Profiles over all other parameters to maximize the likelihood under the null
+#'   \item Computes the score test statistic
+#' }
+#'
+#' When testing covariance parameters (off-diagonal elements), the function ensures
+#' that the starting values for optimization yield a positive semi-definite covariance
+#' matrix by appropriately adjusting the corresponding variance parameters.
+#'
+#' @export
 test_all_lmer <- function(lmerfit,
-                           psi_null = NULL,
-                           test_idx = NULL,
-                           efficient = TRUE,
-                           expected = TRUE)
+                          theta_null = NULL,
+                          test_idx = NULL,
+                          efficient = TRUE,
+                          expected = TRUE)
 {
+  # Validate input
+  if (!inherits(lmerfit, "lmerMod")) {
+    stop("lmerfit must be an lmerMod object from lme4::lmer")
+  }
+  
+  # Get model dimensions
+  REML <- lme4::getME(lmerfit, "REML") != 0
   r_i <- lme4::getME(lmerfit, "m_i")
   r <- sum(r_i) + 1
-
-  # Default to testing zero random effect variances and unit error variance
-  if(is.null(psi_null)){
-    psi_null <- c(rep(0, r - 1), 1)
+  p <- ncol(lme4::getME(lmerfit, "X"))
+  
+  # Set up theta_null
+  if(is.null(theta_null)){
+    # Default: zero random effects, unit error variance
+    if(REML){
+      theta_null <- c(rep(0, r - 1), 1)
+    } else {
+      theta_null <- c(lme4::fixef(lmerfit), rep(0, r - 1), 1)
+    }
   }
-
-  # Test all random effects by default
+  
+  # Validate theta_null length
+  expected_length <- if(REML) r else p + r
+  if(length(theta_null) != expected_length){
+    stop("theta_null should have length ", expected_length,
+         " (", if(REML) "r" else "p + r", " for REML = ", REML, ")")
+  }
+  
+  # Set up test_idx (indices in theta_null space)
   if(is.null(test_idx)){
-    test_idx <- seq_len(r - 1)
-  } else{
-    test_idx <- sort(unique(test_idx))
+    # Default: test all covariance parameters except error variance
+    if(REML){
+      test_idx <- seq_len(r - 1)
+    } else {
+      test_idx <- (p + 1):(p + r - 1)
+    }
   }
-
-  if(psi_null[r] == 0){
-    stop("Vanishing error variance is not permitted")
-  }
-
-  precomp <- get_precomp_lmer(lmerfit)
-  Y <- lme4::getME(lmerfit, "y")
-  X <- lme4::getME(lmerfit, "X")
-  Z <- lme4::getME(lmerfit, "Z")
-  Hlist <- get_Hlist_lmer(lmerfit)
-  psi_hat <- get_psi_hat_lmer(lmerfit)
-  REML <- lme4::getME(lmerfit, "REML") != 0
+  
   k <- length(test_idx)
-
-  # Is parameter a variance or covaraince?
+  if(k == 0){
+    stop("test_idx must have length > 0")
+  }
+  
+  # Get variance/covariance indicator
   is_var_param <- is.na(as.data.frame(lme4::VarCorr(lmerfit), order = "lower.tri")$var2)
-  stopifnot(all(psi_null[is_var_param] >= 0))
-
-  # Prepare to loop over parameters
-
+  
   # Used to determine which term a parameter belongs to
   last_idx <- lme4::getME(lmerfit, "Tp")
-
-  out <- matrix(NA, nrow = k, ncol = 3) # Store test results
-  param_idx <- 1 # Counts which parameter test is for
-  test_num <- 1  # Counts the tests
-  for(ii in seq_along(r_i)){ # Loop over terms
-    # Index for parameters corresponding to term
-    term_idxs <- (last_idx[ii + 1] - r_i[ii] + 1):(last_idx[ii + 1])
-
-    # Covariance matrix dimension for ith term
-    dim_i <- as.integer(0.5 * (-1 + sqrt(1 + 8 * r_i[ii])))
-
-    for(jj in seq_len(r_i[ii])){ # Loop over parameters within terms
-      if(param_idx %in% test_idx){
-        # Create starting point for profile optimization that is guaranteed
-        # to be valid
-        psi_start <- c(rep(0, r - 1), 1) # Start model with no random effects
-        # psi_start[term_idxs][!is_var_param[term_idxs]] <- 0 # Set off-diagonal to zero
-        psi_start[param_idx] <- psi_null[param_idx] # Set null hypothesis value
-        if(!is_var_param[param_idx]){
-         # If the null hypothesis is for a covariance, set corresponding variances
-         # to ensure positive semi-definite starting value for Psi. This works
-         # because other off-diagonal elements were set to zero
-         row_col <- get_row_col_ltri(jj, n = dim_i)
-         var_idx1 <- get_idx_ltri(row = row_col[2], col = row_col[2], n = dim_i)
-         var_idx2 <- get_idx_ltri(row = row_col[1], col = row_col[1], n = dim_i)
-         psi_start[term_idxs][c(var_idx1, var_idx2)] <-
-           pmax(psi_start[term_idxs][c(var_idx1, var_idx2)], abs(psi_start[param_idx]))
-        }
-        out[test_num, ] <- score_test_lmer(lmerfit = lmerfit,
-                                           psi_null = psi_start,
-                                           test_idx = param_idx,
-                                           efficient = efficient,
-                                           expected = expected,
-                                           profile = TRUE)
-        test_num <- test_num + 1
-
+  
+  # Prepare output matrix
+  out <- matrix(NA, nrow = k, ncol = 3)
+  colnames(out) <- c("stat", "p_val", "df")
+  
+  # Loop over parameters to test
+  for(i in seq_along(test_idx)){
+    param_idx <- test_idx[i]
+    
+    # Adjust for REML vs ML indexing
+    psi_param_idx <- if(REML) param_idx else param_idx - p
+    
+    # Create starting point for this test
+    theta_start <- theta_null
+    
+    # For covariance parameters, ensure positive semi-definite starting values
+    if(psi_param_idx <= (r - 1) && !is_var_param[psi_param_idx]){
+      # Find which term this parameter belongs to
+      term_idx <- which(psi_param_idx <= last_idx)[1]
+      term_param_idxs <- if(term_idx == 1) {
+        seq_len(last_idx[1])
+      } else {
+        (last_idx[term_idx - 1] + 1):last_idx[term_idx]
       }
-      param_idx <- param_idx + 1
+      
+      # Dimension of covariance matrix for this term
+      dim_i <- as.integer(0.5 * (-1 + sqrt(1 + 8 * r_i[term_idx])))
+      
+      # Position within term
+      jj <- psi_param_idx - ifelse(term_idx == 1, 0, last_idx[term_idx - 1])
+      
+      # Get row and column indices for this covariance
+      row_col <- get_row_col_ltri(jj, n = dim_i)
+      
+      # Find corresponding variance parameters
+      var_idx1 <- get_idx_ltri(row = row_col[2], col = row_col[2], n = dim_i)
+      var_idx2 <- get_idx_ltri(row = row_col[1], col = row_col[1], n = dim_i)
+      
+      # Adjust to full parameter vector
+      var_idx1_full <- term_param_idxs[1] + var_idx1 - 1
+      var_idx2_full <- term_param_idxs[1] + var_idx2 - 1
+      
+      if(REML){
+        theta_start[c(var_idx1_full, var_idx2_full)] <- 
+          pmax(theta_start[c(var_idx1_full, var_idx2_full)], abs(theta_start[psi_param_idx]))
+      } else {
+        theta_start[p + c(var_idx1_full, var_idx2_full)] <- 
+          pmax(theta_start[p + c(var_idx1_full, var_idx2_full)], abs(theta_start[param_idx]))
+      }
     }
+    
+    # Perform score test for this parameter
+    out[i, ] <- score_test_lmer(lmerfit = lmerfit,
+                                theta_null = theta_start,
+                                test_idx = param_idx,
+                                efficient = efficient,
+                                expected = expected,
+                                profile = TRUE)
   }
   out
 }
