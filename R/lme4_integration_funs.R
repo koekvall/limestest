@@ -1,32 +1,49 @@
 #' Get the covariance matrix of random effects
 #'
-#' Returns the covariance matrix of the random effects in a linear mixed model,
-#' either as estimated by lme4::lmer or evaluated at a particular parameter value
+#' Returns the covariance matrix of the random effects vector in a linear mixed model,
+#' either as estimated by lme4::lmer or evaluated at particular parameter values
 #' supplied as an argument.
 #'
 #' @param lmerfit An `lmerMod` object from fitting a linear mixed model using `lme4::lmer`.
-#' @param psi_mr Optional vector with covariance parameters, not including the error variance;
-#'   i.e., `psi` minus its r:th element (see details).
+#' @param psi_mr Optional numeric vector with covariance parameters, not including the 
+#'   error variance; i.e., `psi` minus its r:th element, where r is the total number
+#'   of covariance parameters (see details).
 #'
-#' @return A usually sparse covariance matrix of random effects of type dsCMatrix
+#' @return A sparse symmetric covariance matrix (dsCMatrix) of the random effects vector.
 #'
 #' @details
-#' If `psi_mr` is not supplied, the estimated covariance matrix is returned.
-#' If `psi_mr` is supplied, the covariance matrix is calculated using those parameter values instead.
-#' `psi_mr` should be `NULL` (default) or a numeric vector of length `getME(lmerfit, "m")`.
-#' In the latter case the elements should be ordered as those in the `vcov` column of
-#' `as.data.frame(VarCorr(lmerfit), order = "lower.tri")`. The last
-#' element in that column is the error variance, which should be omitted.
-#'
+#' If `psi_mr` is not supplied, the estimated covariance matrix from the fitted model 
+#' is returned. If `psi_mr` is supplied, the covariance matrix is constructed using 
+#' those parameter values instead.
+#' 
+#' When provided, `psi_mr` should be a numeric vector of length `getME(lmerfit, "m")`,
+#' which equals r - 1 where r is the total number of covariance parameters (including
+#' error variance). The elements should be ordered as in the `vcov` column of
+#' `as.data.frame(VarCorr(lmerfit), order = "lower.tri")`, with the last element 
+#' (error variance) omitted.
 #'
 #' @export
 get_Psi_lmer <- function(lmerfit, psi_mr = NULL){
+  # Validate input
+  if (!inherits(lmerfit, "lmerMod")) {
+    stop("lmerfit must be an lmerMod object from lme4::lmer")
+  }
+  
+  rm1 <- lme4::getME(lmerfit, "m")
+  
   if(is.null(psi_mr)){
     # Extract variances and covariances of random effects ordered as in the covmat
-    # lower.tri despite creating upper triangular Psi since it appears to
+    # lower.tri despite creating upper triangular Psi since it appears consistent
     # with the indexing in getME(, "Lind")
-    rm1 <- lme4::getME(lmerfit, "m")
     psi_mr <- as.data.frame(lme4::VarCorr(lmerfit), order = "lower.tri")$vcov[1:rm1]
+  } else {
+    # Validate psi_mr
+    if (!is.numeric(psi_mr)) {
+      stop("psi_mr must be a numeric vector")
+    }
+    if (length(psi_mr) != rm1) {
+      stop("psi_mr must have length ", rm1, " (getME(lmerfit, 'm'))")
+    }
   }
 
   # Lambdat has the right structure, but not the same entries as Psi
@@ -40,16 +57,44 @@ get_Psi_lmer <- function(lmerfit, psi_mr = NULL){
   Matrix::forceSymmetric(Psi_half, uplo = "U")
 }
 
-# Make list of H matrices
+#' Get structure matrices for covariance parameterization
+#'
+#' Extracts the list of structure matrices (H matrices) from an lme4 fit that
+#' determine how covariance parameters map to the covariance matrix structure.
+#' These matrices are used in likelihood computations where the covariance matrix
+#' is expressed as a linear combination: Psi = sum(psi[i] * H[[i]]).
+#'
+#' @param lmerfit An `lmerMod` object from fitting a linear mixed model using
+#'   `lme4::lmer`.
+#'
+#' @return A list of sparse symmetric matrices (dsCMatrix), one for each
+#'   covariance parameter (excluding error variance). The length of the list
+#'   equals `getME(lmerfit, "m")`, which is r - 1 where r is the total number
+#'   of covariance parameters including error variance.
+#'
+#' @details
+#' Each matrix in the returned list is an indicator matrix showing which elements
+#' of the random effects covariance matrix are associated with each parameter.
+#' The i-th matrix has 1s in positions determined by the i-th covariance parameter
+#' and 0s elsewhere.
+#'
+#' @keywords internal
 get_Hlist_lmer <- function(lmerfit)
 {
-  # Psi, and hence H, has the same structure as Lambda
+  # Validate input
+  if (!inherits(lmerfit, "lmerMod")) {
+    stop("lmerfit must be an lmerMod object from lme4::lmer")
+  }
+  
+  # Psi, and hence H, has the same structure as Lambdat
   H <- lme4::getME(lmerfit, "Lambdat")
   param_idx <- lme4::getME(lmerfit, "Lind")
 
   # Replace values by parameter index
   H@x <- param_idx
-  # Return list of H matrices
+  
+  # Create list of indicator matrices, one for each covariance parameter
+  # Each matrix has 1s where that parameter appears, 0s elsewhere
   lapply(seq_len(lme4::getME(lmerfit, "m")),
          function(i){
            M <- H
@@ -58,16 +103,49 @@ get_Hlist_lmer <- function(lmerfit)
          })
 }
 
+#' Get precomputed quantities from lme4 fit
+#'
+#' Extracts and computes quantities from an lme4 fit that can be reused in
+#' likelihood calculations to avoid redundant computations. The quantities
+#' computed depend on whether REML or ML estimation is used.
+#'
+#' @param lmerfit An `lmerMod` object from fitting a linear mixed model using
+#'   `lme4::lmer`.
+#' @param REML Logical indicating whether to compute quantities for REML
+#'   (\code{TRUE}) or ML (\code{FALSE}). If \code{NULL} (default), uses the
+#'   estimation method from the fitted model.
+#'
+#' @return A list containing precomputed cross-products and other quantities:
+#'   \itemize{
+#'     \item For REML: \code{XtY}, \code{ZtY}, \code{XtX}, \code{XtZ}, \code{ZtZ}
+#'     \item For ML: \code{e} (residuals), \code{Zte}, \code{XtX}, \code{XtZ}, \code{ZtZ}
+#'   }
+#'
+#' @details
+#' The residuals \code{e} in the ML case are computed as Y - X * beta where beta
+#' comes from the fitted model. These may differ slightly from \code{residuals(lmerfit)}
+#' due to how lme4 computes residuals internally.
+#'
+#' @keywords internal
 get_precomp_lmer <- function(lmerfit, REML = NULL){
-
+  # Validate input
+  if (!inherits(lmerfit, "lmerMod")) {
+    stop("lmerfit must be an lmerMod object from lme4::lmer")
+  }
+  
   if(is.null(REML)){
-    # 0 indicates ML
+    # 0 indicates ML, non-zero indicates REML
     REML <- lme4::getME(lmerfit, "REML") != 0
+  } else {
+    if (!is.logical(REML) || length(REML) != 1) {
+      stop("REML must be a single logical value")
+    }
   }
 
   X <- lme4::getME(lmerfit, "X")
   Z <- lme4::getME(lmerfit, "Z")
   Y <- lme4::getME(lmerfit, "y")
+  
   if(REML){
     out <- list(XtY = as.vector(crossprod(X, Y)),
                 ZtY = as.vector(crossprod(Z, Y)),
@@ -75,20 +153,58 @@ get_precomp_lmer <- function(lmerfit, REML = NULL){
                 XtZ = as.matrix(crossprod(X, Z)),
                 ZtZ = methods::as(crossprod(Z), "generalMatrix"))
   } else{
-    # Warning: These are not equal to residuals(lmerfit)
+    # Compute residuals from fitted fixed effects
+    # Note: may differ from residuals(lmerfit) due to lme4's internal computation
     e <- Y - X %*% lme4::getME(lmerfit, "beta")
     out <- list(e = as.vector(e),
                 Zte = as.vector(crossprod(Z, e)),
+                XtX = as.matrix(crossprod(X)),
                 XtZ = as.matrix(crossprod(X, Z)),
                 ZtZ = methods::as(crossprod(Z), "generalMatrix"))
   }
-  # Return
   out
 }
 
+#' Extract estimated covariance parameters from lme4 fit
+#'
+#' Extracts all estimated variance and covariance parameters from a fitted
+#' linear mixed model, including the error variance.
+#'
+#' @param lmerfit An `lmerMod` object from fitting a linear mixed model using
+#'   `lme4::lmer`.
+#'
+#' @return A numeric vector containing all estimated covariance parameters,
+#'   ordered as in the `vcov` column of 
+#'   `as.data.frame(VarCorr(lmerfit), order = "lower.tri")`. The last element
+#'   is the error variance. The vector has length r, where r is the total
+#'   number of covariance parameters.
+#'
+#' @details
+#' This function extracts the full vector of covariance parameter estimates
+#' (often denoted psi or theta in the package), including:
+#' \itemize{
+#'   \item Variances and covariances of random effects
+#'   \item Error variance (last element)
+#' }
+#' 
+#' The ordering follows lme4's internal parameterization with "lower.tri" ordering.
+#'
+#' @keywords internal
 get_psi_hat_lmer <- function(lmerfit)
 {
-  as.data.frame(lme4::VarCorr(lmerfit), order = "lower.tri")$vcov
+  # Validate input
+  if (!inherits(lmerfit, "lmerMod")) {
+    stop("lmerfit must be an lmerMod object from lme4::lmer")
+  }
+  
+  # Extract variance components
+  vcov_vec <- as.data.frame(lme4::VarCorr(lmerfit), order = "lower.tri")$vcov
+  
+  if (!is.numeric(vcov_vec) || length(vcov_vec) == 0) {
+    stop("Failed to extract variance components from lmerfit")
+  }
+  
+  vcov_vec
 }
 
 score_test_lmer <- function(lmerfit,
