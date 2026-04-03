@@ -346,7 +346,7 @@ chol_solve <- function(U, b)
 #' effects (\eqn{X}) with itself.
 #' @param XtY An \eqn{p \times 1} vector of the crossproduct of the design matrix of fixed
 #' effects (\eqn{X}) with the response vector (\eqn{Y}).
-#' @param XtZ An \eqn{p \teims q} matrix of the crossproduct of the design matrix of fixed
+#' @param XtZ An \eqn{p \times q} matrix of the crossproduct of the design matrix of fixed
 #' effects (\eqn{X}) with the design matrix of random effects (\eqn{Z}).
 #' @param ZtZ A q x q matrix of the crossproduct of the design matrix of random
 #' effects (\eqn{Z}) with itself.
