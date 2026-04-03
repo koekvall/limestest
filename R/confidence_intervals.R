@@ -154,7 +154,15 @@ ci_lmer <- function(lmerfit, test_idx, level = 0.95, step_size = NULL,
             "Consider decreasing step_size or increasing num_points.")
   }
 
-  ci <- c(lower = lower, upper = upper)
+  vc <- as.data.frame(lme4::VarCorr(lmerfit), order = "lower.tri")
+  param_name <- paste0(
+    vc$var1[test_idx],
+    ifelse(is.na(vc$var2[test_idx]), "", paste0(":", vc$var2[test_idx])),
+    " | ", vc$grp[test_idx]
+  )
+
+  ci <- matrix(c(lower, upper), nrow = 1L,
+               dimnames = list(param_name, c("lower", "upper")))
 
   if (return_profile)
     warning("return_profile not supported with outward search; returning CI only.")
@@ -202,21 +210,9 @@ ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95, ...) {
 
   if (is.null(test_idx)) test_idx <- seq_len(r - 1L)  # Exclude error variance
 
-  # Build row names from VarCorr
-  vc <- as.data.frame(lme4::VarCorr(lmerfit), order = "lower.tri")
-  param_names <- paste0(
-    vc$var1,
-    ifelse(is.na(vc$var2), "", paste0(":", vc$var2)),
-    " | ", vc$grp
-  )
-
-  out <- matrix(NA_real_, nrow = length(test_idx), ncol = 2,
-                dimnames = list(param_names[test_idx], c("lower", "upper")))
-
-  for (i in seq_along(test_idx)) {
-    out[i, ] <- ci_lmer(lmerfit, test_idx = test_idx[i], level = level, ...)
-  }
-  out
+  do.call(rbind, lapply(test_idx, function(i) {
+    ci_lmer(lmerfit, test_idx = i, level = level, ...)
+  }))
 }
 
 

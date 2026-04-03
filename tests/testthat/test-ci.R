@@ -5,12 +5,12 @@ fit_rs <- lmer(Reaction ~ Days + (Days | Subject), data = sleepstudy, REML = TRU
 
 # ── ci_lmer ──────────────────────────────────────────────────────────────────
 
-test_that("ci_lmer returns named numeric vector with lower and upper", {
+test_that("ci_lmer returns a 1-row matrix with lower and upper columns", {
   skip_on_cran()
   ci <- ci_lmer(fit_ri, test_idx = 1L)
-  expect_true(any(grepl("lower", names(ci))))
-  expect_true(any(grepl("upper", names(ci))))
-  expect_length(ci, 2L)
+  expect_true(is.matrix(ci))
+  expect_equal(nrow(ci), 1L)
+  expect_equal(colnames(ci), c("lower", "upper"))
   expect_true(is.numeric(ci))
 })
 
