@@ -104,3 +104,4 @@ problems are detected.
 \seealso{
 \code{\link{score_profile}}, \code{\link{loglikelihood}}
 }
+\keyword{internal}

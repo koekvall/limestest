@@ -132,3 +132,4 @@ known (their uncertainty is not accounted for), while parameters in \code{fix_id
 are held fixed during optimization but their uncertainty is still accounted for
 when computing efficient information.
 }
+\keyword{internal}

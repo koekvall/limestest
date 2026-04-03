@@ -62,7 +62,7 @@
 #'
 #' @useDynLib limestest, .registration=TRUE
 #' @import Matrix methods
-#' @export
+#' @keywords internal
 loglikelihood <-function(psi, b = NULL, Y, X = NULL, Z, Hlist, REML = TRUE, get_val = TRUE,
                          get_score = TRUE, get_inf = TRUE, get_beta = FALSE,
                          expected = TRUE, precomp = NULL)
@@ -83,7 +83,7 @@ loglikelihood <-function(psi, b = NULL, Y, X = NULL, Z, Hlist, REML = TRUE, get_
 
   if(is.null(X) || ncol(X) == 0){
     p <- 0
-    X <- matrix(NA, 0, 0)
+    X <- matrix(0, n, 0)
     REML <- FALSE
 
     if(!is.null(b)){

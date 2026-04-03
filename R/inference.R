@@ -63,8 +63,8 @@ Psi_from_Hlist <- function(psi_mr, Hlist)
 #'
 #' @seealso \code{\link{score_stat}}, \code{\link{score_profile}},
 #'   \code{\link{loglikelihood}}, \code{\link[trust]{trust}}
-#' 
-#' @export
+#'
+#' @keywords internal
 maximize_loglik <- function(start_val, opt_idx, Y, X, Z, Hlist, expected = TRUE,
                              REML = TRUE, precomp = NULL, ...) {
   # Argument checking
@@ -130,7 +130,7 @@ maximize_loglik <- function(start_val, opt_idx, Y, X, Z, Hlist, expected = TRUE,
       theta <- start_val
       theta[opt_idx] <- x
       psi <- theta[(p + 1):(r + p)]
-      H <- do.call(cbind, Hlist)
+      H <- methods::as(do.call(cbind, Hlist), "generalMatrix")
       Psi <- Psi_from_H_cpp(psi_mr = psi[-r], H = H)
       e <- if (p == 0) Y else Y - X %*% theta[1:p]
       ll_things <- loglik(Psi_r = Psi / psi[r],
@@ -153,7 +153,7 @@ maximize_loglik <- function(start_val, opt_idx, Y, X, Z, Hlist, expected = TRUE,
     obj_fun <- function(x) {
       psi <- start_val
       psi[opt_idx] <- x
-      H <- do.call(cbind, Hlist)
+      H <- methods::as(do.call(cbind, Hlist), "generalMatrix")
       Psi <- Psi_from_H_cpp(psi_mr = psi[-r], H = H)
       ll_things <- loglik_res(Psi_r = Psi / psi[r],
                               psi_r = psi[r],
@@ -187,7 +187,7 @@ maximize_loglik <- function(start_val, opt_idx, Y, X, Z, Hlist, expected = TRUE,
   
   # Return results
   start_val[opt_idx] <- fit$argument
-  names(start_val) <- if(REML) paste0("psi", 1:r) else c(paste0("b", 1:p), paste0("psi", 1:r))
+  names(start_val) <- if(REML || p == 0) paste0("psi", 1:r) else c(paste0("b", 1:p), paste0("psi", 1:r))
   list("arg" = start_val, "value" = -fit$value, "conv" = fit$converged,
        "iter" = fit$iterations)
 }
@@ -264,7 +264,7 @@ maximize_loglik <- function(start_val, opt_idx, Y, X, Z, Hlist, expected = TRUE,
 #'
 #' @seealso \code{\link{score_profile}}, \code{\link{loglikelihood}}
 #'
-#' @export
+#' @keywords internal
 score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
                        expected = TRUE, efficient = TRUE, signed = FALSE,
                        known_idx = NULL,
@@ -379,7 +379,7 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
   if (efficient && (length(ll_things$score) > length(exclude_idx))) {
     A_nt <- ll_things$inf_mat[-exclude_idx, test_idx, drop = FALSE]
     I_nn <- ll_things$inf_mat[-exclude_idx, -exclude_idx, drop = FALSE]
-    inf_mat <- inf_mat - crossprod(A_nt, solve(I_nn, A_nt))
+    inf_mat <- inf_mat - crossprod(A_nt, .solve_sym_eigen(I_nn, A_nt))
   }
 
   if (signed) {
@@ -488,7 +488,7 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
 #' known (their uncertainty is not accounted for), while parameters in \code{fix_idx}
 #' are held fixed during optimization but their uncertainty is still accounted for
 #' when computing efficient information.
-#' @export
+#' @keywords internal
 score_profile <- function(theta_start, test_idx, max_radius = 0, num_points = 1e2,
                           Y, X, Z, Hlist, REML = TRUE, expected = TRUE,
                           efficient = TRUE, signed = TRUE, known_idx = NULL,

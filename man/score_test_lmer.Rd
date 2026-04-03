@@ -62,3 +62,14 @@ When \code{profile = TRUE}, the function uses \code{\link{maximize_loglik}} to
 optimize nuisance parameters under the null hypothesis before computing the test
 statistic. This typically yields more powerful tests.
 }
+\examples{
+library(lme4)
+fit <- lmer(Reaction ~ Days + (1 | Subject), data = sleepstudy)
+
+# Default: test H0 that the random intercept variance is zero
+score_test_lmer(fit)
+
+# Test only the random intercept variance (index 1), against null value 0
+score_test_lmer(fit, test_idx = 1L)
+
+}

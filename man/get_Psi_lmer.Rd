@@ -32,3 +32,4 @@ error variance). The elements should be ordered as in the \code{vcov} column of
 \code{as.data.frame(VarCorr(lmerfit), order = "lower.tri")}, with the last element
 (error variance) omitted.
 }
+\keyword{internal}

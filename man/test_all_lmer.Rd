@@ -54,3 +54,4 @@ When testing covariance parameters (off-diagonal elements), the function ensures
 that the starting values for optimization yield a positive semi-definite covariance
 matrix by appropriately adjusting the corresponding variance parameters.
 }
+\keyword{internal}
