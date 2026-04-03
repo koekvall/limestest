@@ -86,3 +86,5 @@ vignettes/*.pdf
 doc
 Meta
 .Rproj.user
+/doc/
+/Meta/

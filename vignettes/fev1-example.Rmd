@@ -66,15 +66,14 @@ $$
 $$
 
 where $(U_{i1}, U_{i2})^T \sim N(0, \Psi)$ independently across subjects,
-$E_{it} \sim N(0, \sigma^2)$ independently of the random effects, and
+$E_{it} \sim N(0, \psi_4)$ independently of the random effects, and
 
 $$
-\Psi = \begin{pmatrix} \psi_{11} & \psi_{12} \\ \psi_{12} & \psi_{22} \end{pmatrix}.
+\Psi = \begin{pmatrix} \psi_{1} & \psi_{2} \\ \psi_{2} & \psi_{3} \end{pmatrix}.
 $$
 
-The three covariance parameters $(\psi_{11}, \psi_{12}, \psi_{22})$
-are the quantities of primary interest; $\beta$ and $\sigma^2$ are nuisance
-parameters.
+The random effect covariance parameters $(\psi_{1}, \psi_{2}, \psi_{3})$
+are of primary interest here.
 
 ```{r fit-model}
 fit <- lmer(
@@ -94,15 +93,15 @@ as.data.frame(VarCorr(fit), order = "lower.tri")[
   , c("grp", "var1", "var2", "vcov")]
 ```
 
-The random slope variance $\hat\psi_{22}$ is small, making its confidence
+The random slope variance $\hat{\psi}_{3}$ is small, making its confidence
 interval of particular interest.
 
 ## Score-based confidence intervals
 
 `ci_all_lmer()` computes score-based 95% confidence intervals for all
 covariance parameters (the error variance is excluded by default).  The
-parameters are indexed in lower-triangular order: $\psi_{11}$,
-$\psi_{12}$, $\psi_{22}$.
+parameters are indexed in lower-triangular order: $\psi_{1}$,
+$\psi_{2}$, $\psi_{3}$.
 
 ```{r ci-all, cache = TRUE}
 ci <- ci_all_lmer(fit)
@@ -112,7 +111,7 @@ ci
 `ci_lmer()` computes the interval for a single parameter.
 
 ```{r ci-single, cache = TRUE}
-ci_lmer(fit, test_idx = 3L)   # random slope variance psi_22
+ci_lmer(fit, test_idx = 3L)   # random slope variance psi_3
 ```
 
 ## Comparison with profile likelihood
@@ -126,17 +125,17 @@ variance/covariance scale used by `reconf`.
 confint(fit, method = "profile", parm = "theta_")
 ```
 
-The `.sig01` and `.sig03` rows are standard deviations ($\sqrt{\psi_{11}}$
-and $\sqrt{\psi_{22}}$); `.sig02` is the correlation
-$\psi_{12}/\sqrt{\psi_{11}\psi_{22}}$.
+The `.sig01` and `.sig03` rows are standard deviations ($\sqrt{\psi_{1}}$
+and $\sqrt{\psi_{3}}$); `.sig02` is the correlation
+$\psi_{2}/\sqrt{\psi_{1}\psi_{3}}$.
 
 ## Score test for no random slope
 
 `score_test_lmer()` tests whether the random effects for age contribute
-nothing, i.e., $H_0: \psi_{12} = \psi_{22} = 0$.  When $\psi_{22} = 0$,
-the slope $U_{i2}$ is identically zero, which forces $\psi_{12} = 0$ as well;
+nothing, i.e., $H_0: \psi_{2} = \psi_{3} = 0$.  When $\psi_{3} = 0$,
+the slope $U_{i2}$ is identically zero, which forces $\psi_{2} = 0$ as well;
 both must be set to zero in the null.  With REML, the null vector covers only
-the three covariance parameters and $\sigma^2$.
+the three covariance parameters and $\psi_{4}$.
 
 ```{r score-test}
 fit_reml <- lmer(
@@ -145,7 +144,7 @@ fit_reml <- lmer(
   control = lmerControl(optimizer = "bobyqa")
 )
 vc <- as.data.frame(VarCorr(fit_reml), order = "lower.tri")
-# Null: psi_12 = psi_22 = 0; psi_11 and sigma^2 at estimates
+# Null: psi_2 = psi_3 = 0; psi_1 and psi_4 at estimates
 theta_null_reml <- c(vc$vcov[1], 0, 0, sigma(fit_reml)^2)
 score_test_lmer(fit_reml, test_idx = c(2L, 3L), theta_null = theta_null_reml)
 ```
