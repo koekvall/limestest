@@ -1,4 +1,4 @@
 library(testthat)
-library(limestest)
+library(reconf)
 
-test_check("limestest")
+test_check("reconf")

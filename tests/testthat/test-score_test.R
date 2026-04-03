@@ -26,7 +26,7 @@ test_that("df equals length of test_idx", {
 # ── score at MLE should be near zero ────────────────────────────────────────
 
 test_that("score stat near zero when theta_null equals MLE", {
-  psi_hat <- limestest:::get_psi_hat_lmer(fit_ri)
+  psi_hat <- reconf:::get_psi_hat_lmer(fit_ri)
   # Test with null = MLE: stat should be ~0, p-value ~1
   res <- score_test_lmer(fit_ri,
                          theta_null = psi_hat,

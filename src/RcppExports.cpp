@@ -13,7 +13,7 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 
 // Psi_from_H_cpp
 Eigen::SparseMatrix<double> Psi_from_H_cpp(const Eigen::Map<Eigen::VectorXd> psi_mr, const Eigen::MappedSparseMatrix<double> H);
-RcppExport SEXP _limestest_Psi_from_H_cpp(SEXP psi_mrSEXP, SEXP HSEXP) {
+RcppExport SEXP _reconf_Psi_from_H_cpp(SEXP psi_mrSEXP, SEXP HSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -25,7 +25,7 @@ END_RCPP
 }
 // loglik
 Rcpp::List loglik(const Eigen::MappedSparseMatrix<double> Psi_r, const double psi_r, Eigen::SparseMatrix<double> H, Eigen::VectorXd e, const Eigen::Map<Eigen::MatrixXd> X, const Eigen::MappedSparseMatrix<double> Z, const Eigen::Map<Eigen::MatrixXd> XtX, const Eigen::Map<Eigen::MatrixXd> XtZ, const Eigen::MappedSparseMatrix<double> ZtZ, const bool get_val, const bool get_score, const bool get_inf, const bool expected);
-RcppExport SEXP _limestest_loglik(SEXP Psi_rSEXP, SEXP psi_rSEXP, SEXP HSEXP, SEXP eSEXP, SEXP XSEXP, SEXP ZSEXP, SEXP XtXSEXP, SEXP XtZSEXP, SEXP ZtZSEXP, SEXP get_valSEXP, SEXP get_scoreSEXP, SEXP get_infSEXP, SEXP expectedSEXP) {
+RcppExport SEXP _reconf_loglik(SEXP Psi_rSEXP, SEXP psi_rSEXP, SEXP HSEXP, SEXP eSEXP, SEXP XSEXP, SEXP ZSEXP, SEXP XtXSEXP, SEXP XtZSEXP, SEXP ZtZSEXP, SEXP get_valSEXP, SEXP get_scoreSEXP, SEXP get_infSEXP, SEXP expectedSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -48,7 +48,7 @@ END_RCPP
 }
 // loglik_res
 Rcpp::List loglik_res(const Eigen::MappedSparseMatrix<double> Psi_r, const double psi_r, Eigen::SparseMatrix<double> H, Eigen::VectorXd Y, const Eigen::Map<Eigen::MatrixXd> X, const Eigen::MappedSparseMatrix<double> Z, const Eigen::Map<Eigen::MatrixXd> XtX, const Eigen::Map<Eigen::MatrixXd> XtZ, const Eigen::MappedSparseMatrix<double> ZtZ, const Eigen::Map<Eigen::MatrixXd> XtY, const Eigen::Map<Eigen::MatrixXd> ZtY, const bool get_val, const bool get_score, const bool get_inf);
-RcppExport SEXP _limestest_loglik_res(SEXP Psi_rSEXP, SEXP psi_rSEXP, SEXP HSEXP, SEXP YSEXP, SEXP XSEXP, SEXP ZSEXP, SEXP XtXSEXP, SEXP XtZSEXP, SEXP ZtZSEXP, SEXP XtYSEXP, SEXP ZtYSEXP, SEXP get_valSEXP, SEXP get_scoreSEXP, SEXP get_infSEXP) {
+RcppExport SEXP _reconf_loglik_res(SEXP Psi_rSEXP, SEXP psi_rSEXP, SEXP HSEXP, SEXP YSEXP, SEXP XSEXP, SEXP ZSEXP, SEXP XtXSEXP, SEXP XtZSEXP, SEXP ZtZSEXP, SEXP XtYSEXP, SEXP ZtYSEXP, SEXP get_valSEXP, SEXP get_scoreSEXP, SEXP get_infSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -72,9 +72,9 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_limestest_Psi_from_H_cpp", (DL_FUNC) &_limestest_Psi_from_H_cpp, 2},
-    {"_limestest_loglik", (DL_FUNC) &_limestest_loglik, 13},
-    {"_limestest_loglik_res", (DL_FUNC) &_limestest_loglik_res, 14},
+    {"_reconf_Psi_from_H_cpp", (DL_FUNC) &_reconf_Psi_from_H_cpp, 2},
+    {"_reconf_loglik", (DL_FUNC) &_reconf_loglik, 13},
+    {"_reconf_loglik_res", (DL_FUNC) &_reconf_loglik_res, 14},
     {NULL, NULL, 0}
 };
 
