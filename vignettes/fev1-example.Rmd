@@ -1,0 +1,178 @@
+---
+title: "Score-based confidence intervals for random effect variances: FEV1 example"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Score-based confidence intervals for random effect variances: FEV1 example}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Overview
+
+This vignette illustrates the `reconf` package using a longitudinal lung function
+dataset.  The key feature of the example is that the maximum likelihood estimate
+of one variance component falls exactly on the boundary of the parameter space
+(zero), a situation where standard Wald and likelihood-ratio confidence intervals
+can perform poorly.  Score-based intervals—the default in `reconf`—maintain
+correct coverage even at and near such boundary points.
+
+## Data
+
+The `fev1` dataset contains 1994 repeated measurements of forced expiratory
+volume in one second (FEV1) for $n = 300$ girls and young women from Topeka,
+Kansas, originally described in Fitzmaurice, Laird, and Ware (2011).  Each row
+is one observation; the variables are:
+
+| Variable   | Description |
+|------------|-------------|
+| `id`       | Subject identifier |
+| `age`      | Age at measurement (years) |
+| `ht`       | Height at measurement (metres) |
+| `baseage`  | Baseline age (first visit) |
+| `baseht`   | Baseline height (first visit) |
+| `logfev1`  | Log FEV1 (natural log, litres) |
+
+```{r load-data}
+library(reconf)
+library(lme4)
+
+data(fev1)
+dim(fev1)
+head(fev1)
+```
+
+Each subject has between 1 and 12 observations over time.
+
+```{r visits-per-subject}
+range(table(fev1$id))
+```
+
+## Model
+
+We fit the linear mixed model
+
+$$
+\text{logfev1}_{it} = \psi_1 + \psi_2\,\text{age}_{it} + \psi_3\,\text{ht}_{it}
+  + \psi_4\,\text{baseage}_i + \psi_5\,\text{baseht}_i
+  + U_{i1} + U_{i2}\,\text{age}_{it} + E_{it},
+$$
+
+where $U_{i1} \sim \mathcal{N}(0,\lambda_1^2)$ and
+$U_{i2} \sim \mathcal{N}(0,\lambda_2^2)$ are mutually independent random
+effects for subject $i$, and $E_{it} \sim \mathcal{N}(0,\sigma^2)$ is
+measurement error.  The random effects are assumed independent across subjects
+and independent of the errors.
+
+The variance parameters of interest are $\lambda = (\lambda_1^2, \lambda_2^2)$;
+$\psi$ and $\sigma$ are nuisance parameters.
+
+In `lme4` notation, `(1 | id) + (0 + age | id)` gives independent random
+intercepts and random slopes for age, as the model assumes.
+
+```{r fit-model}
+fit <- lmer(
+  logfev1 ~ age + ht + baseage + baseht + (1 | id) + (0 + age | id),
+  data = fev1,
+  REML = FALSE
+)
+```
+
+## Maximum likelihood estimates
+
+```{r mle}
+# Fixed effects
+round(fixef(fit), 3)
+
+# Variance components
+as.data.frame(VarCorr(fit), order = "lower.tri")[
+  , c("grp", "var1", "vcov", "sdcor")]
+```
+
+The ML estimate $\hat\lambda_1^2 = 0$: the random intercept variance sits exactly
+on the boundary of the parameter space.  This is a signal that conventional
+asymptotic approximations (Wald and likelihood-ratio) may not be reliable for
+$\lambda_1^2$.
+
+## Score-based confidence intervals
+
+`ci_all_lmer()` computes score-based 95% confidence intervals for each variance
+component (error variance excluded by default).
+
+```{r ci-all}
+ci <- ci_all_lmer(fit)
+ci
+```
+
+`ci_lmer()` computes the interval for a single parameter and accepts additional
+control arguments.  The two parameters here are:
+
+- **Index 1**: $\lambda_1^2$ (random intercept variance, MLE at boundary)
+- **Index 2**: $\lambda_2^2$ (random slope variance for age)
+
+```{r ci-single}
+ci_lmer(fit, test_idx = 1L)   # random intercept variance
+ci_lmer(fit, test_idx = 2L)   # random slope variance
+```
+
+## Comparison with likelihood-ratio and Wald intervals
+
+`lme4::confint()` with `method = "profile"` gives profile likelihood-ratio
+intervals; Wald intervals are available via `method = "Wald"`.
+
+```{r compare, cache = TRUE}
+ci_lr   <- confint(fit, method = "profile", parm = c(".sig01", ".sig02"))
+ci_wald <- confint(fit, method = "Wald",    parm = c(".sig01", ".sig02"))
+```
+
+```{r compare-table, echo = FALSE}
+# confint returns SD-scale bounds; square to get variance scale
+tab <- rbind(
+  `Score (reconf)`   = ci[1:2, ],
+  `Likelihood ratio` = ci_lr^2,
+  `Wald`             = ci_wald^2
+)
+knitr::kable(
+  round(tab, 4),
+  caption = paste("95% confidence intervals for",
+                  "lambda_1^2 (random intercept) and",
+                  "lambda_2^2 (random slope)")
+)
+```
+
+For $\lambda_2^2$ (well away from the boundary) all three methods agree
+closely.  For $\lambda_1^2$ (MLE at zero), the score interval is shortest and
+its left endpoint is at the boundary, reflecting that the data are consistent
+with no random intercept variability.  The likelihood-ratio interval is wider
+and the Wald interval is wider still—known deficiencies of those methods near
+boundary points of the parameter space.
+
+## Score test for zero random intercept variance
+
+`score_test_lmer()` tests $H_0: \lambda_1^2 = 0$ directly.  We use a REML fit
+so that the fixed effects are concentrated out and the null vector only covers
+the variance parameters ($\lambda_1^2 = 0$, $\lambda_2^2$, $\sigma^2$).
+
+```{r score-test}
+fit_reml <- lmer(
+  logfev1 ~ age + ht + baseage + baseht + (1 | id) + (0 + age | id),
+  data = fev1, REML = TRUE
+)
+vc <- as.data.frame(VarCorr(fit_reml), order = "lower.tri")
+theta_null_reml <- c(0, vc$vcov[2], sigma(fit_reml)^2)
+score_test_lmer(fit_reml, test_idx = 1L, theta_null = theta_null_reml)
+```
+
+The large p-value is consistent with the confidence interval: there is little
+evidence against $\lambda_1^2 = 0$.
+
+## References
+
+- Fitzmaurice, G. M., Laird, N. M., and Ware, J. H. (2011).
+  *Applied Longitudinal Analysis*, 2nd edition. Wiley.
