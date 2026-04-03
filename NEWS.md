@@ -1,4 +1,4 @@
-# limestest 0.1
+# reconf 0.1
 
 * Initial release.
 * `ci_lmer()`: score-based confidence interval for a single covariance parameter
