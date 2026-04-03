@@ -125,12 +125,12 @@ maximize_loglik <- function(start_val, opt_idx, Y, X, Z, Hlist, expected = TRUE,
   #############################################################################
   # Define the objective function to be minimized
   #############################################################################
+  H <- methods::as(do.call(cbind, Hlist), "generalMatrix")
   if(!REML){
     obj_fun <- function(x) {
       theta <- start_val
       theta[opt_idx] <- x
       psi <- theta[(p + 1):(r + p)]
-      H <- methods::as(do.call(cbind, Hlist), "generalMatrix")
       Psi <- Psi_from_H_cpp(psi_mr = psi[-r], H = H)
       e <- if (p == 0) Y else Y - X %*% theta[1:p]
       ll_things <- loglik(Psi_r = Psi / psi[r],
@@ -153,7 +153,6 @@ maximize_loglik <- function(start_val, opt_idx, Y, X, Z, Hlist, expected = TRUE,
     obj_fun <- function(x) {
       psi <- start_val
       psi[opt_idx] <- x
-      H <- methods::as(do.call(cbind, Hlist), "generalMatrix")
       Psi <- Psi_from_H_cpp(psi_mr = psi[-r], H = H)
       ll_things <- loglik_res(Psi_r = Psi / psi[r],
                               psi_r = psi[r],
@@ -362,7 +361,7 @@ score_stat <- function(theta, test_idx, Y, X, Z, Hlist, REML = TRUE,
                              precomp = precomp)
     # Check condition of information matrix
     cond <- tryCatch(
-      kappa(ll_things$inf_mat, exact = TRUE),
+      kappa(ll_things$inf_mat, exact = FALSE),
       error = function(e) Inf
     )
     if (cond > 1e12) {
@@ -568,7 +567,6 @@ score_profile <- function(theta_start, test_idx, max_radius = 0, num_points = 1e
     }
   }
 
-  p <- ncol(X)
   # If max_radius not supplied, could use information matrix to make default
   if (length(max_radius) == 2) {
     lwr <- theta_start[test_idx] - max_radius[1]
@@ -626,7 +624,6 @@ score_profile <- function(theta_start, test_idx, max_radius = 0, num_points = 1e
     # Update residual and relevant entries of precompute
     if(!REML && p > 0) {
       precomp$e <- Y - X %*% theta_tilde[1:p]
-      precomp$Zte <- as.vector(crossprod(Z, precomp$e))
     }
     
     # Store the solution from start_idx to use when searching other direction

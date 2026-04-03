@@ -71,7 +71,7 @@ Eigen::SparseMatrix<double> Psi_from_H_cpp(const Eigen::Map<Eigen::VectorXd> psi
 Rcpp::List loglik(const Eigen::MappedSparseMatrix<double> Psi_r,
                   const double psi_r,
                   Eigen::SparseMatrix<double> H,
-                  Eigen::VectorXd e,
+                  const Eigen::Map<Eigen::VectorXd> e,
                   const Eigen::Map<Eigen::MatrixXd> X,
                   const Eigen::MappedSparseMatrix<double> Z,
                   const Eigen::Map<Eigen::MatrixXd> XtX,
@@ -87,10 +87,10 @@ Rcpp::List loglik(const Eigen::MappedSparseMatrix<double> Psi_r,
   int q = Psi_r.cols();
   int r = H.cols() / q + 1;
 
-  // Initialize returns
+  // Initialize returns (allocate only when needed)
   double ll = NA_REAL;
-  Eigen::VectorXd S(p + r);
-  Eigen::MatrixXd I(p + r, p + r);
+  Eigen::VectorXd S = get_score || get_inf ? Eigen::VectorXd::Zero(p + r) : Eigen::VectorXd();
+  Eigen::MatrixXd I = get_inf ? Eigen::MatrixXd::Zero(p + r, p + r) : Eigen::MatrixXd();
 
   // Initialize identity matrix
   Eigen::SparseMatrix<double> Id_q(q, q);
@@ -125,6 +125,12 @@ Rcpp::List loglik(const Eigen::MappedSparseMatrix<double> Psi_r,
 
   if (get_val) {
     ll = ll - 0.5 * etilde.dot(e);
+  }
+
+  if (!get_score && !get_inf) {
+    return Rcpp::List::create(Rcpp::Named("value") = ll,
+                              Rcpp::Named("score") = S,
+                              Rcpp::Named("inf_mat") = I);
   }
 
   // Get score for beta
@@ -174,15 +180,15 @@ Rcpp::List loglik(const Eigen::MappedSparseMatrix<double> Psi_r,
     }
     if (!expected) {
       I.bottomRightCorner(r, r) = -I.bottomRightCorner(r, r);
-      // Replace e by \check{e} = Sigma^{-2}e = \Sigma^{-1}\tilde{e}
-      e = (1 / psi_r) * (etilde - Z * (A * v));
-      v = Z.transpose() * e;
+      // \check{e} = Sigma^{-2}e = \Sigma^{-1}\tilde{e}
+      Eigen::VectorXd e_check = (1 / psi_r) * (etilde - Z * (A * v));
+      v = Z.transpose() * e_check;
 
       if(p > 0) {
-        I.topRightCorner(p, 1) = X.transpose() * e;
+        I.topRightCorner(p, 1) = X.transpose() * e_check;
       }
 
-      I(p + r - 1, p + r - 1) += e.dot(etilde);
+      I(p + r - 1, p + r - 1) += e_check.dot(etilde);
 
       for (int jj = 0; jj < r - 1; jj++) {
         if(p > 0) {
@@ -256,8 +262,8 @@ Rcpp::List loglik_res(const Eigen::MappedSparseMatrix<double> Psi_r,
                       const Eigen::Map<Eigen::MatrixXd> XtX,
                       const Eigen::Map<Eigen::MatrixXd> XtZ,
                       const Eigen::MappedSparseMatrix<double> ZtZ,
-                      const Eigen::Map<Eigen::MatrixXd> XtY,
-                      const Eigen::Map<Eigen::MatrixXd> ZtY,
+                      const Eigen::Map<Eigen::VectorXd> XtY,
+                      const Eigen::Map<Eigen::VectorXd> ZtY,
                       const bool get_val = true,
                       const bool get_score = true,
                       const bool get_inf = true)

@@ -96,7 +96,7 @@ loglikelihood <-function(psi, b = NULL, Y, X = NULL, Z, Hlist, REML = TRUE, get_
 
   assertthat::assert_that(is(Z, "sparseMatrix"), ncol(Z) >= 1, nrow(Z) == n,
   msg = "Z has to be an n x q matrix with q > 0")
-  Z <- as(Z, "generalMatrix")
+  if (!is(Z, "generalMatrix")) Z <- as(Z, "generalMatrix")
   q <- ncol(Z)
 
   assertthat::assert_that(is.list(Hlist),
@@ -168,7 +168,7 @@ loglikelihood <-function(psi, b = NULL, Y, X = NULL, Z, Hlist, REML = TRUE, get_
     if(is.null(precomp)){
         XtZ <- as.matrix(crossprod(X, Z))
         ZtZ <- methods::as(crossprod(Z), "generalMatrix")
-        XtX <- crossprod(X)
+        XtX <- as.matrix(crossprod(X))
     } else{
         XtZ <- precomp$XtZ
         ZtZ <- precomp$ZtZ
@@ -350,8 +350,8 @@ chol_solve <- function(U, b)
 #' effects (\eqn{X}) with the design matrix of random effects (\eqn{Z}).
 #' @param ZtZ A q x q matrix of the crossproduct of the design matrix of random
 #' effects (\eqn{Z}) with itself.
-#' @param YtZ A 1 x q matrix of the crossproduct of the response vector (\eqn{Y}) with
-#' the design matrix of random effects (\eqn{Z}).
+#' @param ZtY A \eqn{q \times 1} vector of the crossproduct of the design matrix of random
+#' effects (\eqn{Z}) with the response vector (\eqn{Y}).
 #' @param Y An n x 1 vector of the response variable.
 #' @param X An n x p matrix of the design matrix of fixed effects.
 #' @param Z An n x q matrix of the design matrix of random effects.
@@ -368,7 +368,7 @@ chol_solve <- function(U, b)
 #' \item{value}{The restricted log-likelihood at supplied parameters.}
 #' \item{score}{The restricted score at the supplied parameters.}
 #' \item{inf_mat}{The expected restricted information matrix at supplied parameters}
-res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi_r, psi_r,
+res_ll <- function(XtX, XtY, XtZ, ZtZ, ZtY, Y, X, Z, H, Psi_r, psi_r,
                    get_val = TRUE, get_score = FALSE, get_inf = FALSE)
 {
   # Define dimensions
@@ -404,7 +404,7 @@ res_ll <- function(XtX, XtY, XtZ, ZtZ, YtZ, Y, X, Z, H, Psi_r, psi_r,
   }
 
   # Create XtSiY for use in beta_tilde
-  beta_tilde <- (1/ psi_r) * (XtY - XtZ %*% Matrix::tcrossprod(A, YtZ)) # p x 1
+  beta_tilde <- (1/ psi_r) * (XtY - XtZ %*% (A %*% ZtY)) # p x 1
   beta_tilde <- chol_solve(U, beta_tilde)
 
   # Replace Y by residuals

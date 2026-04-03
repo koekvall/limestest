@@ -88,9 +88,15 @@ ci_lmer <- function(lmerfit, test_idx, level = 0.95, step_size = NULL,
   Z       <- lme4::getME(lmerfit, "Z")
   Hlist   <- get_Hlist_lmer(lmerfit)
   if (is.null(REML)) REML <- lme4::getME(lmerfit, "REML") != 0
-  # For ML, precomp stores residuals at the MLE beta which become stale as beta
-  # is optimised over during the outward search; pass NULL so each call recomputes.
-  precomp <- if (REML) get_precomp_lmer(lmerfit, REML = TRUE) else NULL
+  # For ML, only pass geometry (XtX, XtZ, ZtZ) — residuals are recomputed from
+  # beta inside loglikelihood, so they don't go stale during the outward search.
+  if (REML) {
+    precomp <- get_precomp_lmer(lmerfit, REML = TRUE)
+  } else {
+    precomp <- list(XtX = as.matrix(crossprod(X)),
+                    XtZ = as.matrix(crossprod(X, Z)),
+                    ZtZ = methods::as(crossprod(Z), "generalMatrix"))
+  }
   psi_hat <- get_psi_hat_lmer(lmerfit)
   r       <- length(psi_hat)
   p       <- ncol(X)
@@ -334,6 +340,9 @@ ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95, ...) {
       next
     }
 
+    # Reset step to full size after any halvings
+    step <- step_size
+
     # Check for crossing of the target critical value
     # (prev_stat - target) and (stat - target) have opposite signs at a crossing
     if ((prev_stat - target) * (stat - target) < 0) {
@@ -347,8 +356,6 @@ ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95, ...) {
     theta     <- theta_prop
     prev_val  <- theta_prop[test_idx]
     prev_stat <- stat
-    # Reset step to full size after any halvings
-    step <- step_size
   }
 
   side <- if (direction == -1L) "lower" else "upper"

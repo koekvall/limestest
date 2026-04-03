@@ -154,7 +154,7 @@ test_that("C++ and R restricted log-likelihood values agree at MLE (REML)", {
   ll_R <- reconf:::res_ll(
     XtX = crossprod(X), XtY = crossprod(X, Y),
     XtZ = crossprod(X, Z), ZtZ = crossprod(Z),
-    YtZ = crossprod(Y, Z),
+    ZtY = crossprod(Z, Y),
     Y = Y, X = X, Z = Z, H = H,
     Psi_r = Psi_r, psi_r = psi_hat[r],
     get_val = TRUE, get_score = FALSE, get_inf = FALSE
@@ -183,7 +183,7 @@ test_that("C++ and R score vectors agree at MLE (REML)", {
   score_R <- reconf:::res_ll(
     XtX = crossprod(X), XtY = crossprod(X, Y),
     XtZ = crossprod(X, Z), ZtZ = crossprod(Z),
-    YtZ = crossprod(Y, Z),
+    ZtY = crossprod(Z, Y),
     Y = Y, X = X, Z = Z, H = H,
     Psi_r = Psi_r, psi_r = psi_hat[r],
     get_val = FALSE, get_score = TRUE, get_inf = FALSE

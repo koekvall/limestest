@@ -89,18 +89,21 @@ get_Hlist_lmer <- function(lmerfit)
   # Psi, and hence H, has the same structure as Lambdat
   H <- lme4::getME(lmerfit, "Lambdat")
   param_idx <- lme4::getME(lmerfit, "Lind")
+  q <- nrow(H)
+  m <- lme4::getME(lmerfit, "m")
 
-  # Replace values by parameter index
-  H@x <- param_idx
-  
-  # Create list of indicator matrices, one for each covariance parameter
-  # Each matrix has 1s where that parameter appears, 0s elsewhere
-  lapply(seq_len(lme4::getME(lmerfit, "m")),
-         function(i){
-           M <- H
-           M@x <- as.numeric(i == M@x)
-           Matrix::forceSymmetric(Matrix::drop0(M), uplo = "U")
-         })
+  # Build each indicator matrix directly from matching nonzero positions,
+  # avoiding r-1 full copies of H followed by drop0
+  # Expand column-pointer format to per-element column indices
+  col_idx <- rep(seq_len(q), diff(H@p))
+  row_idx <- H@i + 1L  # 0-based to 1-based
+
+  lapply(seq_len(m), function(i) {
+    keep <- which(param_idx == i)
+    M <- Matrix::sparseMatrix(i = row_idx[keep], j = col_idx[keep],
+                              x = 1, dims = c(q, q))
+    Matrix::forceSymmetric(M, uplo = "U")
+  })
 }
 
 #' Get precomputed quantities from lme4 fit
@@ -145,24 +148,9 @@ get_precomp_lmer <- function(lmerfit, REML = NULL){
   X <- lme4::getME(lmerfit, "X")
   Z <- lme4::getME(lmerfit, "Z")
   Y <- lme4::getME(lmerfit, "y")
-  
-  if(REML){
-    out <- list(XtY = as.vector(crossprod(X, Y)),
-                ZtY = as.vector(crossprod(Z, Y)),
-                XtX = as.matrix(crossprod(X)),
-                XtZ = as.matrix(crossprod(X, Z)),
-                ZtZ = methods::as(crossprod(Z), "generalMatrix"))
-  } else{
-    # Compute residuals from fitted fixed effects
-    # Note: may differ from residuals(lmerfit) due to lme4's internal computation
-    e <- Y - X %*% lme4::getME(lmerfit, "beta")
-    out <- list(e = as.vector(e),
-                Zte = as.vector(crossprod(Z, e)),
-                XtX = as.matrix(crossprod(X)),
-                XtZ = as.matrix(crossprod(X, Z)),
-                ZtZ = methods::as(crossprod(Z), "generalMatrix"))
-  }
-  out
+  b <- if (!REML) as.vector(lme4::getME(lmerfit, "beta")) else NULL
+
+  get_precomp(Y = Y, X = X, Z = Z, b = b, REML = REML)
 }
 
 #' Extract estimated covariance parameters from lme4 fit

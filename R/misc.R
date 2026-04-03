@@ -27,15 +27,14 @@ get_idx_ltri <- function(row, col, n)
   0.5 * n * (n + 1) - back_idx + 1
 }
 
-# Solve A %*% x = b for symmetric A using eigendecomposition, treating
-# eigenvalues below tol * max(eigenvalue) as zero (pseudoinverse). This is
-# numerically stable when A is ill-conditioned, at the cost of ignoring
-# directions in which A carries essentially no information.
+# Solve A %*% x = b for symmetric A. Tries Cholesky first (fast); falls back
+# to eigendecomposition-based pseudoinverse when A is not positive definite.
 .solve_sym_eigen <- function(A, b, tol = 1e-10) {
+  ch <- tryCatch(chol(A), error = function(e) NULL)
+  if (!is.null(ch)) return(chol_solve(ch, b))
   ed <- eigen(A, symmetric = TRUE)
   threshold <- tol * max(abs(ed$values))
   inv_vals <- ifelse(abs(ed$values) > threshold, 1 / ed$values, 0)
-  # ed$vectors %*% diag(inv_vals) %*% t(ed$vectors) %*% b
   ed$vectors %*% (inv_vals * (t(ed$vectors) %*% b))
 }
 
@@ -51,7 +50,7 @@ get_precomp <- function(Y, X, Z, b = NULL, REML = TRUE) {
       precomp <- list("e" = e,
                       "XtZ" = as.matrix(crossprod(X, Z)),
                       "ZtZ" = methods::as(crossprod(Z), "generalMatrix"),
-                      "XtX" = crossprod(X))
+                      "XtX" = as.matrix(crossprod(X)))
     }
     precomp
 }

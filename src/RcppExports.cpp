@@ -24,7 +24,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // loglik
-Rcpp::List loglik(const Eigen::MappedSparseMatrix<double> Psi_r, const double psi_r, Eigen::SparseMatrix<double> H, Eigen::VectorXd e, const Eigen::Map<Eigen::MatrixXd> X, const Eigen::MappedSparseMatrix<double> Z, const Eigen::Map<Eigen::MatrixXd> XtX, const Eigen::Map<Eigen::MatrixXd> XtZ, const Eigen::MappedSparseMatrix<double> ZtZ, const bool get_val, const bool get_score, const bool get_inf, const bool expected);
+Rcpp::List loglik(const Eigen::MappedSparseMatrix<double> Psi_r, const double psi_r, Eigen::SparseMatrix<double> H, const Eigen::Map<Eigen::VectorXd> e, const Eigen::Map<Eigen::MatrixXd> X, const Eigen::MappedSparseMatrix<double> Z, const Eigen::Map<Eigen::MatrixXd> XtX, const Eigen::Map<Eigen::MatrixXd> XtZ, const Eigen::MappedSparseMatrix<double> ZtZ, const bool get_val, const bool get_score, const bool get_inf, const bool expected);
 RcppExport SEXP _reconf_loglik(SEXP Psi_rSEXP, SEXP psi_rSEXP, SEXP HSEXP, SEXP eSEXP, SEXP XSEXP, SEXP ZSEXP, SEXP XtXSEXP, SEXP XtZSEXP, SEXP ZtZSEXP, SEXP get_valSEXP, SEXP get_scoreSEXP, SEXP get_infSEXP, SEXP expectedSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -32,7 +32,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const Eigen::MappedSparseMatrix<double> >::type Psi_r(Psi_rSEXP);
     Rcpp::traits::input_parameter< const double >::type psi_r(psi_rSEXP);
     Rcpp::traits::input_parameter< Eigen::SparseMatrix<double> >::type H(HSEXP);
-    Rcpp::traits::input_parameter< Eigen::VectorXd >::type e(eSEXP);
+    Rcpp::traits::input_parameter< const Eigen::Map<Eigen::VectorXd> >::type e(eSEXP);
     Rcpp::traits::input_parameter< const Eigen::Map<Eigen::MatrixXd> >::type X(XSEXP);
     Rcpp::traits::input_parameter< const Eigen::MappedSparseMatrix<double> >::type Z(ZSEXP);
     Rcpp::traits::input_parameter< const Eigen::Map<Eigen::MatrixXd> >::type XtX(XtXSEXP);
@@ -47,7 +47,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // loglik_res
-Rcpp::List loglik_res(const Eigen::MappedSparseMatrix<double> Psi_r, const double psi_r, Eigen::SparseMatrix<double> H, Eigen::VectorXd Y, const Eigen::Map<Eigen::MatrixXd> X, const Eigen::MappedSparseMatrix<double> Z, const Eigen::Map<Eigen::MatrixXd> XtX, const Eigen::Map<Eigen::MatrixXd> XtZ, const Eigen::MappedSparseMatrix<double> ZtZ, const Eigen::Map<Eigen::MatrixXd> XtY, const Eigen::Map<Eigen::MatrixXd> ZtY, const bool get_val, const bool get_score, const bool get_inf);
+Rcpp::List loglik_res(const Eigen::MappedSparseMatrix<double> Psi_r, const double psi_r, Eigen::SparseMatrix<double> H, Eigen::VectorXd Y, const Eigen::Map<Eigen::MatrixXd> X, const Eigen::MappedSparseMatrix<double> Z, const Eigen::Map<Eigen::MatrixXd> XtX, const Eigen::Map<Eigen::MatrixXd> XtZ, const Eigen::MappedSparseMatrix<double> ZtZ, const Eigen::Map<Eigen::VectorXd> XtY, const Eigen::Map<Eigen::VectorXd> ZtY, const bool get_val, const bool get_score, const bool get_inf);
 RcppExport SEXP _reconf_loglik_res(SEXP Psi_rSEXP, SEXP psi_rSEXP, SEXP HSEXP, SEXP YSEXP, SEXP XSEXP, SEXP ZSEXP, SEXP XtXSEXP, SEXP XtZSEXP, SEXP ZtZSEXP, SEXP XtYSEXP, SEXP ZtYSEXP, SEXP get_valSEXP, SEXP get_scoreSEXP, SEXP get_infSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -61,8 +61,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const Eigen::Map<Eigen::MatrixXd> >::type XtX(XtXSEXP);
     Rcpp::traits::input_parameter< const Eigen::Map<Eigen::MatrixXd> >::type XtZ(XtZSEXP);
     Rcpp::traits::input_parameter< const Eigen::MappedSparseMatrix<double> >::type ZtZ(ZtZSEXP);
-    Rcpp::traits::input_parameter< const Eigen::Map<Eigen::MatrixXd> >::type XtY(XtYSEXP);
-    Rcpp::traits::input_parameter< const Eigen::Map<Eigen::MatrixXd> >::type ZtY(ZtYSEXP);
+    Rcpp::traits::input_parameter< const Eigen::Map<Eigen::VectorXd> >::type XtY(XtYSEXP);
+    Rcpp::traits::input_parameter< const Eigen::Map<Eigen::VectorXd> >::type ZtY(ZtYSEXP);
     Rcpp::traits::input_parameter< const bool >::type get_val(get_valSEXP);
     Rcpp::traits::input_parameter< const bool >::type get_score(get_scoreSEXP);
     Rcpp::traits::input_parameter< const bool >::type get_inf(get_infSEXP);

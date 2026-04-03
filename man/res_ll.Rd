@@ -9,7 +9,7 @@ res_ll(
   XtY,
   XtZ,
   ZtZ,
-  YtZ,
+  ZtY,
   Y,
   X,
   Z,
@@ -34,8 +34,8 @@ effects (\eqn{X}) with the design matrix of random effects (\eqn{Z}).}
 \item{ZtZ}{A q x q matrix of the crossproduct of the design matrix of random
 effects (\eqn{Z}) with itself.}
 
-\item{YtZ}{A 1 x q matrix of the crossproduct of the response vector (\eqn{Y}) with
-the design matrix of random effects (\eqn{Z}).}
+\item{ZtY}{A \eqn{q \times 1} vector of the crossproduct of the design matrix of random
+effects (\eqn{Z}) with the response vector (\eqn{Y}).}
 
 \item{Y}{An n x 1 vector of the response variable.}
 
