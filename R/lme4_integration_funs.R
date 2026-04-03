@@ -22,7 +22,7 @@
 #' `as.data.frame(VarCorr(lmerfit), order = "lower.tri")`, with the last element 
 #' (error variance) omitted.
 #'
-#' @export
+#' @keywords internal
 get_Psi_lmer <- function(lmerfit, psi_mr = NULL){
   # Validate input
   if (!inherits(lmerfit, "lmerMod")) {
@@ -62,7 +62,7 @@ get_Psi_lmer <- function(lmerfit, psi_mr = NULL){
 #' Extracts the list of structure matrices (H matrices) from an lme4 fit that
 #' determine how covariance parameters map to the covariance matrix structure.
 #' These matrices are used in likelihood computations where the covariance matrix
-#' is expressed as a linear combination: Psi = sum(psi[i] * H[[i]]).
+#' is expressed as a linear combination: Psi = sum(psi\[i\] * H\[\[i\]\]).
 #'
 #' @param lmerfit An `lmerMod` object from fitting a linear mixed model using
 #'   `lme4::lmer`.
@@ -248,6 +248,16 @@ get_psi_hat_lmer <- function(lmerfit)
 #' optimize nuisance parameters under the null hypothesis before computing the test
 #' statistic. This typically yields more powerful tests.
 #'
+#' @examples
+#' library(lme4)
+#' fit <- lmer(Reaction ~ Days + (1 | Subject), data = sleepstudy)
+#'
+#' # Default: test H0 that the random intercept variance is zero
+#' score_test_lmer(fit)
+#'
+#' # Test only the random intercept variance (index 1), against null value 0
+#' score_test_lmer(fit, test_idx = 1L)
+#'
 #' @export
 score_test_lmer <- function(lmerfit,
                             theta_null = NULL,
@@ -388,7 +398,7 @@ score_test_lmer <- function(lmerfit,
 #' that the starting values for optimization yield a positive semi-definite covariance
 #' matrix by appropriately adjusting the corresponding variance parameters.
 #'
-#' @export
+#' @keywords internal
 test_all_lmer <- function(lmerfit,
                           theta_null = NULL,
                           test_idx = NULL,

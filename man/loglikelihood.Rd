@@ -94,3 +94,4 @@ If \code{REML} is \code{FALSE} and \code{precomp} is \code{NULL}, the parameter 
 must be provided when \code{p > 0} to compute residuals \code{e = Y - X \%*\% b}.
 When \code{p = 0}, residuals are computed as \code{e = Y}.
 }
+\keyword{internal}

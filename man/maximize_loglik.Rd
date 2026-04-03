@@ -78,3 +78,4 @@ does not converge.
 \code{\link{score_stat}}, \code{\link{score_profile}},
 \code{\link{loglikelihood}}, \code{\link[trust]{trust}}
 }
+\keyword{internal}

@@ -62,7 +62,7 @@
 #'
 #' @useDynLib limestest, .registration=TRUE
 #' @import Matrix methods
-#' @export
+#' @keywords internal
 loglikelihood <-function(psi, b = NULL, Y, X = NULL, Z, Hlist, REML = TRUE, get_val = TRUE,
                          get_score = TRUE, get_inf = TRUE, get_beta = FALSE,
                          expected = TRUE, precomp = NULL)

@@ -65,7 +65,7 @@ theta_test <- theta_hat
 theta_test[1] <- 1073
 stat_values <- limestest::score_profile(theta_start = theta_test,
                                          test_idx = 1,
-                                         max_radius = 100,
+                                         max_radius = 150,
                                          num_points = 100,
                                          Y = getME(fit_lme4_ml, "y"),
                                          X = getME(fit_lme4_ml, "X"),
@@ -76,7 +76,7 @@ stat_values <- limestest::score_profile(theta_start = theta_test,
                                          # Try known_idx = NULL (all treated unknown)
                                          # and known_idx = 2:9 (all treated known)
                                          # known_idx = 4:9 fixes covariance params
-                                         known_idx = NULL,
+                                         known_idx = 4:9,
                                          return_all = TRUE)
 
 par(mfrow = c(1, 3))

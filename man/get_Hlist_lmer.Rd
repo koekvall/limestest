@@ -20,7 +20,7 @@ of covariance parameters including error variance.
 Extracts the list of structure matrices (H matrices) from an lme4 fit that
 determine how covariance parameters map to the covariance matrix structure.
 These matrices are used in likelihood computations where the covariance matrix
-is expressed as a linear combination: Psi = sum(psi\link{i} * H[\link{i}]).
+is expressed as a linear combination: Psi = sum(psi[i] * H[[i]]).
 }
 \details{
 Each matrix in the returned list is an indicator matrix showing which elements
