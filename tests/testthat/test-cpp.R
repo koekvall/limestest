@@ -1,6 +1,94 @@
 library(lme4)
 library(Matrix)
 
+# ── Numerical derivative checks ───────────────────────────────────────────────
+
+test_that("analytical ML score for psi agrees with numerical gradient", {
+  skip_on_cran()
+  skip_if_not_installed("numDeriv")
+  fit <- lmer(Reaction ~ Days + (Days | Subject), data = sleepstudy, REML = FALSE)
+  psi_hat <- reconf:::get_psi_hat_lmer(fit)
+  b_hat   <- getME(fit, "beta")
+  Y <- getME(fit, "y"); X <- getME(fit, "X"); Z <- getME(fit, "Z")
+  Hlist <- reconf:::get_Hlist_lmer(fit)
+
+  ll_fun <- function(psi) {
+    reconf:::loglikelihood(psi = psi, b = b_hat, Y = Y, X = X, Z = Z,
+                           Hlist = Hlist, REML = FALSE,
+                           get_val = TRUE, get_score = FALSE, get_inf = FALSE)$value
+  }
+  num_score <- numDeriv::grad(ll_fun, psi_hat)
+  ana_score <- reconf:::loglikelihood(psi = psi_hat, b = b_hat, Y = Y, X = X,
+                                      Z = Z, Hlist = Hlist, REML = FALSE,
+                                      get_val = FALSE, get_score = TRUE,
+                                      get_inf = FALSE)$score
+  expect_equal(num_score, ana_score, tolerance = 1e-4)
+})
+
+test_that("analytical ML observed information agrees with negative numerical Hessian", {
+  skip_on_cran()
+  skip_if_not_installed("numDeriv")
+  fit <- lmer(Reaction ~ Days + (Days | Subject), data = sleepstudy, REML = FALSE)
+  psi_hat <- reconf:::get_psi_hat_lmer(fit)
+  b_hat   <- getME(fit, "beta")
+  Y <- getME(fit, "y"); X <- getME(fit, "X"); Z <- getME(fit, "Z")
+  Hlist <- reconf:::get_Hlist_lmer(fit)
+
+  ll_fun <- function(psi) {
+    reconf:::loglikelihood(psi = psi, b = b_hat, Y = Y, X = X, Z = Z,
+                           Hlist = Hlist, REML = FALSE,
+                           get_val = TRUE, get_score = FALSE, get_inf = FALSE)$value
+  }
+  num_hess <- -numDeriv::hessian(ll_fun, psi_hat)
+  ana_hess <- reconf:::loglikelihood(psi = psi_hat, b = b_hat, Y = Y, X = X,
+                                     Z = Z, Hlist = Hlist, REML = FALSE,
+                                     get_val = FALSE, get_score = FALSE,
+                                     get_inf = TRUE, expected = FALSE)$inf_mat
+  expect_equal(num_hess, ana_hess, tolerance = 1e-4)
+})
+
+test_that("analytical REML score agrees with numerical gradient", {
+  skip_on_cran()
+  skip_if_not_installed("numDeriv")
+  fit <- lmer(Reaction ~ Days + (Days | Subject), data = sleepstudy, REML = TRUE)
+  psi_hat <- reconf:::get_psi_hat_lmer(fit)
+  Y <- getME(fit, "y"); X <- getME(fit, "X"); Z <- getME(fit, "Z")
+  Hlist <- reconf:::get_Hlist_lmer(fit)
+
+  ll_fun <- function(psi) {
+    reconf:::loglikelihood(psi = psi, Y = Y, X = X, Z = Z, Hlist = Hlist,
+                           REML = TRUE, get_val = TRUE, get_score = FALSE,
+                           get_inf = FALSE)$value
+  }
+  num_score <- numDeriv::grad(ll_fun, psi_hat)
+  ana_score <- reconf:::loglikelihood(psi = psi_hat, Y = Y, X = X, Z = Z,
+                                      Hlist = Hlist, REML = TRUE,
+                                      get_val = FALSE, get_score = TRUE,
+                                      get_inf = FALSE)$score
+  expect_equal(num_score, ana_score, tolerance = 1e-4)
+})
+
+test_that("analytical REML expected information agrees with negative numerical Hessian", {
+  skip_on_cran()
+  skip_if_not_installed("numDeriv")
+  fit <- lmer(Reaction ~ Days + (Days | Subject), data = sleepstudy, REML = TRUE)
+  psi_hat <- reconf:::get_psi_hat_lmer(fit)
+  Y <- getME(fit, "y"); X <- getME(fit, "X"); Z <- getME(fit, "Z")
+  Hlist <- reconf:::get_Hlist_lmer(fit)
+
+  ll_fun <- function(psi) {
+    reconf:::loglikelihood(psi = psi, Y = Y, X = X, Z = Z, Hlist = Hlist,
+                           REML = TRUE, get_val = TRUE, get_score = FALSE,
+                           get_inf = FALSE)$value
+  }
+  num_hess <- -numDeriv::hessian(ll_fun, psi_hat)
+  ana_hess <- reconf:::loglikelihood(psi = psi_hat, Y = Y, X = X, Z = Z,
+                                     Hlist = Hlist, REML = TRUE,
+                                     get_val = FALSE, get_score = FALSE,
+                                     get_inf = TRUE, expected = TRUE)$inf_mat
+  expect_equal(num_hess, ana_hess, tolerance = 1e-4)
+})
+
 # ── R and C++ implementations agree ──────────────────────────────────────────
 
 test_that("Psi_from_H_cpp and Psi_from_Hlist agree", {

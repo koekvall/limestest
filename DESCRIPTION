@@ -8,8 +8,8 @@ Authors@R: c(
     person("Matias", "Shedden", email = "sheddenmatias@ufl.edu", role = "ctb"))
 Description: Computes score-based confidence intervals and hypothesis tests for
     variance components in linear mixed models fitted with lme4.
-URL: https://github.com/koekvall/limestest
-BugReports: https://github.com/koekvall/limestest/issues
+URL: https://github.com/koekvall/reconf
+BugReports: https://github.com/koekvall/reconf/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -19,5 +19,5 @@ Depends:
 LazyData: true
 Imports: Matrix, lme4, trust, methods, assertthat
 LinkingTo: Rcpp, RcppEigen
-Suggests: testthat (>= 3.0.0)
+Suggests: testthat (>= 3.0.0), numDeriv
 Config/testthat/edition: 3
