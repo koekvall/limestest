@@ -1,6 +1,6 @@
 library(lme4)
 library(Matrix)
-library(limestest)
+library(reconf)
 library(rstiefel)
 library(merDeriv)
 data(fev1)
@@ -28,7 +28,7 @@ ZtZXe <- Matrix::crossprod(Z, cbind(Z, X, e))
 loglik_test <- function(x){
   Psi1_x <- matrix(c(x[1], x[2], x[2], x[3]), 2, 2)
   Psi_x <-  Matrix::kronecker(Matrix::Diagonal(300), Psi1_x)
-  limestest:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+  reconf:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
          Psi_r = Psi_x / x[4], psi_r = x[4], get_val = TRUE,
          get_score = TRUE, get_inf = TRUE, expected = FALSE)$value
 }
@@ -39,13 +39,13 @@ Psi1_test <- Psi_hat[1:2, 1:2]
 Psi_test <-  Matrix::kronecker(Matrix::Diagonal(300), Psi1_test)
 test_point <- c(Psi_test[1, 1], Psi_test[2, 1], Psi_test[2, 2], psir_test)
 numerical_score <- numDeriv::grad(loglik_test, test_point)
-analytical_score <- limestest:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+analytical_score <- reconf:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
                               Psi_r = Psi_test / psir_test, psi_r = psir_test, get_val = F,
                               get_score = T, get_inf = F)$score
 mer_score <- colSums(merDeriv::estfun.lmerMod(fit))[6:9]
 
 numerical_hess <- numDeriv::hessian(loglik_test, test_point)
-analytical_hess <- -limestest:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+analytical_hess <- -reconf:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
                                Psi_r = Psi_test / psir_test, psi_r = psir_test, get_val = F,
                                get_score = T, get_inf = TRUE, expected = F)$inf_mat
 mer_hess <- -solve(merDeriv::vcov.lmerMod(object = fit, full = TRUE, expected = FALSE))[6:9, 6:9]
@@ -70,12 +70,12 @@ cat("The max relative difference between merDeriv and analytical Hessian at MLE 
     max(abs(mer_hess - analytical_hess) / mer_hess), "\n")
 
 # Test wrapper function
-value_raw <- limestest:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+value_raw <- reconf:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
                                Psi_r = Psi_test / psir_test, psi_r = psir_test, get_val = TRUE,
                                get_score = T, get_inf = F)$value
-Hlist <- limestest:::get_Hlist_lmer(fit)
-psi_hat <- limestest:::get_psi_hat_lmer(fit)
-ll_things <- limestest::loglikelihood(psi = psi_hat,
+Hlist <- reconf:::get_Hlist_lmer(fit)
+psi_hat <- reconf:::get_psi_hat_lmer(fit)
+ll_things <- reconf::loglikelihood(psi = psi_hat,
                                       b = lme4::getME(fit, "beta"),
                                       Y = Y,
                                       X = X,
@@ -90,10 +90,10 @@ cat("The difference in raw and wrapper value is: ", abs(ll_things$value - value_
 cat("The max difference in raw and wrapper score is: ", max(abs(ll_things$score - analytical_score)), "\n")
 cat("The max difference in raw and wrapper Hessian is: ", max(abs(-ll_things$inf_mat - analytical_hess)), "\n")
 
-analytical_inf <- limestest:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+analytical_inf <- reconf:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
                                            Psi_r = Psi_test / psir_test, psi_r = psir_test, get_val = F,
                                            get_score = T, get_inf = TRUE, expected = T)$inf_mat
-ll_things <- limestest::loglikelihood(psi = psi_hat,
+ll_things <- reconf::loglikelihood(psi = psi_hat,
                                       b = lme4::getME(fit, "beta"),
                                       Y = Y,
                                       X = X,
@@ -113,12 +113,12 @@ Psi1_test <- crossprod(U, diag(runif(2, min = min(ed$values) / 10, max = max(ed$
 Psi_test <- Matrix::kronecker(Matrix::Diagonal(300), Psi1_test)
 test_point <- c(Psi_test[1, 1], Psi_test[2, 1], Psi_test[2, 2], psir_test)
 numerical_score <- numDeriv::grad(loglik_test, test_point)
-analytical_score <- limestest:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+analytical_score <- reconf:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
                                Psi_r = Psi_test / psir_test, psi_r = psir_test, get_val = F,
                                get_score = T, get_inf = F)$score
 
 numerical_hess <- numDeriv::hessian(loglik_test, test_point)
-analytical_hess <- -limestest:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
+analytical_hess <- -reconf:::loglik_psi(Z = Z, ZtZXe = ZtZXe, e = e, H = H,
                                Psi_r = Psi_test / psir_test, psi_r = psir_test, get_val = F,
                                get_score = T, get_inf = T, expected = F)$inf_mat
 
@@ -155,7 +155,7 @@ psir_hat <- attr(VarCorr(fit), "sc")^2
 loglik_test <- function(x){
   Psi1_x <- matrix(c(x[1], x[2], x[2], x[3]), 2, 2)
   Psi_x <-  Matrix::kronecker(Matrix::Diagonal(300), Psi1_x)
-  limestest:::res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
+  reconf:::res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
          ZtZ = crossprod(Z), YtZ = crossprod(Y, Z), Y = Y, X = X, Z = Z, H = H,
              Psi_r = Psi_x / x[4], psi_r = x[4], get_val = TRUE,
              get_score = FALSE, get_inf = FALSE)$value
@@ -168,7 +168,7 @@ Psi_test <-  Matrix::kronecker(Matrix::Diagonal(300), Psi1_test)
 test_point <- c(Psi_test[1, 1], Psi_test[2, 1], Psi_test[2, 2], psir_test)
 numerical_score <- numDeriv::grad(loglik_test, test_point)
 
-analytical_score <- limestest:::res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
+analytical_score <- reconf:::res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
                            ZtZ = crossprod(Z), YtZ = crossprod(Y, Z), Y = Y,
                            X = X, Z = Z, H = H, Psi_r = Psi_test / psir_test,
                            psi_r = psir_test, get_val = FALSE,
@@ -179,7 +179,7 @@ numerical_hess <- numDeriv::hessian(loglik_test, test_point)
 
 
 mer_inf <- solve(merDeriv::vcov.lmerMod(object = fit, full = TRUE, expected = TRUE)[6:9, 6:9])
-analytical_inf <- limestest:::res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
+analytical_inf <- reconf:::res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
                                              ZtZ = crossprod(Z), YtZ = crossprod(Y, Z), Y = Y,
                                              X = X, Z = Z, H = H, Psi_r = Psi_test / psir_test,
                                              psi_r = psir_test, get_val = FALSE,
@@ -200,8 +200,8 @@ cat("The max relative difference between merDeriv and analytical information at 
     max(abs(mer_inf - analytical_inf) / mer_inf), "\n")
 
 # Test wrapper function
-psi_hat <- limestest:::get_psi_hat_lmer(fit)
-things_raw <- limestest:::res_ll(XtX = crossprod(X),
+psi_hat <- reconf:::get_psi_hat_lmer(fit)
+things_raw <- reconf:::res_ll(XtX = crossprod(X),
                                 XtY = crossprod(X, Y),
                                 XtZ = crossprod(X, Z),
                                 ZtZ = crossprod(Z),
@@ -215,8 +215,8 @@ things_raw <- limestest:::res_ll(XtX = crossprod(X),
                                 get_val = TRUE,
                                 get_score = TRUE,
                                 get_inf = TRUE)
-Hlist <- limestest:::get_Hlist_lmer(fit)
-ll_things <- limestest::loglikelihood(psi = psi_hat,
+Hlist <- reconf:::get_Hlist_lmer(fit)
+ll_things <- reconf::loglikelihood(psi = psi_hat,
                                       Y = Y,
                                       X = X,
                                       Z = Z,
@@ -240,7 +240,7 @@ Psi_test <- Matrix::kronecker(Matrix::Diagonal(300), Psi1_test)
 test_point <- c(Psi_test[1, 1], Psi_test[2, 1], Psi_test[2, 2], psir_test)
 numerical_score <- numDeriv::grad(loglik_test, test_point)
 
-analytical_score <- limestest:::res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
+analytical_score <- reconf:::res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
                            ZtZ = crossprod(Z), YtZ = crossprod(Y, Z), Y = Y,
                            X = X, Z = Z, H = H, Psi_r = Psi_test / psir_test,
                            psi_r = psir_test, get_val = FALSE,
@@ -248,7 +248,7 @@ analytical_score <- limestest:::res_ll(XtX = crossprod(X), XtY = crossprod(X, Y)
 
 numerical_hess <- numDeriv::hessian(loglik_test, test_point)
 
-analytical_inf <- limestest:::res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
+analytical_inf <- reconf:::res_ll(XtX = crossprod(X), XtY = crossprod(X, Y), XtZ = crossprod(X, Z),
                          ZtZ = crossprod(Z), YtZ = crossprod(Y, Z), Y = Y,
                          X = X, Z = Z, H = H, Psi_r = Psi_test / psir_test,
                          psi_r = psir_test, get_val = FALSE,
@@ -293,7 +293,7 @@ cat("The max relative difference between numerical and analytical score at rando
 #   y <- rnorm(nrow(Z), sd = sqrt(psi0_star)) +
 #     Z %*% crossprod(R_star,  rnorm(ncol(R_star))) # beta_star = 0
 #   Zte <- crossprod(Z, y)
-#   hess_list[[ii]]<- limestest::loglik_psi(Z = Z,
+#   hess_list[[ii]]<- reconf::loglik_psi(Z = Z,
 #                         ZtZXe = cbind(ZtZ, ZtX, Zte),
 #                         e = y,
 #                         H = H,
@@ -307,7 +307,7 @@ cat("The max relative difference between numerical and analytical score at rando
 # }
 #
 # MC_inf <- Reduce("+", hess_list) / length(hess_list)
-# analytical_inf <- limestest::loglik_psi(Z = Z,
+# analytical_inf <- reconf::loglik_psi(Z = Z,
 #                                         ZtZXe = cbind(ZtZ, ZtX, Zte),
 #                                         e = y,
 #                                         H = H,

@@ -10,7 +10,7 @@
 #'        \eqn{H = [H_1, \dots , H_{r - 1}]}, where \eqn{H_j = \partial \Psi / \partial \psi_j}.
 #' @return The covariance matrix \eqn{\Psi}
 Psi_from_H_cpp <- function(psi_mr, H) {
-    .Call(`_limestest_Psi_from_H_cpp`, psi_mr, H)
+    .Call(`_reconf_Psi_from_H_cpp`, psi_mr, H)
 }
 
 #' Log-likelihood using RcppEigen
@@ -55,10 +55,10 @@ Psi_from_H_cpp <- function(psi_mr, H) {
 #' The information matrix includes both \eqn{\beta} and \eqn{\psi} parameters,
 #' with dimensions \eqn{(p + r) \times (p + r)}.
 #'
-#' @useDynLib limestest, .registration=TRUE
+#' @useDynLib reconf, .registration=TRUE
 #' @import Matrix
 loglik <- function(Psi_r, psi_r, H, e, X, Z, XtX, XtZ, ZtZ, get_val = TRUE, get_score = TRUE, get_inf = TRUE, expected = TRUE) {
-    .Call(`_limestest_loglik`, Psi_r, psi_r, H, e, X, Z, XtX, XtZ, ZtZ, get_val, get_score, get_inf, expected)
+    .Call(`_reconf_loglik`, Psi_r, psi_r, H, e, X, Z, XtX, XtZ, ZtZ, get_val, get_score, get_inf, expected)
 }
 
 #' Restricted log-likelihood using RcppEigen
@@ -104,9 +104,9 @@ loglik <- function(Psi_r, psi_r, H, e, X, Z, XtX, XtZ, ZtZ, get_val = TRUE, get_
 #'
 #' The restricted likelihood integrates out the fixed effects \eqn{\beta}.
 #'
-#' @useDynLib limestest, .registration=TRUE
+#' @useDynLib reconf, .registration=TRUE
 #' @import Matrix
 loglik_res <- function(Psi_r, psi_r, H, Y, X, Z, XtX, XtZ, ZtZ, XtY, ZtY, get_val = TRUE, get_score = TRUE, get_inf = TRUE) {
-    .Call(`_limestest_loglik_res`, Psi_r, psi_r, H, Y, X, Z, XtX, XtZ, ZtZ, XtY, ZtY, get_val, get_score, get_inf)
+    .Call(`_reconf_loglik_res`, Psi_r, psi_r, H, Y, X, Z, XtX, XtZ, ZtZ, XtY, ZtY, get_val, get_score, get_inf)
 }
 

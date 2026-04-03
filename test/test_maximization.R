@@ -12,21 +12,21 @@ tic()
 fit_lme4 <- lmer(pixel ~ day + I(day^2) + (day | Dog) + (1 | Side) + 
     (1|Side:Dog), data = Pixel, REML = FALSE)
 toc()
-psi_hat <- limestest:::get_psi_hat_lmer(fit_lme4)
+psi_hat <- reconf:::get_psi_hat_lmer(fit_lme4)
 b_hat <- fixef(fit_lme4)
 
 tic()
 fit_lme4_REML <- update(fit_lme4, REML = TRUE)
 toc()
-psi_hat_REML <- limestest:::get_psi_hat_lmer(fit_lme4_REML)
+psi_hat_REML <- reconf:::get_psi_hat_lmer(fit_lme4_REML)
 
 
-precomp <- limestest:::get_precomp_lmer(fit_lme4)
-Hlist <- limestest:::get_Hlist_lmer(fit_lme4)
+precomp <- reconf:::get_precomp_lmer(fit_lme4)
+Hlist <- reconf:::get_Hlist_lmer(fit_lme4)
 
 
 tic()
-fit_our <- limestest:::maximize_loglik(start_val = c(b_hat, psi_hat),
+fit_our <- reconf:::maximize_loglik(start_val = c(b_hat, psi_hat),
                             opt_idx = seq(p + r),
                             Y = getME(fit_lme4, "y"),
                             X = getME(fit_lme4, "X"),
@@ -39,7 +39,7 @@ toc()
 
 
 tic()
-fit_our_REML <- limestest:::maximize_loglik(start_val = c(rep(0, r - 1), 1),
+fit_our_REML <- reconf:::maximize_loglik(start_val = c(rep(0, r - 1), 1),
                                        opt_idx = seq_along(psi_hat),
                                        Y = getME(fit_lme4, "y"),
                                        X = getME(fit_lme4, "X"),
@@ -60,7 +60,7 @@ cat("REML estimates from our: ", fit_our_REML$arg, "\n")
 
 tic()
 # Testing no REs
-fit_our_no_re <- limestest:::maximize_loglik(start_val = c(b_hat, rep(0, r - 1), psi_hat[r]),
+fit_our_no_re <- reconf:::maximize_loglik(start_val = c(b_hat, rep(0, r - 1), psi_hat[r]),
                                        opt_idx = c(1:p, p + r),
                                        Y = getME(fit_lme4, "y"),
                                        X = getME(fit_lme4, "X"),
@@ -74,7 +74,7 @@ fit_lm <- lm(pixel ~ day + I(day^2), data = Pixel)
 
 tic()
 # Testing no REs with REML
-fit_our_no_re_REML <- limestest:::maximize_loglik(start_val = c(rep(0, r - 1), psi_hat[r]),
+fit_our_no_re_REML <- reconf:::maximize_loglik(start_val = c(rep(0, r - 1), psi_hat[r]),
                                             opt_idx = c(r),
                                             Y = getME(fit_lme4, "y"),
                                             X = getME(fit_lme4, "X"),
@@ -98,10 +98,10 @@ cat("REML estimate error variance from our: ", fit_our_no_re_REML$arg[r], "\n")
 fit_lme4_null <- lmer(pixel ~ day + I(day^2) + (day | Dog) + (1 | Side),
                       data = Pixel, REML = FALSE)
 b_hat_null <- fixef(fit_lme4_null)
-psi_hat_null <- limestest:::get_psi_hat_lmer(fit_lme4_null)
+psi_hat_null <- reconf:::get_psi_hat_lmer(fit_lme4_null)
 psi_hat_null <- append(psi_hat_null, 0, 0)
 
-fit_our_null <- limestest:::maximize_loglik(start_val = c(b_hat_null, psi_hat_null),
+fit_our_null <- reconf:::maximize_loglik(start_val = c(b_hat_null, psi_hat_null),
                                                  opt_idx = seq(p + r)[-(p + 1)],
                                                  Y = getME(fit_lme4, "y"),
                                                  X = getME(fit_lme4, "X"),
@@ -119,9 +119,9 @@ cat("ML estimates under null our: ", fit_our_null$arg, "\n")
 
 # Null of no side random effect REML
 fit_lme4_null_REML <- update(fit_lme4_null, REML = TRUE)
-psi_hat_null_REML <- limestest:::get_psi_hat_lmer(fit_lme4_null_REML)
+psi_hat_null_REML <- reconf:::get_psi_hat_lmer(fit_lme4_null_REML)
 psi_hat_null_REML <- append(psi_hat_null_REML, 0, 0)
-fit_our_null_REML <- limestest:::maximize_loglik(start_val = psi_hat_null_REML,
+fit_our_null_REML <- reconf:::maximize_loglik(start_val = psi_hat_null_REML,
                                             opt_idx = seq(r)[-1],
                                             Y = getME(fit_lme4, "y"),
                                             X = getME(fit_lme4, "X"),

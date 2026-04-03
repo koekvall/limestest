@@ -64,7 +64,7 @@ Eigen::SparseMatrix<double> Psi_from_H_cpp(const Eigen::Map<Eigen::VectorXd> psi
 //' The information matrix includes both \eqn{\beta} and \eqn{\psi} parameters,
 //' with dimensions \eqn{(p + r) \times (p + r)}.
 //'
-//' @useDynLib limestest, .registration=TRUE
+//' @useDynLib reconf, .registration=TRUE
 //' @import Matrix
 // [[Rcpp::export]]
 
@@ -244,7 +244,7 @@ Rcpp::List loglik(const Eigen::MappedSparseMatrix<double> Psi_r,
 //'
 //' The restricted likelihood integrates out the fixed effects \eqn{\beta}.
 //'
-//' @useDynLib limestest, .registration=TRUE
+//' @useDynLib reconf, .registration=TRUE
 //' @import Matrix
 // [[Rcpp::export]]
 Rcpp::List loglik_res(const Eigen::MappedSparseMatrix<double> Psi_r,

@@ -60,7 +60,7 @@
 #' When \code{p = 0}, residuals are computed as \code{e = Y}.
 #'
 #'
-#' @useDynLib limestest, .registration=TRUE
+#' @useDynLib reconf, .registration=TRUE
 #' @import Matrix methods
 #' @keywords internal
 loglikelihood <-function(psi, b = NULL, Y, X = NULL, Z, Hlist, REML = TRUE, get_val = TRUE,

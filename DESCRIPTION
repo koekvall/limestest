@@ -1,5 +1,5 @@
-Package: limestest
-Title: Linear Mixed Effects Model Score Test
+Package: reconf
+Title: Confidence Intervals for Random Effect Parameters in Linear Mixed Models
 Version: 0.1
 Authors@R: c(
     person("Karl Oskar", "Ekvall", email = "k.o.ekvall@gmail.com",

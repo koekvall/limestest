@@ -1,4 +1,4 @@
-# limestest
+# reconf
 
 Score-based confidence intervals and hypothesis tests for variance components in linear mixed models fitted with [lme4](https://github.com/lme4/lme4).
 
@@ -6,7 +6,7 @@ Score-based confidence intervals and hypothesis tests for variance components in
 
 Standard methods for inference on variance components — Wald intervals and likelihood ratio tests — have known deficiencies: Wald intervals can extend below zero, and both methods rely on chi-squared approximations that are unreliable in small samples or near the boundary of the parameter space.
 
-`limestest` implements **score-based confidence intervals** that invert a one-dimensional signed score statistic. The method:
+`reconf` implements **score-based confidence intervals** that invert a one-dimensional signed score statistic. The method:
 
 - Works directly on the natural variance/covariance parameterisation (no Cholesky reparameterisation needed)
 - Handles boundary cases (near-zero variances) without ad-hoc corrections
@@ -17,14 +17,14 @@ Standard methods for inference on variance components — Wald intervals and lik
 
 ```r
 # Install from GitHub
-remotes::install_github("koekvall/limestest")
+remotes::install_github("koekvall/reconf")
 ```
 
 ## Usage
 
 ```r
 library(lme4)
-library(limestest)
+library(reconf)
 
 # Fit a linear mixed model
 fit <- lmer(Reaction ~ Days + (Days | Subject), data = sleepstudy)
