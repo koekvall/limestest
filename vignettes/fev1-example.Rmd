@@ -64,9 +64,9 @@ $$
   + U_{i1} + U_{i2}\,\text{age}_{it} + E_{it},
 $$
 
-where $U_{i1} \sim \mathcal{N}(0,\lambda_1^2)$ and
-$U_{i2} \sim \mathcal{N}(0,\lambda_2^2)$ are mutually independent random
-effects for subject $i$, and $E_{it} \sim \mathcal{N}(0,\sigma^2)$ is
+where $U_{i1} \sim N(0,\lambda_1^2)$ and
+$U_{i2} \sim N(0,\lambda_2^2)$ are mutually independent random
+effects for subject $i$, and $E_{it} \sim N(0,\sigma^2)$ is
 measurement error.  The random effects are assumed independent across subjects
 and independent of the errors.
 
