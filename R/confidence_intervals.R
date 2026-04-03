@@ -88,25 +88,43 @@ ci_lmer <- function(lmerfit, test_idx, level = 0.95, step_size = NULL,
   Z       <- lme4::getME(lmerfit, "Z")
   Hlist   <- get_Hlist_lmer(lmerfit)
   if (is.null(REML)) REML <- lme4::getME(lmerfit, "REML") != 0
-  precomp <- get_precomp_lmer(lmerfit, REML = REML)
+  # For ML, precomp stores residuals at the MLE beta which become stale as beta
+  # is optimised over during the outward search; pass NULL so each call recomputes.
+  precomp <- if (REML) get_precomp_lmer(lmerfit, REML = TRUE) else NULL
   psi_hat <- get_psi_hat_lmer(lmerfit)
   r       <- length(psi_hat)
+  p       <- ncol(X)
 
   assertthat::assert_that(
     test_idx <= r,
     msg = paste0("test_idx must not exceed the number of covariance parameters (", r, ")")
   )
 
+  # For ML fits with fixed effects, the full parameter vector is c(beta, psi)
+  # and test_idx must be shifted by p to index into psi.
+  if (!REML && p > 0) {
+    b_hat      <- lme4::fixef(lmerfit)
+    theta_hat  <- c(b_hat, psi_hat)
+    test_idx_  <- p + test_idx
+    known_idx_ <- if (is.null(known_idx)) NULL else p + known_idx
+  } else {
+    theta_hat  <- psi_hat
+    test_idx_  <- test_idx
+    known_idx_ <- known_idx
+    b_hat      <- NULL
+  }
+
   # Determine step size from expected information if not provided.
   # Use SE/20 so roughly 20 steps cover one Wald CI half-width on each side.
   if (is.null(step_size)) {
-    ll <- loglikelihood(psi = psi_hat, b = NULL, Y = Y, X = X, Z = Z,
+    ll <- loglikelihood(psi = psi_hat, b = b_hat, Y = Y, X = X, Z = Z,
                         Hlist = Hlist, REML = REML,
                         get_val = FALSE, get_score = FALSE, get_inf = TRUE,
+                        get_beta = (!REML && p > 0),
                         expected = TRUE, precomp = precomp)
     se_approx <- tryCatch(
-      sqrt(solve(ll$inf_mat)[test_idx, test_idx]),
-      error = function(e) sqrt(1 / ll$inf_mat[test_idx, test_idx])
+      sqrt(solve(ll$inf_mat)[test_idx_, test_idx_]),
+      error = function(e) sqrt(1 / ll$inf_mat[test_idx_, test_idx_])
     )
     step_size <- se_approx / 20
   }
@@ -117,18 +135,18 @@ ci_lmer <- function(lmerfit, test_idx, level = 0.95, step_size = NULL,
   # optimisation from the previous step's solution. Stop as soon as the signed
   # score profile crosses the critical value on that side.
   lower <- .outward_bound(
-    psi_hat, test_idx, z_crit, direction = -1L,
+    theta_hat, test_idx_, z_crit, direction = -1L,
     step_size = step_size, max_steps = as.integer(num_points),
     Y = Y, X = X, Z = Z, Hlist = Hlist,
-    REML = REML, expected = expected, known_idx = known_idx,
-    precomp = precomp, ...
+    REML = REML, expected = expected, known_idx = known_idx_,
+    precomp = precomp, p = p, ...
   )
   upper <- .outward_bound(
-    psi_hat, test_idx, z_crit, direction =  1L,
+    theta_hat, test_idx_, z_crit, direction =  1L,
     step_size = step_size, max_steps = as.integer(num_points),
     Y = Y, X = X, Z = Z, Hlist = Hlist,
-    REML = REML, expected = expected, known_idx = known_idx,
-    precomp = precomp, ...
+    REML = REML, expected = expected, known_idx = known_idx_,
+    precomp = precomp, p = p, ...
   )
 
   if (is.finite(lower) && is.finite(upper) && lower >= upper) {
@@ -242,16 +260,19 @@ ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95, ...) {
 .outward_bound <- function(psi_hat, test_idx, z_crit, direction,
                            step_size, max_steps,
                            Y, X, Z, Hlist, REML, expected, known_idx,
-                           precomp, ...) {
+                           precomp, p = 0L, ...) {
 
   target    <- if (direction == -1L) z_crit else -z_crit
   r         <- length(psi_hat)
   exclude   <- unique(c(test_idx, known_idx))
   opt_idx   <- seq_len(r)[-exclude]
 
-  .ll_val <- function(psi) {
+  .ll_val <- function(theta) {
+    # For ML with fixed effects, the first p elements are beta
+    b_   <- if (!REML && p > 0L) theta[seq_len(p)] else NULL
+    psi_ <- if (!REML && p > 0L) theta[-seq_len(p)] else theta
     tryCatch(
-      loglikelihood(psi = psi, b = NULL, Y = Y, X = X, Z = Z,
+      loglikelihood(psi = psi_, b = b_, Y = Y, X = X, Z = Z,
                     Hlist = Hlist, REML = REML,
                     get_val = TRUE, get_score = FALSE, get_inf = FALSE,
                     expected = TRUE, precomp = precomp)$value,

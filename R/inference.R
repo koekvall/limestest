@@ -187,7 +187,7 @@ maximize_loglik <- function(start_val, opt_idx, Y, X, Z, Hlist, expected = TRUE,
   
   # Return results
   start_val[opt_idx] <- fit$argument
-  names(start_val) <- if(REML) paste0("psi", 1:r) else c(paste0("b", 1:p), paste0("psi", 1:r))
+  names(start_val) <- if(REML || p == 0) paste0("psi", 1:r) else c(paste0("b", 1:p), paste0("psi", 1:r))
   list("arg" = start_val, "value" = -fit$value, "conv" = fit$converged,
        "iter" = fit$iterations)
 }
