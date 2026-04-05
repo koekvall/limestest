@@ -132,7 +132,7 @@ ci_lmer <- function(lmerfit, test_idx, level = 0.95, step_size = NULL,
       sqrt(solve(ll$inf_mat)[test_idx_, test_idx_]),
       error = function(e) sqrt(1 / ll$inf_mat[test_idx_, test_idx_])
     )
-    step_size <- se_approx / 20
+    step_size <- se_approx / 40
   }
 
   z_crit <- stats::qnorm((1 + level) / 2)

@@ -394,7 +394,14 @@ Rcpp::List loglik_res(const Eigen::MappedSparseMatrix<double> Psi_r,
 
     // Terms for I(psi_j, psi_k) not needed; already have ZtSiZ and ZtSiXE1
 
-    // We can now re-use storage for A, C, E1, D2, E2 if needed
+    // Precompute F = ZtSiZ' - ZtSiXE1 and F * H_j for each j, so the double
+    // loop over (jj, kk) only needs dot-product-like operations.
+    Eigen::MatrixXd F = ZtSiZ.transpose() - ZtSiXE1;
+    std::vector<Eigen::MatrixXd> FH(r - 1);
+    for (int jj = 0; jj < r - 1; jj++) {
+      FH[jj] = F * H.middleCols(jj * q, q);
+    }
+
     for(int jj = 0; jj < r - 1; jj++) {
       // Score for psi_j
       s_psi(jj) -= 0.5 * ZtSiZ.cwiseProduct(H.middleCols(jj * q, q)).sum() -
@@ -405,13 +412,12 @@ Rcpp::List loglik_res(const Eigen::MappedSparseMatrix<double> Psi_r,
        - ZtSiXE2.cwiseProduct(H.middleCols(jj * q, q)).sum()
        + 0.5 * ZtSiXD2E1.cwiseProduct(H.middleCols(jj * q, q)).sum();
 
-      // No qxq dense matrices to re-use here, so create new ones
-      Eigen::MatrixXd M1 = H.middleCols(jj * q, q) * (ZtSiZ - ZtSiXE1.transpose());
-      Eigen::MatrixXd M2(q, q);
+      // Information for I(psi_j, psi_k): uses precomputed FH
+      // Original: tr(F H_jj F H_kk) = tr(FH[jj] FH[kk])
+      //         = sum(FH[jj]' .* FH[kk])
+      // (H_jj symmetric, so F H_jj' = F H_jj = FH[jj])
       for(int kk = 0; kk <= jj; kk++) {
-      //information for I(psi_j, psi_k)
-      M2 = (ZtSiZ.transpose() - ZtSiXE1) * H.middleCols(kk * q, q);
-        I_psi(kk, jj) = 0.5 * M1.cwiseProduct(M2).sum();
+        I_psi(kk, jj) = 0.5 * FH[jj].transpose().cwiseProduct(FH[kk]).sum();
       }
     }
   } else if (get_score) {
