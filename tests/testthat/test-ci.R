@@ -42,8 +42,8 @@ test_that("ci_all_lmer returns matrix with correct dimensions", {
   expect_true(is.matrix(ci))
   expect_equal(ncol(ci), 2L)
   expect_equal(colnames(ci), c("lower", "upper"))
-  # random intercept model: 1 RE variance param (residual excluded by default)
-  expect_equal(nrow(ci), 1L)
+  # random intercept model: 1 RE variance + error variance
+  expect_equal(nrow(ci), 2L)
 })
 
 test_that("ci_all_lmer: all lower < upper", {
@@ -56,15 +56,15 @@ test_that("ci_all_lmer: all MLEs inside CIs", {
   skip_on_cran()
   ci <- ci_all_lmer(fit_rs)
   vc <- as.data.frame(VarCorr(fit_rs), order = "lower.tri")
-  mles <- vc$vcov[seq_len(nrow(vc) - 1L)]  # exclude residual
+  mles <- vc$vcov
   expect_true(all(ci[, "lower"] <= mles & mles <= ci[, "upper"]))
 })
 
 test_that("ci_all_lmer: correct number of rows for random slope model", {
   skip_on_cran()
   ci <- ci_all_lmer(fit_rs)
-  # intercept var, covariance, slope var = 3 parameters
-  expect_equal(nrow(ci), 3L)
+  # intercept var, covariance, slope var, error var = 4 parameters
+  expect_equal(nrow(ci), 4L)
 })
 
 test_that("ci_all_lmer respects test_idx argument", {

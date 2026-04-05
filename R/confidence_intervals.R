@@ -187,8 +187,7 @@ ci_lmer <- function(lmerfit, test_idx, level = 0.95, step_size = NULL,
 #'   using \code{lme4::lmer}.
 #' @param test_idx Integer vector specifying which parameters to compute CIs for.
 #'   If \code{NULL} (default), CIs are computed for all covariance parameters
-#'   except the error variance (i.e., all random effect variances and
-#'   covariances).
+#'   including the error variance.
 #' @param level Numeric confidence level in (0, 1). Default is \code{0.95}.
 #' @param ... Additional arguments passed to \code{\link{ci_lmer}}.
 #'
@@ -214,7 +213,7 @@ ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95, ...) {
   psi_hat <- get_psi_hat_lmer(lmerfit)
   r <- length(psi_hat)
 
-  if (is.null(test_idx)) test_idx <- seq_len(r - 1L)  # Exclude error variance
+  if (is.null(test_idx)) test_idx <- seq_len(r)  # All covariance parameters
 
   do.call(rbind, lapply(test_idx, function(i) {
     ci_lmer(lmerfit, test_idx = i, level = level, ...)
