@@ -206,7 +206,7 @@ ci_lmer <- function(lmerfit, test_idx, level = 0.95, step_size = NULL,
 #' ci_all_lmer(fit)
 #' }
 #' @export
-ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95, ...) {
+ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95, onestep = FALSE, ...) {
   if (!inherits(lmerfit, "lmerMod"))
     stop("lmerfit must be an lmerMod object from lme4::lmer")
 
@@ -215,9 +215,15 @@ ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95, ...) {
 
   if (is.null(test_idx)) test_idx <- seq_len(r)  # All covariance parameters
 
-  do.call(rbind, lapply(test_idx, function(i) {
-    ci_lmer(lmerfit, test_idx = i, level = level, ...)
-  }))
+  if (onestep) {
+    do.call(rbind, lapply(test_idx, function(i) {
+      ci_lmer_onestep(lmerfit, test_idx = i, level = level, ...)
+    }))
+  } else {
+    do.call(rbind, lapply(test_idx, function(i) {
+      ci_lmer(lmerfit, test_idx = i, level = level, ...)
+    }))
+  }
 }
 
 
@@ -362,3 +368,262 @@ ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95, ...) {
           "Consider increasing num_points or decreasing step_size.")
   if (direction == -1L) -Inf else Inf
 }
+
+
+
+# Search outward from the MLE in one direction until the signed score profile
+# crosses the critical value, then interpolate to find the CI bound.
+#
+# Profile score statistic is computed using a an estimator that is one newton
+# step away from the previous estimator for the nuisance parameters.
+# This leads to faster computation, and results that are consistent with
+# the implementation of a full partial maximizer of the likelihood.
+.outward_bound_onestep <- function(psi_hat, test_idx, z_crit, direction,
+                             step_size, max_steps,
+                             Y, X, Z, Hlist, REML = TRUE, expected, known_idx,
+                             precomp, p = 0L, ...) {
+  
+  target    <- if (direction == -1L) z_crit else -z_crit
+  r         <- length(psi_hat)
+  exclude   <- unique(c(test_idx, known_idx))
+  opt_idx   <- seq_len(r)[-exclude]
+  
+  .ll_val <- function(theta) {
+    # For ML with fixed effects, the first p elements are beta
+    b_   <- if (!REML && p > 0L) theta[seq_len(p)] else NULL
+    psi_ <- if (!REML && p > 0L) theta[-seq_len(p)] else theta
+    tryCatch(
+      loglikelihood(psi = psi_, b = b_, Y = Y, X = X, Z = Z,
+                             Hlist = Hlist, REML = REML,
+                             get_val = TRUE, get_score = FALSE, get_inf = FALSE,
+                             expected = TRUE, precomp = precomp)$value,
+      error = function(e) -Inf
+    )
+  }
+  
+  theta      <- psi_hat          # current parameter vector (warm-start state)
+  prev_val   <- psi_hat[test_idx]
+  prev_stat  <- 0                # stat at MLE is 0 by definition
+  step       <- step_size
+  
+  for (i in seq_len(max_steps)) {
+    
+    # Propose next test value
+    theta_prop <- theta
+    theta_prop[test_idx] <- theta[test_idx] + direction * step
+    
+    # If starting combination is infeasible, halve the step up to 20 times
+    n_halve <- 0L
+    while (!is.finite(.ll_val(theta_prop)) && n_halve < 20L) {
+      step <- step / 2
+      theta_prop[test_idx] <- theta[test_idx] + direction * step
+      n_halve <- n_halve + 1L
+    }
+    if (n_halve == 20L) {
+      # True feasibility boundary reached before crossing z_crit
+      side <- if (direction == -1L) "lower" else "upper"
+      warning("Hit feasibility boundary before crossing the critical value on ",
+              "the ", side, " side. CI bound may be at the boundary of the ",
+              "parameter space.")
+      return(if (direction == -1L) -Inf else Inf)
+    }
+    
+    newton_step <- function(c_val, nu_curr) {
+      if (length(opt_idx) == 0L) return(nu_curr)
+      psi_p           <- psi_hat
+      psi_p[test_idx] <- c_val
+      psi_p[opt_idx]  <- nu_curr
+      
+      b_   <- if (!REML && p > 0L) theta[seq_len(p)] else NULL
+      psi_ <- if (!REML && p > 0L) theta[-seq_len(p)] else theta
+      
+      ll <- tryCatch(
+        loglikelihood(psi = psi_p, b = NULL, Y = Y, X = X, Z = Z,
+                               Hlist = Hlist, REML = REML,
+                               get_val = TRUE, get_score = TRUE, get_inf = TRUE,
+                               expected = TRUE, precomp = NULL),
+        error = function(e) NULL
+      )
+      if (is.null(ll) || !is.finite(ll$value) || is.null(ll$score))
+        return(nu_curr)
+      delta <- tryCatch(
+        as.vector(solve(ll$inf_mat[opt_idx, opt_idx, drop = FALSE]) %*%
+                    ll$score[opt_idx]),
+        error = function(e) rep(0, length(opt_idx))
+      )
+      nu_curr <- nu_curr + delta
+      return(nu_curr)
+    }
+    
+    # Optimise nuisance parameters from the current warm-start
+    if (length(opt_idx) > 0L) {
+      nu_new <- newton_step(theta_prop[test_idx], theta_prop[-test_idx])
+      opt           <- psi_hat
+      opt[test_idx] <- theta_prop[test_idx]
+      opt[opt_idx]  <- nu_new
+      if (is.null(opt)) {
+        step <- step / 2
+        next
+      }
+      theta_prop <- opt
+    }
+    
+    # Compute signed score statistic
+    stat <- tryCatch(
+      as.numeric(score_stat(theta = theta_prop, test_idx = test_idx,
+                                     Y = Y, X = X, Z = Z, Hlist = Hlist,
+                                     REML = REML, expected = expected,
+                                     efficient = TRUE, signed = TRUE,
+                                     known_idx = known_idx, precomp = NULL)),
+      error = function(e) NA_real_
+    )
+    
+    if (is.na(stat)) {
+      step <- step / 2
+      next
+    }
+    
+    # Reset step to full size after any halvings
+    step <- step_size
+    
+    # Check for crossing of the target critical value
+    # (prev_stat - target) and (stat - target) have opposite signs at a crossing
+    if ((prev_stat - target) * (stat - target) < 0) {
+      # Linear interpolation between previous and current test values
+      x1 <- prev_val;  y1 <- prev_stat - target
+      x2 <- theta_prop[test_idx]; y2 <- stat - target
+      return(x1 - y1 * (x2 - x1) / (y2 - y1))
+    }
+    
+    # Advance warm-start state
+    theta     <- theta_prop
+    prev_val  <- theta_prop[test_idx]
+    prev_stat <- stat
+  }
+  
+  side <- if (direction == -1L) "lower" else "upper"
+  warning("CI ", side, " bound not found within ", max_steps, " steps. ",
+          "Consider increasing num_points or decreasing step_size.")
+  if (direction == -1L) -Inf else Inf
+}
+
+
+ci_lmer_onestep <- function(lmerfit, test_idx, level = 0.95, step_size = NULL,
+                      num_points = 500L, REML = TRUE, expected = TRUE,
+                      known_idx = NULL, return_profile = FALSE, ...) {
+  
+  if (!inherits(lmerfit, "lmerMod"))
+    stop("lmerfit must be an lmerMod object from lme4::lmer")
+  
+  assertthat::assert_that(
+    is.numeric(test_idx), length(test_idx) == 1L,
+    test_idx == floor(test_idx), test_idx >= 1L,
+    msg = "test_idx must be a single positive integer"
+  )
+  assertthat::assert_that(
+    is.numeric(level), length(level) == 1L, level > 0, level < 1,
+    msg = "level must be a single number in (0, 1)"
+  )
+  assertthat::assert_that(
+    is.numeric(num_points), length(num_points) == 1L, num_points >= 2L,
+    msg = "num_points must be a single integer >= 2"
+  )
+  
+  # Extract model components
+  Y       <- lme4::getME(lmerfit, "y")
+  X       <- lme4::getME(lmerfit, "X")
+  Z       <- lme4::getME(lmerfit, "Z")
+  Hlist   <- get_Hlist_lmer(lmerfit)
+  if (is.null(REML)) REML <- lme4::getME(lmerfit, "REML") != 0
+  # For ML, only pass geometry (XtX, XtZ, ZtZ) — residuals are recomputed from
+  # beta inside loglikelihood, so they don't go stale during the outward search.
+  if (REML) {
+    precomp <- get_precomp_lmer(lmerfit, REML = TRUE)
+  } else {
+    precomp <- list(XtX = as.matrix(crossprod(X)),
+                    XtZ = as.matrix(crossprod(X, Z)),
+                    ZtZ = methods::as(crossprod(Z), "generalMatrix"))
+  }
+  psi_hat <- get_psi_hat_lmer(lmerfit)
+  r       <- length(psi_hat)
+  p       <- ncol(X)
+  
+  assertthat::assert_that(
+    test_idx <= r,
+    msg = paste0("test_idx must not exceed the number of covariance parameters (", r, ")")
+  )
+  
+  # For ML fits with fixed effects, the full parameter vector is c(beta, psi)
+  # and test_idx must be shifted by p to index into psi.
+  if (!REML && p > 0) {
+    b_hat      <- lme4::fixef(lmerfit)
+    theta_hat  <- c(b_hat, psi_hat)
+    test_idx_  <- p + test_idx
+    known_idx_ <- if (is.null(known_idx)) NULL else p + known_idx
+  } else {
+    theta_hat  <- psi_hat
+    test_idx_  <- test_idx
+    known_idx_ <- known_idx
+    b_hat      <- NULL
+  }
+  
+  # Determine step size from expected information if not provided.
+  # Use SE/20 so roughly 20 steps cover one Wald CI half-width on each side.
+  if (is.null(step_size)) {
+    ll <- loglikelihood(psi = psi_hat, b = b_hat, Y = Y, X = X, Z = Z,
+                                 Hlist = Hlist, REML = REML,
+                                 get_val = FALSE, get_score = FALSE, get_inf = TRUE,
+                                 get_beta = (!REML && p > 0),
+                                 expected = TRUE, precomp = precomp)
+    se_approx <- tryCatch(
+      sqrt(solve(ll$inf_mat)[test_idx_, test_idx_]),
+      error = function(e) sqrt(1 / ll$inf_mat[test_idx_, test_idx_])
+    )
+    step_size <- se_approx / 40
+  }
+  
+  z_crit <- stats::qnorm((1 + level) / 2)
+  
+  # Search outward in both directions from the MLE, warm-starting each nuisance
+  # optimisation from the previous step's solution. Stop as soon as the signed
+  # score profile crosses the critical value on that side.
+  lower <- .outward_bound_onestep(
+    theta_hat, test_idx_, z_crit, direction = -1L,
+    step_size = step_size, max_steps = as.integer(num_points),
+    Y = Y, X = X, Z = Z, Hlist = Hlist,
+    REML = REML, expected = expected, known_idx = known_idx_,
+    precomp = precomp, p = p, ...
+  )
+  upper <- .outward_bound_onestep(
+    theta_hat, test_idx_, z_crit, direction =  1L,
+    step_size = step_size, max_steps = as.integer(num_points),
+    Y = Y, X = X, Z = Z, Hlist = Hlist,
+    REML = REML, expected = expected, known_idx = known_idx_,
+    precomp = precomp, p = p, ...
+  )
+  
+  if (is.finite(lower) && is.finite(upper) && lower >= upper) {
+    warning("Lower bound is not less than upper bound. ",
+            "Consider decreasing step_size or increasing num_points.")
+  }
+  
+  vc <- as.data.frame(lme4::VarCorr(lmerfit), order = "lower.tri")
+  param_name <- paste0(
+    vc$var1[test_idx],
+    ifelse(is.na(vc$var2[test_idx]), "", paste0(":", vc$var2[test_idx])),
+    " | ", vc$grp[test_idx]
+  )
+  
+  ci <- matrix(c(lower, upper), nrow = 1L,
+               dimnames = list(param_name, c("lower", "upper")))
+  
+  if (return_profile)
+    warning("return_profile not supported with outward search; returning CI only.")
+  
+  ci
+}
+
+
+
+
+
