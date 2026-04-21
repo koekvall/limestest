@@ -14,6 +14,7 @@ ci_lmer(
   expected = TRUE,
   known_idx = NULL,
   return_profile = FALSE,
+  onestep = FALSE,
   ...
 )
 }
@@ -47,6 +48,13 @@ treat as fixed (known) when profiling over nuisance parameters. See
 \code{\link{score_profile}} for details.}
 
 \item{return_profile}{Logical. Currently unused; reserved for future use.}
+
+\item{onestep}{Logical. If \code{FALSE} (default), nuisance parameters are
+fully optimized at each outward step using the trust-region algorithm. If
+\code{TRUE}, a single Newton step is taken from the warm-start instead.
+The one-step update is a trust-region solve with \code{iterlim = 1L} and
+a large radius, so the Newton step is unconstrained. Asymptotically
+equivalent to full profiling but substantially cheaper.}
 
 \item{...}{Additional arguments passed to the trust-region optimizer.}
 }

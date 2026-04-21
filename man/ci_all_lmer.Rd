@@ -4,18 +4,21 @@
 \alias{ci_all_lmer}
 \title{Confidence intervals for covariance parameters}
 \usage{
-ci_all_lmer(lmerfit, test_idx = NULL, level = 0.95, ...)
+ci_all_lmer(lmerfit, test_idx = NULL, level = 0.95, onestep = FALSE, ...)
 }
 \arguments{
 \item{lmerfit}{An \code{lmerMod} object from fitting a linear mixed model
 using \code{lme4::lmer}.}
 
 \item{test_idx}{Integer vector specifying which parameters to compute CIs for.
-If \code{NULL} (default), CIs are computed for all covariance parameters
-except the error variance (i.e., all random effect variances and
-covariances).}
+If \code{NULL} (default), CIs are computed for all covariance parameters,
+including the error variance.}
 
 \item{level}{Numeric confidence level in (0, 1). Default is \code{0.95}.}
+
+\item{onestep}{Logical. If \code{TRUE}, use a single Newton step for the
+nuisance-parameter update at each outward step instead of full
+optimization. See \code{\link{ci_lmer}}. Default is \code{FALSE}.}
 
 \item{...}{Additional arguments passed to \code{\link{ci_lmer}}.}
 }

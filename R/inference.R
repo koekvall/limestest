@@ -42,6 +42,14 @@ Psi_from_Hlist <- function(psi_mr, Hlist)
 #' @param precomp List or \code{NULL} containing precomputed quantities to speed
 #'   up computation (see \code{?get_precomp}). If \code{NULL}, quantities are
 #'   computed internally.
+#' @param rinit Initial trust-region radius passed to \code{\link[trust]{trust}}.
+#'   Default is 1.
+#' @param rmax Maximum trust-region radius passed to \code{\link[trust]{trust}}.
+#'   Default is 100.
+#' @param warn_nonconv Logical. If \code{TRUE} (default), a warning is issued
+#'   when the trust-region optimizer does not converge. Set to \code{FALSE}
+#'   when non-convergence is expected by design (e.g., when \code{iterlim = 1L}
+#'   is used for a one-step update).
 #' @param ... Additional arguments passed to \code{\link[trust]{trust}} optimizer,
 #'   such as tolerance settings or iteration limits.
 #'
@@ -66,7 +74,9 @@ Psi_from_Hlist <- function(psi_mr, Hlist)
 #'
 #' @keywords internal
 maximize_loglik <- function(start_val, opt_idx, Y, X, Z, Hlist, expected = TRUE,
-                             REML = TRUE, precomp = NULL, ...) {
+                             REML = TRUE, precomp = NULL,
+                             rinit = 1, rmax = 100, warn_nonconv = TRUE,
+                             ...) {
   # Argument checking
   assertthat::assert_that(is.vector(start_val, mode = "numeric"), length(start_val) > 0,
                           msg = "start_val should be a numeric vector of positive length")
@@ -176,10 +186,10 @@ maximize_loglik <- function(start_val, opt_idx, Y, X, Z, Hlist, expected = TRUE,
   #############################################################################
   # Do minimization
   #############################################################################
-  fit <- trust::trust(objfun = obj_fun, parinit = start_val[opt_idx], rinit  = 1,
-                      rmax = 100, ...)
+  fit <- trust::trust(objfun = obj_fun, parinit = start_val[opt_idx],
+                      rinit = rinit, rmax = rmax, ...)
   
-  if (!fit$converged) {
+  if (!fit$converged && warn_nonconv) {
     warning("Optimization did not converge. Results may be unreliable. ",
             "Iterations: ", fit$iterations)
   }

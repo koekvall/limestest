@@ -26,6 +26,12 @@
 #'   treat as fixed (known) when profiling over nuisance parameters. See
 #'   \code{\link{score_profile}} for details.
 #' @param return_profile Logical. Currently unused; reserved for future use.
+#' @param onestep Logical. If \code{FALSE} (default), nuisance parameters are
+#'   fully optimized at each outward step using the trust-region algorithm. If
+#'   \code{TRUE}, a single Newton step is taken from the warm-start instead.
+#'   The one-step update is a trust-region solve with \code{iterlim = 1L} and
+#'   a large radius, so the Newton step is unconstrained. Asymptotically
+#'   equivalent to full profiling but substantially cheaper.
 #' @param ... Additional arguments passed to the trust-region optimizer.
 #'
 #' @return If \code{return_profile = FALSE}, a named numeric vector with
@@ -63,7 +69,8 @@
 #' @export
 ci_lmer <- function(lmerfit, test_idx, level = 0.95, step_size = NULL,
                     num_points = 500L, REML = NULL, expected = TRUE,
-                    known_idx = NULL, return_profile = FALSE, ...) {
+                    known_idx = NULL, return_profile = FALSE,
+                    onestep = FALSE, ...) {
 
   if (!inherits(lmerfit, "lmerMod"))
     stop("lmerfit must be an lmerMod object from lme4::lmer")
@@ -145,14 +152,14 @@ ci_lmer <- function(lmerfit, test_idx, level = 0.95, step_size = NULL,
     step_size = step_size, max_steps = as.integer(num_points),
     Y = Y, X = X, Z = Z, Hlist = Hlist,
     REML = REML, expected = expected, known_idx = known_idx_,
-    precomp = precomp, p = p, ...
+    precomp = precomp, p = p, onestep = onestep, ...
   )
   upper <- .outward_bound(
     theta_hat, test_idx_, z_crit, direction =  1L,
     step_size = step_size, max_steps = as.integer(num_points),
     Y = Y, X = X, Z = Z, Hlist = Hlist,
     REML = REML, expected = expected, known_idx = known_idx_,
-    precomp = precomp, p = p, ...
+    precomp = precomp, p = p, onestep = onestep, ...
   )
 
   if (is.finite(lower) && is.finite(upper) && lower >= upper) {
@@ -186,9 +193,12 @@ ci_lmer <- function(lmerfit, test_idx, level = 0.95, step_size = NULL,
 #' @param lmerfit An \code{lmerMod} object from fitting a linear mixed model
 #'   using \code{lme4::lmer}.
 #' @param test_idx Integer vector specifying which parameters to compute CIs for.
-#'   If \code{NULL} (default), CIs are computed for all covariance parameters
+#'   If \code{NULL} (default), CIs are computed for all covariance parameters,
 #'   including the error variance.
 #' @param level Numeric confidence level in (0, 1). Default is \code{0.95}.
+#' @param onestep Logical. If \code{TRUE}, use a single Newton step for the
+#'   nuisance-parameter update at each outward step instead of full
+#'   optimization. See \code{\link{ci_lmer}}. Default is \code{FALSE}.
 #' @param ... Additional arguments passed to \code{\link{ci_lmer}}.
 #'
 #' @return A matrix with one row per parameter and columns \code{lower} and
@@ -206,7 +216,8 @@ ci_lmer <- function(lmerfit, test_idx, level = 0.95, step_size = NULL,
 #' ci_all_lmer(fit)
 #' }
 #' @export
-ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95, ...) {
+ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95,
+                        onestep = FALSE, ...) {
   if (!inherits(lmerfit, "lmerMod"))
     stop("lmerfit must be an lmerMod object from lme4::lmer")
 
@@ -216,7 +227,7 @@ ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95, ...) {
   if (is.null(test_idx)) test_idx <- seq_len(r)  # All covariance parameters
 
   do.call(rbind, lapply(test_idx, function(i) {
-    ci_lmer(lmerfit, test_idx = i, level = level, ...)
+    ci_lmer(lmerfit, test_idx = i, level = level, onestep = onestep, ...)
   }))
 }
 
@@ -261,12 +272,23 @@ ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95, ...) {
 .outward_bound <- function(psi_hat, test_idx, z_crit, direction,
                            step_size, max_steps,
                            Y, X, Z, Hlist, REML, expected, known_idx,
-                           precomp, p = 0L, ...) {
+                           precomp, p = 0L, onestep = FALSE, ...) {
 
   target    <- if (direction == -1L) z_crit else -z_crit
   r         <- length(psi_hat)
   exclude   <- unique(c(test_idx, known_idx))
   opt_idx   <- seq_len(r)[-exclude]
+
+  # One-step Newton update is a trust-region solve with iterlim = 1 and a
+  # radius large enough that the Newton step is unconstrained. See ci_lmer.
+  dots <- list(...)
+  if (onestep) {
+    dots[c("iterlim", "rinit", "rmax", "warn_nonconv")] <- NULL
+    onestep_args <- list(iterlim = 1L, rinit = 1e10, rmax = 1e10,
+                         warn_nonconv = FALSE)
+  } else {
+    onestep_args <- list()
+  }
 
   .ll_val <- function(theta) {
     # For ML with fixed effects, the first p elements are beta
@@ -311,10 +333,12 @@ ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95, ...) {
     # Optimise nuisance parameters from the current warm-start
     if (length(opt_idx) > 0L) {
       opt <- tryCatch(
-        maximize_loglik(start_val = theta_prop, opt_idx = opt_idx,
-                        Y = Y, X = X, Z = Z, Hlist = Hlist,
-                        expected = expected, REML = REML,
-                        precomp = precomp, ...)$arg,
+        do.call(maximize_loglik,
+                c(list(start_val = theta_prop, opt_idx = opt_idx,
+                       Y = Y, X = X, Z = Z, Hlist = Hlist,
+                       expected = expected, REML = REML,
+                       precomp = precomp),
+                  onestep_args, dots))$arg,
         error = function(e) NULL
       )
       if (is.null(opt)) {

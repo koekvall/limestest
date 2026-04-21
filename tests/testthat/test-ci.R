@@ -72,3 +72,10 @@ test_that("ci_all_lmer respects test_idx argument", {
   ci <- ci_all_lmer(fit_rs, test_idx = 1L)
   expect_equal(nrow(ci), 1L)
 })
+
+test_that("onestep CIs agree with full profiling on sleepstudy", {
+  skip_on_cran()
+  ci_full <- ci_all_lmer(fit_rs)
+  ci_one  <- ci_all_lmer(fit_rs, onestep = TRUE)
+  expect_equal(ci_one, ci_full, tolerance = 0.05)
+})

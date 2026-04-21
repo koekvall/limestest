@@ -14,6 +14,7 @@ maximize_loglik(
   expected = TRUE,
   REML = TRUE,
   precomp = NULL,
+  warn_nonconv = TRUE,
   ...
 )
 }
@@ -50,6 +51,11 @@ otherwise use maximum likelihood. Default is \code{TRUE}.}
 \item{precomp}{List or \code{NULL} containing precomputed quantities to speed
 up computation (see \code{?get_precomp}). If \code{NULL}, quantities are
 computed internally.}
+
+\item{warn_nonconv}{Logical. If \code{TRUE} (default), a warning is issued
+when the trust-region optimizer does not converge. Set to \code{FALSE}
+when non-convergence is expected by design (e.g., when \code{iterlim = 1L}
+is used for a one-step update).}
 
 \item{...}{Additional arguments passed to \code{\link[trust]{trust}} optimizer,
 such as tolerance settings or iteration limits.}
