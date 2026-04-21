@@ -15,6 +15,7 @@ ci_lmer(
   known_idx = NULL,
   return_profile = FALSE,
   onestep = FALSE,
+  nonneg = TRUE,
   ...
 )
 }
@@ -55,6 +56,12 @@ fully optimized at each outward step using the trust-region algorithm. If
 The one-step update is a trust-region solve with \code{iterlim = 1L} and
 a large radius, so the Newton step is unconstrained. Asymptotically
 equivalent to full profiling but substantially cheaper.}
+
+\item{nonneg}{Logical. If \code{TRUE} (default), clamp the lower CI bound at
+0 for variance parameters (including the residual variance). Covariance
+parameters are unaffected: any real value is feasible for some choice of
+nuisance parameters, so no such constraint applies. Set \code{FALSE} for
+diagnostic purposes.}
 
 \item{...}{Additional arguments passed to the trust-region optimizer.}
 }

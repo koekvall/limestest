@@ -14,6 +14,8 @@ maximize_loglik(
   expected = TRUE,
   REML = TRUE,
   precomp = NULL,
+  rinit = 1,
+  rmax = 100,
   warn_nonconv = TRUE,
   ...
 )
@@ -51,6 +53,12 @@ otherwise use maximum likelihood. Default is \code{TRUE}.}
 \item{precomp}{List or \code{NULL} containing precomputed quantities to speed
 up computation (see \code{?get_precomp}). If \code{NULL}, quantities are
 computed internally.}
+
+\item{rinit}{Initial trust-region radius passed to \code{\link[trust]{trust}}.
+Default is 1.}
+
+\item{rmax}{Maximum trust-region radius passed to \code{\link[trust]{trust}}.
+Default is 100.}
 
 \item{warn_nonconv}{Logical. If \code{TRUE} (default), a warning is issued
 when the trust-region optimizer does not converge. Set to \code{FALSE}

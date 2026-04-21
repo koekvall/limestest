@@ -4,7 +4,14 @@
 \alias{ci_all_lmer}
 \title{Confidence intervals for covariance parameters}
 \usage{
-ci_all_lmer(lmerfit, test_idx = NULL, level = 0.95, onestep = FALSE, ...)
+ci_all_lmer(
+  lmerfit,
+  test_idx = NULL,
+  level = 0.95,
+  onestep = FALSE,
+  nonneg = TRUE,
+  ...
+)
 }
 \arguments{
 \item{lmerfit}{An \code{lmerMod} object from fitting a linear mixed model
@@ -19,6 +26,9 @@ including the error variance.}
 \item{onestep}{Logical. If \code{TRUE}, use a single Newton step for the
 nuisance-parameter update at each outward step instead of full
 optimization. See \code{\link{ci_lmer}}. Default is \code{FALSE}.}
+
+\item{nonneg}{Logical. If \code{TRUE} (default), clamp the lower CI bound
+at 0 for variance parameters; see \code{\link{ci_lmer}}.}
 
 \item{...}{Additional arguments passed to \code{\link{ci_lmer}}.}
 }

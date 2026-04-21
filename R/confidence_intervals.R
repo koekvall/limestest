@@ -32,6 +32,11 @@
 #'   The one-step update is a trust-region solve with \code{iterlim = 1L} and
 #'   a large radius, so the Newton step is unconstrained. Asymptotically
 #'   equivalent to full profiling but substantially cheaper.
+#' @param nonneg Logical. If \code{TRUE} (default), clamp the lower CI bound at
+#'   0 for variance parameters (including the residual variance). Covariance
+#'   parameters are unaffected: any real value is feasible for some choice of
+#'   nuisance parameters, so no such constraint applies. Set \code{FALSE} for
+#'   diagnostic purposes.
 #' @param ... Additional arguments passed to the trust-region optimizer.
 #'
 #' @return If \code{return_profile = FALSE}, a named numeric vector with
@@ -70,7 +75,7 @@
 ci_lmer <- function(lmerfit, test_idx, level = 0.95, step_size = NULL,
                     num_points = 500L, REML = NULL, expected = TRUE,
                     known_idx = NULL, return_profile = FALSE,
-                    onestep = FALSE, ...) {
+                    onestep = FALSE, nonneg = TRUE, ...) {
 
   if (!inherits(lmerfit, "lmerMod"))
     stop("lmerfit must be an lmerMod object from lme4::lmer")
@@ -144,6 +149,13 @@ ci_lmer <- function(lmerfit, test_idx, level = 0.95, step_size = NULL,
 
   z_crit <- stats::qnorm((1 + level) / 2)
 
+  # Identify whether the test parameter is a variance (nonnegative) or a
+  # covariance (unconstrained). For variance rows VarCorr reports var2 as NA;
+  # this includes the residual variance row (where var1 is also NA).
+  vc <- as.data.frame(lme4::VarCorr(lmerfit), order = "lower.tri")
+  is_variance <- is.na(vc$var2[test_idx])
+  lower_clamp <- if (nonneg && is_variance) 0 else -Inf
+
   # Search outward in both directions from the MLE, warm-starting each nuisance
   # optimisation from the previous step's solution. Stop as soon as the signed
   # score profile crosses the critical value on that side.
@@ -152,7 +164,8 @@ ci_lmer <- function(lmerfit, test_idx, level = 0.95, step_size = NULL,
     step_size = step_size, max_steps = as.integer(num_points),
     Y = Y, X = X, Z = Z, Hlist = Hlist,
     REML = REML, expected = expected, known_idx = known_idx_,
-    precomp = precomp, p = p, onestep = onestep, ...
+    precomp = precomp, p = p, onestep = onestep,
+    lower_clamp = lower_clamp, ...
   )
   upper <- .outward_bound(
     theta_hat, test_idx_, z_crit, direction =  1L,
@@ -167,12 +180,17 @@ ci_lmer <- function(lmerfit, test_idx, level = 0.95, step_size = NULL,
             "Consider decreasing step_size or increasing num_points.")
   }
 
-  vc <- as.data.frame(lme4::VarCorr(lmerfit), order = "lower.tri")
-  param_name <- paste0(
-    vc$var1[test_idx],
-    ifelse(is.na(vc$var2[test_idx]), "", paste0(":", vc$var2[test_idx])),
-    " | ", vc$grp[test_idx]
-  )
+  # Residual row has var1 = var2 = NA; name it by grp alone. Other variance
+  # rows have var2 = NA (single variable). Covariance rows have both present.
+  if (is.na(vc$var1[test_idx])) {
+    param_name <- vc$grp[test_idx]
+  } else {
+    param_name <- paste0(
+      vc$var1[test_idx],
+      ifelse(is.na(vc$var2[test_idx]), "", paste0(":", vc$var2[test_idx])),
+      " | ", vc$grp[test_idx]
+    )
+  }
 
   ci <- matrix(c(lower, upper), nrow = 1L,
                dimnames = list(param_name, c("lower", "upper")))
@@ -199,6 +217,8 @@ ci_lmer <- function(lmerfit, test_idx, level = 0.95, step_size = NULL,
 #' @param onestep Logical. If \code{TRUE}, use a single Newton step for the
 #'   nuisance-parameter update at each outward step instead of full
 #'   optimization. See \code{\link{ci_lmer}}. Default is \code{FALSE}.
+#' @param nonneg Logical. If \code{TRUE} (default), clamp the lower CI bound
+#'   at 0 for variance parameters; see \code{\link{ci_lmer}}.
 #' @param ... Additional arguments passed to \code{\link{ci_lmer}}.
 #'
 #' @return A matrix with one row per parameter and columns \code{lower} and
@@ -217,7 +237,7 @@ ci_lmer <- function(lmerfit, test_idx, level = 0.95, step_size = NULL,
 #' }
 #' @export
 ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95,
-                        onestep = FALSE, ...) {
+                        onestep = FALSE, nonneg = TRUE, ...) {
   if (!inherits(lmerfit, "lmerMod"))
     stop("lmerfit must be an lmerMod object from lme4::lmer")
 
@@ -227,7 +247,8 @@ ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95,
   if (is.null(test_idx)) test_idx <- seq_len(r)  # All covariance parameters
 
   do.call(rbind, lapply(test_idx, function(i) {
-    ci_lmer(lmerfit, test_idx = i, level = level, onestep = onestep, ...)
+    ci_lmer(lmerfit, test_idx = i, level = level, onestep = onestep,
+            nonneg = nonneg, ...)
   }))
 }
 
@@ -272,7 +293,8 @@ ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95,
 .outward_bound <- function(psi_hat, test_idx, z_crit, direction,
                            step_size, max_steps,
                            Y, X, Z, Hlist, REML, expected, known_idx,
-                           precomp, p = 0L, onestep = FALSE, ...) {
+                           precomp, p = 0L, onestep = FALSE,
+                           lower_clamp = -Inf, ...) {
 
   target    <- if (direction == -1L) z_crit else -z_crit
   r         <- length(psi_hat)
@@ -314,14 +336,32 @@ ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95,
     theta_prop <- theta
     theta_prop[test_idx] <- theta[test_idx] + direction * step
 
+    # If the lower search would cross a hard boundary (e.g. 0 for a variance
+    # parameter), clamp the proposal at the boundary. If the profile has not
+    # crossed z_crit by the boundary, the boundary value is returned as the
+    # CI bound after the score is evaluated below.
+    hit_boundary <- FALSE
+    if (direction == -1L && theta_prop[test_idx] < lower_clamp) {
+      theta_prop[test_idx] <- lower_clamp
+      hit_boundary <- TRUE
+    }
+
     # If starting combination is infeasible, halve the step up to 20 times
     n_halve <- 0L
     while (!is.finite(.ll_val(theta_prop)) && n_halve < 20L) {
       step <- step / 2
       theta_prop[test_idx] <- theta[test_idx] + direction * step
+      if (direction == -1L && theta_prop[test_idx] < lower_clamp) {
+        theta_prop[test_idx] <- lower_clamp
+        hit_boundary <- TRUE
+      }
       n_halve <- n_halve + 1L
     }
     if (n_halve == 20L) {
+      if (direction == -1L && is.finite(lower_clamp)) {
+        # Feasibility boundary reached near or at the clamp: return clamp.
+        return(lower_clamp)
+      }
       # True feasibility boundary reached before crossing z_crit
       side <- if (direction == -1L) "lower" else "upper"
       warning("Hit feasibility boundary before crossing the critical value on ",
@@ -374,6 +414,9 @@ ci_all_lmer <- function(lmerfit, test_idx = NULL, level = 0.95,
       x2 <- theta_prop[test_idx]; y2 <- stat - target
       return(x1 - y1 * (x2 - x1) / (y2 - y1))
     }
+
+    # Reached the lower clamp without crossing z_crit: return the clamp.
+    if (hit_boundary) return(lower_clamp)
 
     # Advance warm-start state
     theta     <- theta_prop
